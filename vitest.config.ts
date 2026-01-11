@@ -31,9 +31,6 @@ export default defineConfig({
 
     // Global setup for physics tests
     setupFiles: ['./src/__tests__/setup.ts'],
-
-    // Use fake timers for deterministic testing
-    fakeTimers: true,
   },
 
   resolve: {
