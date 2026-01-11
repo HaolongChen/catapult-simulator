@@ -33,6 +33,7 @@
     "vite-tsconfig-paths": "^6.0.2"
   },
   "devDependencies": {
+    "@react-three/test-renderer": "^9.1.0",
     "@tanstack/devtools-event-client": "^0.4.0",
     "@tanstack/devtools-vite": "^0.3.11",
     "@tanstack/eslint-config": "^0.3.0",
@@ -41,6 +42,7 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.182.0",
     "@vitejs/plugin-react": "^5.0.4",
     "babel-plugin-react-compiler": "^1.0.0",
     "jsdom": "^27.0.0",
