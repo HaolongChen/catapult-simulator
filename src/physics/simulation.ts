@@ -8,7 +8,6 @@
 import { RK4Integrator, type RK4Config } from './rk4-integrator'
 import { computeDerivatives, type DerivativeFunction } from './derivatives'
 import type {
-  PhysicsDerivative17DOF,
   PhysicsState17DOF,
   ProjectileProperties,
   TrebuchetProperties,
@@ -26,7 +25,7 @@ export class CatapultSimulation {
 
   constructor(initialState: PhysicsState17DOF, config: SimulationConfig) {
     this.normalForce = (config.trebuchet?.counterweightMass ?? 1000) * 9.81 // mg
-    this.derivativeFunction = (t: number, state: PhysicsState17DOF) =>
+    this.derivativeFunction = (_t: number, state: PhysicsState17DOF) =>
       computeDerivatives(
         state,
         config.projectile ?? {
@@ -51,7 +50,12 @@ export class CatapultSimulation {
         this.normalForce,
       )
 
-    this.integrator = new RK4Integrator(initialState, config)
+    const rk4Config = {
+      fixedTimestep: config.fixedTimestep ?? 0.01,
+      maxSubsteps: config.maxSubsteps ?? 100,
+      maxAccumulator: config.maxAccumulator ?? 1.0,
+    }
+    this.integrator = new RK4Integrator(initialState, rk4Config)
   }
 
   update(frameTime: number): PhysicsState17DOF {

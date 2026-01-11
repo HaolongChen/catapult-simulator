@@ -72,12 +72,14 @@ export function magnusCoefficient(
   reynolds: number,
   baseCl: number,
 ): number {
-  // Spin parameter (dimensionless)
+  if (reynolds <= 0) {
+    return 0
+  }
+
   const spinParameter =
     (spin * radius) /
     Math.sqrt(reynolds * (airViscosity(288.15) / airDensity(0, 288.15, 0)))
 
-  // Lift coefficient peaks at optimal spin
   const optimalSpin = 0.5
   const normalizedSpin = Math.min(Math.abs(spinParameter) / optimalSpin, 1.0)
 

@@ -5,20 +5,23 @@
  */
 
 import type {
+  DerivativeFunction,
   PhysicsDerivative17DOF,
   PhysicsState17DOF,
   ProjectileProperties,
   TrebuchetProperties,
 } from './types'
+
+export type { DerivativeFunction }
 import { aerodynamicForce } from './aerodynamics'
-import { catapultTorque, type CatapultTorque } from './trebuchet'
+import { catapultTorque } from './trebuchet'
 import { ATMOSPHERIC_CONSTANTS } from './atmosphere'
 
 /**
  * Compute gravitational force
  * F_g = m g (altitude-dependent)
  */
-function gravitationalForce(mass: number, altitude: number): Float64Array {
+function gravitationalForce(mass: number, _altitude: number): Float64Array {
   const { gravity } = ATMOSPHERIC_CONSTANTS
 
   const result = new Float64Array(3)
@@ -121,7 +124,6 @@ function normalizeQuaternion(q: Float64Array): Float64Array {
 function projectileAcceleration(
   position: Float64Array,
   velocity: Float64Array,
-  orientation: Float64Array,
   angularVelocity: Float64Array,
   projectile: ProjectileProperties,
   windVelocity: Float64Array,
@@ -144,14 +146,23 @@ function projectileAcceleration(
 }
 
 /**
- * Compute catapult angular acceleration
+ * Compute catapult angular acceleration (scalar for arm)
  * α = τ / I
  */
 function catapultAcceleration(
-  torque: CatapultTorque,
+  torque: ReturnType<typeof catapultTorque>,
   momentOfInertia: number,
 ): number {
   return torque.total / momentOfInertia
+}
+
+/**
+ * Compute projectile angular acceleration from catapult
+ * Converts scalar arm acceleration to projectile spin acceleration
+ */
+function projectileAngularAcceleration(armAcceleration: number): Float64Array {
+  const result = new Float64Array([0, 0, armAcceleration])
+  return result
 }
 
 /**
@@ -169,8 +180,7 @@ export function computeDerivatives(
   const velocityDeriv = projectileAcceleration(
     state.position,
     state.velocity,
-    state.orientation,
-    state.angularVelocity,
+    spin,
     projectile,
     state.windVelocity,
   )
@@ -179,12 +189,12 @@ export function computeDerivatives(
     state.orientation,
     state.angularVelocity,
   )
-  const normalizedOrientation = normalizeQuaternion(state.orientation)
+  normalizeQuaternion(state.orientation)
 
   const momentOfInertia =
     (trebuchet.counterweightMass * trebuchet.armLength ** 2) / 3
 
-  const angularVelocityDeriv = catapultAcceleration(
+  const armAcceleration = catapultAcceleration(
     catapultTorque(
       state.armAngle,
       state.armAngularVelocity,
@@ -194,16 +204,10 @@ export function computeDerivatives(
     momentOfInertia,
   )
 
+  const angularVelocityDeriv = projectileAngularAcceleration(armAcceleration)
+
   const armAngleDeriv = state.armAngularVelocity
-  const armAngularVelocityDeriv = catapultAcceleration(
-    catapultTorque(
-      state.armAngle,
-      state.armAngularVelocity,
-      trebuchet,
-      normalForce,
-    ),
-    momentOfInertia,
-  )
+  const armAngularVelocityDeriv = armAcceleration
 
   const windVelocityDeriv = new Float64Array([0, 0, 0])
 

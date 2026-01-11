@@ -13,6 +13,8 @@ import type {
   RK4Result,
 } from './types'
 
+export type { RK4Config }
+
 const DEFAULT_CONFIG: RK4Config = {
   fixedTimestep: 0.01,
   maxSubsteps: 100,
@@ -35,13 +37,11 @@ export class RK4Integrator {
   update(frameTime: number, derivative: DerivativeFunction): RK4Result {
     this.accumulator += frameTime
 
-    const clampedAccumulator = Math.min(
-      this.accumulator,
-      this.config.fixedTimestep * this.config.maxSubsteps,
-    )
-
     let steps = 0
-    while (clampedAccumulator >= this.config.fixedTimestep) {
+    while (
+      this.accumulator >= this.config.fixedTimestep &&
+      steps < this.config.maxSubsteps
+    ) {
       this.previousState = this.cloneState(this.state)
 
       const subStepSize = this.config.fixedTimestep / this.config.maxSubsteps
@@ -68,11 +68,11 @@ export class RK4Integrator {
     dt: number,
   ): PhysicsState17DOF {
     const d1 = derivative(state.time, state)
-    const state2 = this.addState(state, d1, dt * 0.5)
+    const state2 = this.addState(state, d1, dt * 0.5, state.time)
     const d2 = derivative(state.time + dt * 0.5, state2)
-    const state3 = this.addState(state, d2, dt * 0.5)
+    const state3 = this.addState(state, d2, dt * 0.5, state.time)
     const d3 = derivative(state.time + dt * 0.5, state3)
-    const state4 = this.addState(state, d3, dt)
+    const state4 = this.addState(state, d3, dt, state.time)
     const d4 = derivative(state.time + dt, state4)
 
     return this.combineState(state, d1, d2, d3, d4, dt)
@@ -82,6 +82,7 @@ export class RK4Integrator {
     state: PhysicsState17DOF,
     derivative: PhysicsDerivative17DOF,
     scale: number,
+    time: number,
   ): PhysicsState17DOF {
     return {
       position: this.addArrays(state.position, derivative.position, scale),
@@ -104,7 +105,7 @@ export class RK4Integrator {
         derivative.windVelocity,
         scale,
       ),
-      time: state.time + derivative.time * scale,
+      time: time,
     }
   }
 
@@ -119,36 +120,24 @@ export class RK4Integrator {
     const dto6 = dt / 6
 
     return {
-      position: this.weightedSum(
+      position: this.addArrays(
         state.position,
-        d1.position,
-        d2.position,
-        d3.position,
-        d4.position,
+        this.addArrays(d1.position, d2.position, 2),
         dto6,
       ),
-      velocity: this.weightedSum(
+      velocity: this.addArrays(
         state.velocity,
-        d1.velocity,
-        d2.velocity,
-        d3.velocity,
-        d4.velocity,
+        this.addArrays(d1.velocity, d2.velocity, 2),
         dto6,
       ),
-      orientation: this.weightedSum(
+      orientation: this.addArrays(
         state.orientation,
-        d1.orientation,
-        d2.orientation,
-        d3.orientation,
-        d4.orientation,
+        this.addArrays(d1.orientation, d2.orientation, 2),
         dto6,
       ),
-      angularVelocity: this.weightedSum(
+      angularVelocity: this.addArrays(
         state.angularVelocity,
-        d1.angularVelocity,
-        d2.angularVelocity,
-        d3.angularVelocity,
-        d4.angularVelocity,
+        this.addArrays(d1.angularVelocity, d2.angularVelocity, 2),
         dto6,
       ),
       armAngle:
@@ -161,31 +150,13 @@ export class RK4Integrator {
             2 * d2.armAngularVelocity +
             2 * d3.armAngularVelocity +
             d4.armAngularVelocity),
-      windVelocity: this.weightedSum(
+      windVelocity: this.addArrays(
         state.windVelocity,
-        d1.windVelocity,
-        d2.windVelocity,
-        d3.windVelocity,
-        d4.windVelocity,
+        this.addArrays(d1.windVelocity, d2.windVelocity, 2),
         dto6,
       ),
       time: state.time + dt,
     }
-  }
-
-  private weightedSum(
-    base: Float64Array,
-    w1: Float64Array,
-    w2: Float64Array,
-    w3: Float64Array,
-    w4: Float64Array,
-    dto6: number,
-  ): Float64Array {
-    const result = new Float64Array(base.length)
-    for (let i = 0; i < base.length; i++) {
-      result[i] = base[i] + dto6 * (w1[i] + 2 * w2[i] + 2 * w3[i] + w4[i])
-    }
-    return result
   }
 
   private addArrays(

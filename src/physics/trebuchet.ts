@@ -37,11 +37,7 @@ export function springTorque(
 
   const total = springTorque + dampingTorque + hysteresisTorque
 
-  return { spring, damping: -properties.dampingCoefficient * angularVelocity, friction, flexure, total }
-}
-  }
-
-  return springTorque + dampingTorque + hysteresisTorque
+  return total
 }
 
 /**
@@ -99,8 +95,8 @@ export function flexureTorque(
  */
 export function energyLoss(
   properties: TrebuchetProperties,
-  currentEnergy: number,
-  maxEnergy: number,
+  _currentEnergy: number,
+  _maxEnergy: number,
 ): number {
   return properties.efficiency
 }
@@ -118,7 +114,7 @@ export function catapultTorque(
   const friction = jointFriction(angularVelocity, properties, normalForce)
   const flexure = flexureTorque(angle, angularVelocity, properties)
 
-  const total = spring + friction + flexure
+  const total = (spring + friction + flexure) * properties.efficiency
 
   return {
     spring,

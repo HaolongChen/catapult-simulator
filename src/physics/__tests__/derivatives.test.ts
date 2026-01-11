@@ -40,7 +40,9 @@ describe('derivatives', () => {
       flexuralStiffness: 1000000,
     }
 
-    const deriv = computeDerivatives(state, projectile, trebuchet)
+    const normalForce = trebuchet.counterweightMass * 9.80665
+
+    const deriv = computeDerivatives(state, projectile, trebuchet, normalForce)
 
     // Position derivative should be velocity
     expect(deriv.position).toEqual(state.velocity)

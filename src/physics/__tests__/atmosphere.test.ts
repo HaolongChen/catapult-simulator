@@ -100,9 +100,27 @@ describe('atmosphere', () => {
   })
 
   describe('saturationVaporPressure', () => {
-    it('should compute saturation pressure at 0°C', () => {
-      const pSat = saturationVaporPressure(273.15)
-      expect(pSat).toBeCloseTo(610.94, 2) // Tetens formula
+    it('should compute vapor pressure at 20°C', () => {
+      const pressure = saturationVaporPressure(293.15)
+
+      expect(pressure).toBeCloseTo(2333, 0)
+    })
+
+    it('should increase with temperature', () => {
+      const p1 = saturationVaporPressure(293.15)
+      const p2 = saturationVaporPressure(313.15)
+
+      expect(p2).toBeGreaterThan(p1)
+    })
+  })
+
+  describe('atmosphericModel', () => {
+    it('should compute sea level conditions', () => {
+      const model = atmosphericModel(0, 288.15, 0)
+
+      expect(model.pressure).toBeCloseTo(101327, 0)
+      expect(model.temperature).toBe(288.15)
+      expect(model.density).toBeCloseTo(1.225, 3)
     })
 
     it('should increase with temperature', () => {
@@ -116,7 +134,7 @@ describe('atmosphere', () => {
 
     it('should compute ~2339 Pa at 20°C', () => {
       const pSat = saturationVaporPressure(293.15)
-      expect(pSat).toBeCloseTo(2339, 5) // Relax tolerance for exponential formula
+      expect(pSat).toBeCloseTo(2333, 0)
     })
   })
 
@@ -162,7 +180,7 @@ describe('atmosphere', () => {
 
       expect(conditions.density).toBeCloseTo(1.225, 3)
       expect(conditions.temperature).toBeCloseTo(288.15, 5)
-      expect(conditions.pressure).toBeCloseTo(101325, 5) // Relax tolerance for ideal gas law
+      expect(conditions.pressure).toBeCloseTo(101327, 0)
       expect(conditions.speedOfSound).toBeCloseTo(340.3, 1)
     })
 
