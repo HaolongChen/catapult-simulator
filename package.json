@@ -10,7 +10,8 @@
     "test": "vitest run",
     "lint": "eslint",
     "format": "prettier",
-    "check": "prettier --write . && eslint --fix"
+    "check": "prettier --write . && eslint --fix",
+    "nitro": "npm:nitro-nightly@latest"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.6",
