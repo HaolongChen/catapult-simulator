@@ -14,3 +14,4 @@ todos.json
 .sisyphus
 playwright-report
 test-results
+e2e/recordings
