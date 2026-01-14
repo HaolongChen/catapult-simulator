@@ -47,8 +47,74 @@ export class CatapultSimulation {
     }
 
     const result = this.integrator.update(deltaTime, derivativeFunction)
-    this.state = result.newState
+    this.state = this.projectConstraints(result.newState)
+    this.latchRelease()
+
     return this.state
+  }
+
+  private latchRelease() {
+    if (this.state.orientation[0] > 0.5) return
+
+    const {
+      longArmLength: L1,
+      pivotHeight: H,
+      releaseAngle,
+    } = this.config.trebuchet
+    const { armAngle, position } = this.state
+    const tipX = L1 * Math.cos(armAngle)
+    const tipY = H + L1 * Math.sin(armAngle)
+    const dx = position[0] - tipX
+    const dy = position[1] - tipY
+    const dz = position[2]
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz + 1e-12)
+    const ux = dx / dist,
+      uy = dy / dist
+
+    const armVecX = Math.cos(armAngle),
+      armVecY = Math.sin(armAngle)
+    const slingDotArm = ux * armVecX + uy * armVecY
+    const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360
+
+    if (normAng > 45 && normAng < 270 && slingDotArm > Math.cos(releaseAngle)) {
+      ;(this.state.orientation as any)[0] = 1.0
+    }
+  }
+
+  private projectConstraints(state: PhysicsState17DOF): PhysicsState17DOF {
+    const isReleased = state.orientation[0] > 0.5
+    if (isReleased) return state
+
+    const {
+      longArmLength: L1,
+      slingLength: Ls,
+      pivotHeight: H,
+    } = this.config.trebuchet
+    const { armAngle, position } = state
+
+    const tipX = L1 * Math.cos(armAngle)
+    const tipY = H + L1 * Math.sin(armAngle)
+    const dx = position[0] - tipX
+    const dy = position[1] - tipY
+    const dz = position[2]
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz + 1e-12)
+
+    if (Math.abs(dist - Ls) > 0.0001) {
+      const ux = dx / dist
+      const uy = dy / dist
+      const uz = dz / dist
+
+      const newPos = new Float64Array(position)
+      newPos[0] = tipX + ux * Ls
+      newPos[1] = Math.max(0, tipY + uy * Ls)
+      newPos[2] = uz * Ls
+
+      return {
+        ...state,
+        position: newPos,
+      }
+    }
+    return state
   }
 
   getLastForces(): PhysicsForces {

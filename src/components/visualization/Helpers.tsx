@@ -50,7 +50,7 @@ export function Helpers() {
       {createArrow(drag, 0xff4444, 0.1)}
       {createArrow(magnus, 0x4444ff, 0.1)}
       {createArrow(gravity, 0x44ff44, 0.05)}
-      {createArrow(tension, 0xffff44, 0.0001)}
+      {createArrow(tension, 0xffff44, 0.00001)}
     </group>
   )
 }

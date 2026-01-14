@@ -23,7 +23,7 @@ const DEFAULT_CONFIG: SimulationConfig = {
     counterweightMass: 2500,
     counterweightRadius: 1.5,
     slingLength: 6,
-    releaseAngle: (45 * Math.PI) / 180,
+    releaseAngle: (60 * Math.PI) / 180,
     springConstant: 0,
     dampingCoefficient: 5,
     equilibriumAngle: 0,
@@ -55,7 +55,7 @@ function getInitialState(config: SimulationConfig): PhysicsState17DOF {
   return {
     position: new Float64Array([px, 0, 0]),
     velocity: new Float64Array([0, 0, 0]),
-    orientation: new Float64Array([1, 0, 0, 0]),
+    orientation: new Float64Array([0, 0, 0, 0]),
     angularVelocity: new Float64Array([0, 0, 0]),
     armAngle: cockedAngle,
     armAngularVelocity: 0,
