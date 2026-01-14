@@ -4,7 +4,7 @@
  * Tests based on US Standard Atmosphere 1976
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   airDensity,
   airTemperature,

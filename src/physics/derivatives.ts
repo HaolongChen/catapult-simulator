@@ -1,224 +1,209 @@
-/**
- * Physics Derivatives - Combines all forces
- *
- * Computes time derivatives of 17-DOF state vector.
- */
-
+import { aerodynamicForce } from './aerodynamics'
 import type {
-  DerivativeFunction,
   PhysicsDerivative17DOF,
   PhysicsState17DOF,
   ProjectileProperties,
   TrebuchetProperties,
 } from './types'
 
-export type { DerivativeFunction }
-import { aerodynamicForce } from './aerodynamics'
-import { catapultTorque } from './trebuchet'
-import { ATMOSPHERIC_CONSTANTS } from './atmosphere'
+export type { DerivativeFunction } from './types'
 
-/**
- * Compute gravitational force
- * F_g = m g (altitude-dependent)
- */
-function gravitationalForce(mass: number, _altitude: number): Float64Array {
-  const { gravity } = ATMOSPHERIC_CONSTANTS
-
-  const result = new Float64Array(3)
-  result[0] = 0
-  result[1] = -mass * gravity
-  result[2] = 0
-
-  return result
-}
-
-/**
- * Compute spin vector from angular velocity
- * S = ω × r
- */
-function spinVector(
-  angularVelocity: Float64Array,
-  radius: number,
-): Float64Array {
-  const result = new Float64Array(3)
-  result[0] = angularVelocity[0] * radius
-  result[1] = angularVelocity[1] * radius
-  result[2] = angularVelocity[2] * radius
-  return result
-}
-
-/**
- * Compute total force on projectile
- * F_total = F_g + F_d + F_m
- */
-function totalForce(
-  position: Float64Array,
-  velocity: Float64Array,
-  spinVector: Float64Array,
+export function computeDerivatives(
+  state: PhysicsState17DOF,
   projectile: ProjectileProperties,
-  windVelocity: Float64Array,
-): Float64Array {
-  const relativeVelocity = new Float64Array(3)
-  relativeVelocity[0] = velocity[0] - windVelocity[0]
-  relativeVelocity[1] = velocity[1] - windVelocity[1]
-  relativeVelocity[2] = velocity[2] - windVelocity[2]
+  trebuchetProps: TrebuchetProperties,
+  normalForce: number,
+): PhysicsDerivative17DOF {
+  const {
+    position,
+    velocity,
+    armAngle,
+    armAngularVelocity,
+    cwAngle,
+    cwAngularVelocity,
+    orientation,
+  } = state
+  const {
+    longArmLength: L1,
+    shortArmLength: L2,
+    slingLength: Ls,
+    releaseAngle,
+    counterweightMass: Mcw,
+    counterweightRadius: Rcw,
+    armMass: Ma,
+    pivotHeight: H,
+    jointFriction,
+  } = trebuchetProps
+  const Mp = projectile.mass
+  const g = 9.81
 
-  const gravity = gravitationalForce(projectile.mass, position[1])
+  const wasReleased = orientation[0] > 0.5
+
+  const tipX = L1 * Math.cos(armAngle)
+  const tipY = H + L1 * Math.sin(armAngle)
+  const dx = position[0] - tipX
+  const dy = position[1] - tipY
+  const distSq = dx * dx + dy * dy
+  const dist = Math.sqrt(Math.max(distSq, 1e-12))
+  const ux = dx / dist
+  const uy = dy / dist
+
+  const tipVelX = -L1 * armAngularVelocity * Math.sin(armAngle)
+  const tipVelY = L1 * armAngularVelocity * Math.cos(armAngle)
+  const v_rel_n = ux * (velocity[0] - tipVelX) + uy * (velocity[1] - tipVelY)
+
+  const armVecX = Math.cos(armAngle)
+  const armVecY = Math.sin(armAngle)
+  const slingDotArm = ux * armVecX + uy * armVecY
+
+  const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360
+  const isUpward = normAng > 45 && normAng < 225
+  const releaseTriggered =
+    !wasReleased && isUpward && slingDotArm > Math.cos(releaseAngle)
+  const isReleased = wasReleased || releaseTriggered
+
+  if (isReleased) {
+    return computeFreeFlight(state, projectile, trebuchetProps, normalForce)
+  }
+
+  const Ia = (1 / 3) * Ma * L1 ** 2
+  const Icw_box = 0.5 * Mcw * Rcw * Rcw
+  const M11 = Ia + Mcw * L2 * L2
+  const M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle)
+  const M22 = Icw_box + Mcw * Rcw * Rcw
+
+  const G1 =
+    -Ma * g * (L1 / 2) * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle)
+  const G2 = -Mcw * g * Rcw * Math.sin(cwAngle)
+  const C1 =
+    -Mcw * L2 * Rcw * cwAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
+  const C2 =
+    Mcw * L2 * Rcw * armAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
+
+  let F_sling_x = 0
+  let F_sling_y = 0
+  let torque_sling = 0
+
+  if (dist > Ls || v_rel_n > 0) {
+    const k = 2000000
+    const d = 2000
+    const f = Math.max(0, k * (dist - Ls) + d * v_rel_n)
+    const f_clamped = Math.min(f, 2000000)
+    F_sling_x = -f_clamped * ux
+    F_sling_y = -f_clamped * uy
+    torque_sling = tipX * -F_sling_y - (tipY - H) * -F_sling_x
+  }
+
+  let F_ground_y = 0
+  let F_ground_x = 0
+  if (position[1] < 0) {
+    const k_g = 5000000
+    const d_g = 10000
+    F_ground_y = Math.max(0, k_g * -position[1] - d_g * velocity[1])
+    F_ground_x = -0.3 * F_ground_y * Math.sign(velocity[0])
+  } else if (position[1] < 0.01) {
+    F_ground_x = -0.2 * Mp * g * Math.sign(velocity[0])
+  }
+
+  const airVel = new Float64Array([velocity[0], velocity[1], 0])
   const aero = aerodynamicForce(
-    relativeVelocity,
-    spinVector,
+    airVel,
+    new Float64Array(3),
     projectile,
     position[1],
     288.15,
   )
 
-  const result = new Float64Array(3)
-  result[0] = gravity[0] + aero.total[0]
-  result[1] = gravity[1] + aero.total[1]
-  result[2] = gravity[2] + aero.total[2]
+  const ax = (aero.total[0] + F_sling_x + F_ground_x) / Mp
+  const ay = (aero.total[1] + F_sling_y + F_ground_y) / Mp - g
 
-  return result
-}
-
-/**
- * Compute quaternion derivative from angular velocity
- * q̇ = 0.5 * ω * q
- */
-function quaternionDerivative(
-  orientation: Float64Array,
-  angularVelocity: Float64Array,
-): Float64Array {
-  const qw = orientation[0]
-  const qx = orientation[1]
-  const qy = orientation[2]
-  const qz = orientation[3]
-  const ωx = angularVelocity[0]
-  const ωy = angularVelocity[1]
-  const ωz = angularVelocity[2]
-
-  const result = new Float64Array(4)
-  result[0] = 0.5 * (ωx * qx + ωy * qy + ωz * qz)
-  result[1] = 0.5 * (ωy * qw - ωx * qz + ωz * qx)
-  result[2] = 0.5 * (ωz * qw - ωx * qy + ωy * qx)
-  result[3] = 0.5 * (ωx * qz - ωy * qx + ωz * qy)
-
-  return result
-}
-
-/**
- * Normalize quaternion to prevent drift
- */
-function normalizeQuaternion(q: Float64Array): Float64Array {
-  const norm = Math.sqrt(q[0] ** 2 + q[1] ** 2 + q[2] ** 2 + q[3] ** 2)
-  const result = new Float64Array(4)
-  result[0] = q[0] / norm
-  result[1] = q[1] / norm
-  result[2] = q[2] / norm
-  result[3] = q[3] / norm
-  return result
-}
-
-/**
- * Compute projectile acceleration (F/m)
- */
-function projectileAcceleration(
-  position: Float64Array,
-  velocity: Float64Array,
-  angularVelocity: Float64Array,
-  projectile: ProjectileProperties,
-  windVelocity: Float64Array,
-): Float64Array {
-  const force = totalForce(
-    position,
-    velocity,
-    angularVelocity,
-    projectile,
-    windVelocity,
-  )
-  const mass = projectile.mass
-
-  const result = new Float64Array(3)
-  result[0] = force[0] / mass
-  result[1] = force[1] / mass
-  result[2] = force[2] / mass
-
-  return result
-}
-
-/**
- * Compute catapult angular acceleration (scalar for arm)
- * α = τ / I
- */
-function catapultAcceleration(
-  torque: ReturnType<typeof catapultTorque>,
-  momentOfInertia: number,
-): number {
-  return torque.total / momentOfInertia
-}
-
-/**
- * Compute projectile angular acceleration from catapult
- * Converts scalar arm acceleration to projectile spin acceleration
- */
-function projectileAngularAcceleration(armAcceleration: number): Float64Array {
-  const result = new Float64Array([0, 0, armAcceleration])
-  return result
-}
-
-/**
- * Compute complete state derivatives
- */
-export function computeDerivatives(
-  state: PhysicsState17DOF,
-  projectile: ProjectileProperties,
-  trebuchet: TrebuchetProperties,
-  normalForce: number,
-): PhysicsDerivative17DOF {
-  const spin = spinVector(state.angularVelocity, projectile.radius)
-
-  const positionDeriv = state.velocity
-  const velocityDeriv = projectileAcceleration(
-    state.position,
-    state.velocity,
-    spin,
-    projectile,
-    state.windVelocity,
-  )
-
-  const orientationDeriv = quaternionDerivative(
-    state.orientation,
-    state.angularVelocity,
-  )
-  normalizeQuaternion(state.orientation)
-
-  const momentOfInertia =
-    (trebuchet.counterweightMass * trebuchet.armLength ** 2) / 3
-
-  const armAcceleration = catapultAcceleration(
-    catapultTorque(
-      state.armAngle,
-      state.armAngularVelocity,
-      trebuchet,
-      normalForce,
-    ),
-    momentOfInertia,
-  )
-
-  const angularVelocityDeriv = projectileAngularAcceleration(armAcceleration)
-
-  const armAngleDeriv = state.armAngularVelocity
-  const armAngularVelocityDeriv = armAcceleration
-
-  const windVelocityDeriv = new Float64Array([0, 0, 0])
+  const t_fric = -Math.sign(armAngularVelocity) * jointFriction * normalForce
+  const Tau1 = G1 - C1 + t_fric + torque_sling
+  const Tau2 = G2 - C2
+  const det = Math.max(M11 * M22 - M12 * M12, 1e-9)
+  const th_ddot = (Tau1 * M22 - Tau2 * M12) / det
+  const phi_ddot = (M11 * Tau2 - M12 * Tau1) / det
 
   return {
-    position: positionDeriv,
-    velocity: velocityDeriv,
-    orientation: orientationDeriv,
-    angularVelocity: angularVelocityDeriv,
-    armAngle: armAngleDeriv,
-    armAngularVelocity: armAngularVelocityDeriv,
-    windVelocity: windVelocityDeriv,
+    position: new Float64Array([velocity[0], velocity[1], 0]),
+    velocity: new Float64Array([ax, ay, 0]),
+    orientation: new Float64Array([isReleased ? 1 : 0, 0, 0, 0]),
+    angularVelocity: new Float64Array(3),
+    armAngle: armAngularVelocity,
+    armAngularVelocity: th_ddot,
+    cwAngle: cwAngularVelocity,
+    cwAngularVelocity: phi_ddot,
+    windVelocity: new Float64Array(3),
+    time: 1,
+  }
+}
+
+function computeFreeFlight(
+  state: PhysicsState17DOF,
+  projectile: ProjectileProperties,
+  trebuchetProps: TrebuchetProperties,
+  normalForce: number,
+): PhysicsDerivative17DOF {
+  const {
+    position,
+    velocity,
+    armAngle,
+    armAngularVelocity,
+    cwAngle,
+    cwAngularVelocity,
+  } = state
+  const {
+    longArmLength: L1,
+    shortArmLength: L2,
+    counterweightMass: Mcw,
+    counterweightRadius: Rcw,
+    armMass: Ma,
+    jointFriction,
+  } = trebuchetProps
+  const Mp = projectile.mass
+  const g = 9.81
+  const Ia = (1 / 3) * Ma * L1 ** 2
+  const Icw = 0.4 * Mcw * Rcw * Rcw
+  const M11 = Ia + Mcw * L2 * L2
+  const M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle)
+  const M22 = Icw + Mcw * Rcw * Rcw
+  const G1 =
+    -Ma * g * (L1 / 2) * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle)
+  const G2 = -Mcw * g * Rcw * Math.sin(cwAngle)
+  const C1 =
+    -Mcw * L2 * Rcw * cwAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
+  const C2 =
+    Mcw * L2 * Rcw * armAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
+  const t_fric = -Math.sign(armAngularVelocity) * jointFriction * normalForce
+  const Tau1 = t_fric + G1 - C1
+  const Tau2 = G2 - C2
+  const det = Math.max(M11 * M22 - M12 * M12, 1e-9)
+  const th_ddot = (Tau1 * M22 - Tau2 * M12) / det
+  const phi_ddot = (M11 * Tau2 - M12 * Tau1) / det
+  const airVel = new Float64Array([velocity[0], velocity[1], 0])
+  const aero = aerodynamicForce(
+    airVel,
+    new Float64Array(3),
+    projectile,
+    position[1],
+    288.15,
+  )
+  const ax = aero.total[0] / Mp
+  let ay = (aero.total[1] - Mp * g) / Mp
+  if (position[1] < 0) {
+    ay += (2000000 * -position[1]) / Mp - (10000 * velocity[1]) / Mp
+    ay = Math.max(0, ay)
+  }
+  return {
+    position: new Float64Array([velocity[0], velocity[1], 0]),
+    velocity: new Float64Array([ax, ay, 0]),
+    orientation: new Float64Array([1, 0, 0, 0]),
+    angularVelocity: new Float64Array(3),
+    armAngle: armAngularVelocity,
+    armAngularVelocity: th_ddot,
+    cwAngle: cwAngularVelocity,
+    cwAngularVelocity: phi_ddot,
+    windVelocity: new Float64Array(3),
     time: 1,
   }
 }

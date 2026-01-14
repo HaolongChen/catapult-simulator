@@ -1,4 +1,4 @@
-import { expect, afterEach, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
 // Cleanup React components after each test
@@ -66,7 +66,7 @@ expect.extend({
 
     const maxDiff = Math.max(
       ...Array.from({ length: received.length }, (_, i) =>
-        Math.abs(received[i]! - expected[i]!),
+        Math.abs(received[i] - expected[i]),
       ),
     )
 

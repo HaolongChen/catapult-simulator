@@ -1,66 +1,38 @@
-/**
- * Physics Simulation - Complete Simulation Orchestrator
- *
- * Combines RK4 integrator with physics derivatives
- * for complete catapult + projectile simulation.
- */
+import { RK4Integrator } from './rk4-integrator'
+import { computeDerivatives } from './derivatives'
+import type { PhysicsState17DOF, SimulationConfig } from './types'
 
-import { RK4Integrator, type RK4Config } from './rk4-integrator'
-import { computeDerivatives, type DerivativeFunction } from './derivatives'
-import type {
-  PhysicsState17DOF,
-  ProjectileProperties,
-  TrebuchetProperties,
-} from './types'
-
-export interface SimulationConfig extends Partial<RK4Config> {
-  projectile: ProjectileProperties
-  trebuchet: TrebuchetProperties
-}
+export type { SimulationConfig }
 
 export class CatapultSimulation {
   private integrator: RK4Integrator
-  private derivativeFunction: DerivativeFunction
+  private state: PhysicsState17DOF
+  private config: SimulationConfig
   private normalForce: number
+  private derivativeFunction: (t: number, state: PhysicsState17DOF) => any
 
   constructor(initialState: PhysicsState17DOF, config: SimulationConfig) {
-    this.normalForce = (config.trebuchet?.counterweightMass ?? 1000) * 9.81 // mg
+    this.state = initialState
+    this.config = config
+    this.normalForce = config.trebuchet.counterweightMass * 9.81
     this.derivativeFunction = (_t: number, state: PhysicsState17DOF) =>
       computeDerivatives(
         state,
-        config.projectile ?? {
-          mass: 1,
-          radius: 0.05,
-          area: Math.PI * 0.05 ** 2,
-          dragCoefficient: 0.47,
-          magnusCoefficient: 0.3,
-          momentOfInertia: new Float64Array([0.01, 0.01, 0.01]),
-          spin: 0,
-        },
-        config.trebuchet ?? {
-          armLength: 10,
-          counterweightMass: 1000,
-          springConstant: 50000,
-          dampingCoefficient: 100,
-          equilibriumAngle: 0,
-          jointFriction: 0.3,
-          efficiency: 0.9,
-          flexuralStiffness: 1000000,
-        },
+        this.config.projectile,
+        this.config.trebuchet,
         this.normalForce,
       )
-
-    const rk4Config = {
-      fixedTimestep: config.fixedTimestep ?? 0.01,
-      maxSubsteps: config.maxSubsteps ?? 100,
-      maxAccumulator: config.maxAccumulator ?? 1.0,
-    }
-    this.integrator = new RK4Integrator(initialState, rk4Config)
+    this.integrator = new RK4Integrator(initialState, {
+      fixedTimestep: config.fixedTimestep,
+      maxSubsteps: config.maxSubsteps,
+      maxAccumulator: config.maxAccumulator,
+    })
   }
 
-  update(frameTime: number): PhysicsState17DOF {
-    const result = this.integrator.update(frameTime, this.derivativeFunction)
-    return result.newState
+  update(deltaTime: number): PhysicsState17DOF {
+    const result = this.integrator.update(deltaTime, this.derivativeFunction)
+    this.state = result.newState
+    return this.state
   }
 
   getRenderState(): PhysicsState17DOF {
@@ -71,11 +43,15 @@ export class CatapultSimulation {
     return this.integrator.getInterpolationAlpha()
   }
 
-  reset(): void {
-    this.integrator.reset()
+  getState(): PhysicsState17DOF {
+    return this.state
   }
 
   setState(state: PhysicsState17DOF): void {
-    this.integrator['state'] = state
+    this.state = state
+  }
+
+  reset(): void {
+    this.integrator.reset()
   }
 }

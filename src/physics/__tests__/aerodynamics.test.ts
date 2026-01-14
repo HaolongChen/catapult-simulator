@@ -2,14 +2,14 @@
  * Aerodynamic Forces Tests
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   aerodynamicForce,
   dragCoefficient,
   dragForce,
+  machNumber,
   magnusCoefficient,
   magnusForce,
-  machNumber,
   reynoldsNumber,
 } from '../aerodynamics'
 import type { ProjectileProperties } from '../types'

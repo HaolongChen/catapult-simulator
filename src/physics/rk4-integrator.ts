@@ -1,10 +1,3 @@
-/**
- * RK4 Integrator - Runge-Kutta 4th Order
- *
- * High-performance RK4 integrator with pre-allocated arrays.
- * Supports fixed timestep with sub-stepping for stability.
- */
-
 import type {
   DerivativeFunction,
   PhysicsDerivative17DOF,
@@ -23,7 +16,7 @@ const DEFAULT_CONFIG: RK4Config = {
 
 export class RK4Integrator {
   private config: RK4Config
-  private accumulator: number = 0
+  private accumulator = 0
 
   private state: PhysicsState17DOF
   private previousState: PhysicsState17DOF
@@ -43,12 +36,10 @@ export class RK4Integrator {
       steps < this.config.maxSubsteps
     ) {
       this.previousState = this.cloneState(this.state)
-
-      const subStepSize = this.config.fixedTimestep / this.config.maxSubsteps
-      for (let i = 0; i < this.config.maxSubsteps; i++) {
+      const subStepSize = this.config.fixedTimestep / 10
+      for (let i = 0; i < 10; i++) {
         this.state = this.rk4Step(this.state, derivative, subStepSize)
       }
-
       this.accumulator -= this.config.fixedTimestep
       steps++
     }
@@ -62,18 +53,22 @@ export class RK4Integrator {
     }
   }
 
+  public getState(): PhysicsState17DOF {
+    return this.state
+  }
+
   private rk4Step(
     state: PhysicsState17DOF,
     derivative: DerivativeFunction,
     dt: number,
   ): PhysicsState17DOF {
     const d1 = derivative(state.time, state)
-    const state2 = this.addState(state, d1, dt * 0.5, state.time)
-    const d2 = derivative(state.time + dt * 0.5, state2)
-    const state3 = this.addState(state, d2, dt * 0.5, state.time)
-    const d3 = derivative(state.time + dt * 0.5, state3)
-    const state4 = this.addState(state, d3, dt, state.time)
-    const d4 = derivative(state.time + dt, state4)
+    const state2 = this.addState(state, d1, dt * 0.5, state.time + dt * 0.5)
+    const d2 = derivative(state2.time, state2)
+    const state3 = this.addState(state, d2, dt * 0.5, state.time + dt * 0.5)
+    const d3 = derivative(state3.time, state3)
+    const state4 = this.addState(state, d3, dt, state.time + dt)
+    const d4 = derivative(state4.time, state4)
 
     return this.combineState(state, d1, d2, d3, d4, dt)
   }
@@ -82,7 +77,7 @@ export class RK4Integrator {
     state: PhysicsState17DOF,
     derivative: PhysicsDerivative17DOF,
     scale: number,
-    time: number,
+    newTime: number,
   ): PhysicsState17DOF {
     return {
       position: this.addArrays(state.position, derivative.position, scale),
@@ -100,12 +95,15 @@ export class RK4Integrator {
       armAngle: state.armAngle + derivative.armAngle * scale,
       armAngularVelocity:
         state.armAngularVelocity + derivative.armAngularVelocity * scale,
+      cwAngle: state.cwAngle + derivative.cwAngle * scale,
+      cwAngularVelocity:
+        state.cwAngularVelocity + derivative.cwAngularVelocity * scale,
       windVelocity: this.addArrays(
         state.windVelocity,
         derivative.windVelocity,
         scale,
       ),
-      time: time,
+      time: newTime,
     }
   }
 
@@ -118,27 +116,48 @@ export class RK4Integrator {
     dt: number,
   ): PhysicsState17DOF {
     const dto6 = dt / 6
+    const combine = (
+      s: Float64Array,
+      v1: Float64Array,
+      v2: Float64Array,
+      v3: Float64Array,
+      v4: Float64Array,
+    ) => {
+      const res = new Float64Array(s.length)
+      for (let i = 0; i < s.length; i++) {
+        res[i] = s[i] + dto6 * (v1[i] + 2 * v2[i] + 2 * v3[i] + v4[i])
+      }
+      return res
+    }
 
     return {
-      position: this.addArrays(
+      position: combine(
         state.position,
-        this.addArrays(d1.position, d2.position, 2),
-        dto6,
+        d1.position,
+        d2.position,
+        d3.position,
+        d4.position,
       ),
-      velocity: this.addArrays(
+      velocity: combine(
         state.velocity,
-        this.addArrays(d1.velocity, d2.velocity, 2),
-        dto6,
+        d1.velocity,
+        d2.velocity,
+        d3.velocity,
+        d4.velocity,
       ),
-      orientation: this.addArrays(
+      orientation: combine(
         state.orientation,
-        this.addArrays(d1.orientation, d2.orientation, 2),
-        dto6,
+        d1.orientation,
+        d2.orientation,
+        d3.orientation,
+        d4.orientation,
       ),
-      angularVelocity: this.addArrays(
+      angularVelocity: combine(
         state.angularVelocity,
-        this.addArrays(d1.angularVelocity, d2.angularVelocity, 2),
-        dto6,
+        d1.angularVelocity,
+        d2.angularVelocity,
+        d3.angularVelocity,
+        d4.angularVelocity,
       ),
       armAngle:
         state.armAngle +
@@ -150,10 +169,22 @@ export class RK4Integrator {
             2 * d2.armAngularVelocity +
             2 * d3.armAngularVelocity +
             d4.armAngularVelocity),
-      windVelocity: this.addArrays(
+      cwAngle:
+        state.cwAngle +
+        dto6 * (d1.cwAngle + 2 * d2.cwAngle + 2 * d3.cwAngle + d4.cwAngle),
+      cwAngularVelocity:
+        state.cwAngularVelocity +
+        dto6 *
+          (d1.cwAngularVelocity +
+            2 * d2.cwAngularVelocity +
+            2 * d3.cwAngularVelocity +
+            d4.cwAngularVelocity),
+      windVelocity: combine(
         state.windVelocity,
-        this.addArrays(d1.windVelocity, d2.windVelocity, 2),
-        dto6,
+        d1.windVelocity,
+        d2.windVelocity,
+        d3.windVelocity,
+        d4.windVelocity,
       ),
       time: state.time + dt,
     }
@@ -164,11 +195,9 @@ export class RK4Integrator {
     b: Float64Array,
     scale: number,
   ): Float64Array {
-    const result = new Float64Array(a.length)
-    for (let i = 0; i < a.length; i++) {
-      result[i] = a[i] + b[i] * scale
-    }
-    return result
+    const res = new Float64Array(a.length)
+    for (let i = 0; i < a.length; i++) res[i] = a[i] + b[i] * scale
+    return res
   }
 
   private cloneState(state: PhysicsState17DOF): PhysicsState17DOF {
@@ -180,6 +209,8 @@ export class RK4Integrator {
       windVelocity: new Float64Array(state.windVelocity),
       armAngle: state.armAngle,
       armAngularVelocity: state.armAngularVelocity,
+      cwAngle: state.cwAngle,
+      cwAngularVelocity: state.cwAngularVelocity,
       time: state.time,
     }
   }
@@ -190,6 +221,8 @@ export class RK4Integrator {
 
   getRenderState(): PhysicsState17DOF {
     const alpha = this.getInterpolationAlpha()
+    if (alpha <= 0) return this.state
+    if (alpha >= 1) return this.state
     return this.interpolateState(this.previousState, this.state, alpha)
   }
 
@@ -198,33 +231,26 @@ export class RK4Integrator {
     s2: PhysicsState17DOF,
     alpha: number,
   ): PhysicsState17DOF {
+    const lerp = (a: Float64Array, b: Float64Array) => {
+      const res = new Float64Array(a.length)
+      for (let i = 0; i < a.length; i++)
+        res[i] = a[i] * (1 - alpha) + b[i] * alpha
+      return res
+    }
     return {
-      position: this.lerpArrays(s1.position, s2.position, alpha),
-      velocity: this.lerpArrays(s1.velocity, s2.velocity, alpha),
-      orientation: this.lerpArrays(s1.orientation, s2.orientation, alpha),
-      angularVelocity: this.lerpArrays(
-        s1.angularVelocity,
-        s2.angularVelocity,
-        alpha,
-      ),
-      windVelocity: this.lerpArrays(s1.windVelocity, s2.windVelocity, alpha),
+      position: lerp(s1.position, s2.position),
+      velocity: lerp(s1.velocity, s2.velocity),
+      orientation: lerp(s1.orientation, s2.orientation),
+      angularVelocity: lerp(s1.angularVelocity, s2.angularVelocity),
+      windVelocity: lerp(s1.windVelocity, s2.windVelocity),
       armAngle: s1.armAngle * (1 - alpha) + s2.armAngle * alpha,
       armAngularVelocity:
         s1.armAngularVelocity * (1 - alpha) + s2.armAngularVelocity * alpha,
+      cwAngle: s1.cwAngle * (1 - alpha) + s2.cwAngle * alpha,
+      cwAngularVelocity:
+        s1.cwAngularVelocity * (1 - alpha) + s2.cwAngularVelocity * alpha,
       time: s1.time * (1 - alpha) + s2.time * alpha,
     }
-  }
-
-  private lerpArrays(
-    a: Float64Array,
-    b: Float64Array,
-    t: number,
-  ): Float64Array {
-    const result = new Float64Array(a.length)
-    for (let i = 0; i < a.length; i++) {
-      result[i] = a[i] * (1 - t) + b[i] * t
-    }
-    return result
   }
 
   reset(): void {

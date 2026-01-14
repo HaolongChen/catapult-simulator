@@ -2,9 +2,9 @@
  * RK4 Integrator Tests
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { RK4Integrator } from '../rk4-integrator'
-import type { PhysicsState17DOF, PhysicsDerivative17DOF } from '../types'
+import type { PhysicsDerivative17DOF, PhysicsState17DOF } from '../types'
 
 describe('rk4-integrator', () => {
   describe('constructor', () => {
@@ -63,8 +63,8 @@ describe('rk4-integrator', () => {
 
       const derivative = (_t: number, s: PhysicsState17DOF) => ({
         ...createZeroDerivative(),
-        position: new Float64Array([s.velocity[0]!]),
-        velocity: new Float64Array([(-k / m) * s.position[0]!]),
+        position: new Float64Array([s.velocity[0]]),
+        velocity: new Float64Array([(-k / m) * s.position[0]]),
       })
 
       const integrator = new RK4Integrator(state, { fixedTimestep: 0.001 })
@@ -72,8 +72,8 @@ describe('rk4-integrator', () => {
 
       const finalState = integrator.getRenderState()
       const energy =
-        0.5 * m * finalState.velocity[0]! ** 2 +
-        0.5 * k * finalState.position[0]! ** 2
+        0.5 * m * finalState.velocity[0] ** 2 +
+        0.5 * k * finalState.position[0] ** 2
 
       expect(energy).toBeCloseTo(0.5, 0.01)
     })

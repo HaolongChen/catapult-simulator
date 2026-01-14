@@ -5,8 +5,8 @@
  * Based on Reynolds number, Mach number, and spin.
  */
 
-import type { AerodynamicForce, ProjectileProperties } from './types'
 import { airDensity, airViscosity, atmosphericModel } from './atmosphere'
+import type { AerodynamicForce, ProjectileProperties } from './types'
 
 /**
  * Compute Reynolds number
