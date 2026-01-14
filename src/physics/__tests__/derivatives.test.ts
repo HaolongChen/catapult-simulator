@@ -45,7 +45,12 @@ describe('derivatives', () => {
     }
 
     const normalForce = trebuchet.counterweightMass * 9.80665
-    const deriv = computeDerivatives(state, projectile, trebuchet, normalForce)
+    const { derivative: deriv } = computeDerivatives(
+      state,
+      projectile,
+      trebuchet,
+      normalForce,
+    )
 
     expect(deriv.position).toEqual(state.velocity)
     expect(deriv.velocity[1]).toBeCloseTo(-9.8, 1)

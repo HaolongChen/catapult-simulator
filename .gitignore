@@ -12,3 +12,5 @@ count.txt
 .vinxi
 todos.json
 .sisyphus
+playwright-report
+test-results

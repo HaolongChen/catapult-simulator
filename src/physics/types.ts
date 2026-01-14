@@ -59,10 +59,21 @@ export interface SimulationConfig {
   trebuchet: TrebuchetProperties
 }
 
+export interface PhysicsForces {
+  readonly drag: Float64Array
+  readonly magnus: Float64Array
+  readonly gravity: Float64Array
+  readonly tension: Float64Array
+  readonly total: Float64Array
+}
+
 export type DerivativeFunction = (
   t: number,
   state: PhysicsState17DOF,
-) => PhysicsDerivative17DOF
+) => {
+  derivative: PhysicsDerivative17DOF
+  forces: PhysicsForces
+}
 
 export interface RK4Config {
   fixedTimestep: number

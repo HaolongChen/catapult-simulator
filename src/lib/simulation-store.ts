@@ -2,7 +2,7 @@ import { Store } from '@tanstack/store'
 import { CatapultSimulation } from '../physics/simulation'
 import { stateTracer } from './state-tracer'
 import type { SimulationConfig } from '../physics/simulation'
-import type { PhysicsState17DOF } from '../physics/types'
+import type { PhysicsForces, PhysicsState17DOF } from '../physics/types'
 
 const DEFAULT_CONFIG: SimulationConfig = {
   fixedTimestep: 0.005,
@@ -10,11 +10,11 @@ const DEFAULT_CONFIG: SimulationConfig = {
   maxAccumulator: 1.0,
   projectile: {
     mass: 1,
-    radius: 0.05,
-    area: Math.PI * 0.05 ** 2,
+    radius: 0.35,
+    area: Math.PI * 0.35 ** 2,
     dragCoefficient: 0.47,
     magnusCoefficient: 0.3,
-    momentOfInertia: new Float64Array([0.01, 0.01, 0.01]),
+    momentOfInertia: new Float64Array([0.05, 0.05, 0.05]),
     spin: 0,
   },
   trebuchet: {
@@ -23,7 +23,7 @@ const DEFAULT_CONFIG: SimulationConfig = {
     counterweightMass: 2500,
     counterweightRadius: 1.5,
     slingLength: 6,
-    releaseAngle: (40 * Math.PI) / 180,
+    releaseAngle: (45 * Math.PI) / 180,
     springConstant: 0,
     dampingCoefficient: 5,
     equilibriumAngle: 0,
@@ -35,19 +35,29 @@ const DEFAULT_CONFIG: SimulationConfig = {
   },
 }
 
+const EMPTY_FORCES: PhysicsForces = {
+  drag: new Float64Array(3),
+  magnus: new Float64Array(3),
+  gravity: new Float64Array(3),
+  tension: new Float64Array(3),
+  total: new Float64Array(3),
+}
+
 function getInitialState(config: SimulationConfig): PhysicsState17DOF {
   const { longArmLength, pivotHeight, slingLength } = config.trebuchet
-  const ratio = Math.min((pivotHeight - 0.1) / longArmLength, 1.0)
-  const ang = -Math.asin(ratio)
-  const tipX = longArmLength * Math.cos(ang)
+
+  const cockedAngle = -Math.asin(
+    Math.min((pivotHeight - 0.5) / longArmLength, 1.0),
+  )
+  const tipX = longArmLength * Math.cos(cockedAngle)
   const px = tipX - slingLength
 
   return {
     position: new Float64Array([px, 0, 0]),
     velocity: new Float64Array([0, 0, 0]),
-    orientation: new Float64Array([0, 0, 0, 0]),
+    orientation: new Float64Array([1, 0, 0, 0]),
     angularVelocity: new Float64Array([0, 0, 0]),
-    armAngle: ang,
+    armAngle: cockedAngle,
     armAngularVelocity: 0,
     cwAngle: 0,
     cwAngularVelocity: 0,
@@ -59,6 +69,7 @@ function getInitialState(config: SimulationConfig): PhysicsState17DOF {
 export interface SimulationStoreState {
   isPlaying: boolean
   state: PhysicsState17DOF
+  forces: PhysicsForces
   config: SimulationConfig
   interpolationAlpha: number
 }
@@ -66,6 +77,7 @@ export interface SimulationStoreState {
 export const simulationStore = new Store<SimulationStoreState>({
   isPlaying: false,
   state: getInitialState(DEFAULT_CONFIG),
+  forces: EMPTY_FORCES,
   config: DEFAULT_CONFIG,
   interpolationAlpha: 0,
 })
@@ -82,7 +94,12 @@ export function updateConfig(newConfig: Partial<SimulationConfig>) {
     const initialState = getInitialState(updatedConfig)
     simulationInstance = new CatapultSimulation(initialState, updatedConfig)
 
-    return { ...s, config: updatedConfig, state: initialState }
+    return {
+      ...s,
+      config: updatedConfig,
+      state: initialState,
+      forces: EMPTY_FORCES,
+    }
   })
 }
 
@@ -98,11 +115,13 @@ export function update(deltaTime: number) {
   const sim = getSimulationInstance()
   sim.update(deltaTime)
   const newState = sim.getRenderState()
+  const lastForces = sim.getLastForces()
 
   simulationStore.setState((s) => {
     return {
       ...s,
       state: newState,
+      forces: lastForces,
       interpolationAlpha: sim.getInterpolationAlpha(),
     }
   })
@@ -120,6 +139,7 @@ export function reset() {
     ...s,
     isPlaying: false,
     state: initialState,
+    forces: EMPTY_FORCES,
     interpolationAlpha: 0,
   }))
 }

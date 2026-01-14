@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { reset, simulationStore, update } from '../lib/simulation-store'
 
-const INITIAL_ARM_ANGLE = -Math.asin(5 / 8)
-const INITIAL_PROJ_X = 8 * Math.cos(INITIAL_ARM_ANGLE) - 6
+const LONG_ARM = 8
+const PIVOT_H = 5
+const SLING_L = 6
+const INITIAL_ARM_ANGLE = -Math.asin((PIVOT_H - 0.5) / LONG_ARM)
+const INITIAL_PROJ_X = LONG_ARM * Math.cos(INITIAL_ARM_ANGLE) - SLING_L
 
 describe('SimulationStore', () => {
   beforeEach(() => {

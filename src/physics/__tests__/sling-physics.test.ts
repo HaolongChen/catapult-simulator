@@ -47,7 +47,7 @@ describe('Sling Physics', () => {
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
     }
-    const derivative = computeDerivatives(state, projectile, trebuchet, 0)
+    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0)
     expect(derivative.velocity[0]).toBeLessThan(0)
   })
 
@@ -64,7 +64,7 @@ describe('Sling Physics', () => {
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
     }
-    const derivative = computeDerivatives(state, projectile, trebuchet, 0)
+    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0)
     expect(derivative.position[1]).toBe(0)
   })
 
@@ -81,7 +81,7 @@ describe('Sling Physics', () => {
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
     }
-    const derivative = computeDerivatives(state, projectile, trebuchet, 0)
+    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0)
     expect(isFinite(derivative.velocity[0])).toBe(true)
     expect(isFinite(derivative.armAngularVelocity)).toBe(true)
   })

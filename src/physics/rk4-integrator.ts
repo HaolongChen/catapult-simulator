@@ -38,7 +38,8 @@ export class RK4Integrator {
       this.previousState = this.cloneState(this.state)
       const subStepSize = this.config.fixedTimestep / 10
       for (let i = 0; i < 10; i++) {
-        this.state = this.rk4Step(this.state, derivative, subStepSize)
+        const { derivative: d } = derivative(this.state.time, this.state)
+        this.state = this.rk4Step(this.state, d, derivative, subStepSize)
       }
       this.accumulator -= this.config.fixedTimestep
       steps++
@@ -59,16 +60,18 @@ export class RK4Integrator {
 
   private rk4Step(
     state: PhysicsState17DOF,
+    d1: PhysicsDerivative17DOF,
     derivative: DerivativeFunction,
     dt: number,
   ): PhysicsState17DOF {
-    const d1 = derivative(state.time, state)
     const state2 = this.addState(state, d1, dt * 0.5, state.time + dt * 0.5)
-    const d2 = derivative(state2.time, state2)
+    const { derivative: d2 } = derivative(state2.time, state2)
+
     const state3 = this.addState(state, d2, dt * 0.5, state.time + dt * 0.5)
-    const d3 = derivative(state3.time, state3)
+    const { derivative: d3 } = derivative(state3.time, state3)
+
     const state4 = this.addState(state, d3, dt, state.time + dt)
-    const d4 = derivative(state4.time, state4)
+    const { derivative: d4 } = derivative(state4.time, state4)
 
     return this.combineState(state, d1, d2, d3, d4, dt)
   }
