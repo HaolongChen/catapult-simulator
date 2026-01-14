@@ -17,6 +17,7 @@ function solveLinearSystem(
   const matrix = A.map((row) => [...row])
   const rhs = [...b]
 
+  // Forward elimination with partial pivoting
   for (let i = 0; i < n; i++) {
     let max = Math.abs(matrix[i][i])
     let maxRow = i
@@ -34,16 +35,21 @@ function solveLinearSystem(
     rhs[i] = tempB
 
     const pivotVal = matrix[i][i]
-    if (Math.abs(pivotVal) < 1e-18) continue
+    if (Math.abs(pivotVal) < 1e-20) {
+      matrix[i][i] = matrix[i][i] < 0 ? -1e-20 : 1e-20
+    }
+
     for (let k = i + 1; k < n; k++) {
-      const c = -matrix[k][i] / pivotVal
-      for (let j = i; j < n; j++) {
-        if (i === j) matrix[k][j] = 0
-        else matrix[k][j] += c * matrix[i][j]
+      const c = -matrix[k][i] / matrix[i][i]
+      matrix[k][i] = 0
+      for (let j = i + 1; j < n; j++) {
+        matrix[k][j] += c * matrix[i][j]
       }
       rhs[k] += c * rhs[i]
     }
   }
+
+  // Back substitution
   const x = new Array(n).fill(0)
   for (let i = n - 1; i >= 0; i--) {
     let sum = 0
@@ -51,7 +57,9 @@ function solveLinearSystem(
       sum += matrix[i][j] * x[j]
     }
     const pivotVal = matrix[i][i]
-    x[i] = Math.abs(pivotVal) < 1e-18 ? 0 : (rhs[i] - sum) / pivotVal
+    x[i] =
+      (rhs[i] - sum) /
+      (Math.abs(pivotVal) < 1e-20 ? (pivotVal < 0 ? -1e-20 : 1e-20) : pivotVal)
   }
   return x
 }
@@ -197,6 +205,10 @@ export function computeDerivatives(
   A_matrix[3][3] = M_diag[3]
   A_matrix[4][4] = M_diag[4]
 
+  // Regularization for stability with extreme mass ratios
+  const eps = 1e-8
+  for (let i = 0; i < 7; i++) A_matrix[i][i] += eps
+
   if (isTaut) {
     for (let i = 0; i < 5; i++) {
       A_matrix[5][i] = J1[i]
@@ -311,11 +323,23 @@ function computeFreeFlight(
   } = trebuchetProps
   const Mp = projectile.mass,
     g = 9.81
+
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3),
     Icw = 0.4 * Mcw * Rcw * Rcw
-  const M11 = Ia + Mcw * L2 * L2,
-    M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle),
-    M22 = Icw + Mcw * Rcw * Rcw
+
+  const M11 = Ia + Mcw * L2 * L2
+  const M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle)
+  const M22 = Icw + Mcw * Rcw * Rcw
+
+  // Stable determinant calculation for extreme mass ratios
+  const delta = armAngle - cwAngle
+  const det =
+    Ia * Icw +
+    Ia * Mcw * Rcw * Rcw +
+    Icw * Mcw * L2 * L2 +
+    Mcw * Mcw * L2 * L2 * Rcw * Rcw * Math.cos(delta) * Math.cos(delta) +
+    1e-9
+
   const armCG = (L1 - L2) / 2
   const G1 =
       -Ma * g * armCG * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle),
@@ -328,12 +352,19 @@ function computeFreeFlight(
   if (normAng > 160 && normAng < 180 && armAngularVelocity > 0)
     t_ext -=
       1000000 * (normAng - 160) * (Math.PI / 180) + 5000 * armAngularVelocity
-  const det = Math.max(M11 * M22 - M12 * M12, 1e-9)
+
   const th_ddot = ((G1 - C1 + t_ext) * M22 - (G2 - C2) * M12) / det,
     phi_ddot = (M11 * (G2 - C2) - M12 * (G1 - C1 + t_ext)) / det
+
   let ay = (aero.total[1] - Mp * g) / Mp
-  if (position[1] < 0 && ay < 0)
-    ay += (10000000 * -position[1]) / Mp - (10000 * velocity[1]) / Mp
+
+  // Improved ground collision: acceleration-based penalty to avoid mass-ratio issues and tunnelling
+  if (position[1] < 0) {
+    const stiffness = 2000000 // Higher stiffness for high speed
+    const damping = 4000
+    ay += stiffness * -position[1] - damping * velocity[1]
+  }
+
   const q = orientation,
     w = angularVelocity
   return {

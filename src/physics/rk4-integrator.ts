@@ -224,8 +224,8 @@ export class RK4Integrator {
 
   getRenderState(): PhysicsState17DOF {
     const alpha = this.getInterpolationAlpha()
-    if (alpha <= 0) return this.state
-    if (alpha >= 1) return this.state
+    if (alpha <= 0.0001) return this.state
+    if (alpha >= 0.9999) return this.state
     return this.interpolateState(this.previousState, this.state, alpha)
   }
 

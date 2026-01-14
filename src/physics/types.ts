@@ -1,3 +1,16 @@
+export interface AtmosphericConstants {
+  seaLevelDensity: number
+  seaLevelPressure: number
+  seaLevelTemperature: number
+  gravity: number
+  scaleHeight: number
+  airMolarMass: number
+  universalGasConstant: number
+  sutherlandT0: number
+  sutherlandMu0: number
+  sutherlandS: number
+}
+
 export interface PhysicsState17DOF {
   readonly position: Float64Array
   readonly velocity: Float64Array

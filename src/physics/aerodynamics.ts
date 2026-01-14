@@ -33,8 +33,12 @@ export function dragCoefficient(
   baseCd: number,
 ): number {
   let cdRe = baseCd
-  if (reynolds < 1e5) {
+  if (reynolds < 1e4) {
     cdRe = 24 / (reynolds + 1e-6)
+  } else if (reynolds < 1e5) {
+    // Smooth transition from Stokes to baseCd
+    const alpha = (reynolds - 1e4) / (1e5 - 1e4)
+    cdRe = (1 - alpha) * (24 / reynolds) + alpha * baseCd
   } else if (reynolds < 2e5) {
     cdRe = baseCd
   } else {

@@ -39,7 +39,7 @@ test.describe('Catapult Simulator Phase 3', () => {
 
     await page.getByRole('tab', { name: /machine/i }).click()
     const machineSliders = page.getByRole('slider')
-    await expect(machineSliders).toHaveCount(4)
+    await expect(machineSliders).toHaveCount(7)
 
     const firstMachineSlider = machineSliders.first()
     const initialValue = await firstMachineSlider.getAttribute('aria-valuenow')
