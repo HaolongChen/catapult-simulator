@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { PhysicsState17DOF } from '../types'
+import type { PhysicsState17DOF, SimulationConfig } from '../types'
 
 describe('Simulation Soak Test', () => {
   it('should maintain stability over 10 seconds of heavy simulation', () => {
@@ -15,12 +15,16 @@ describe('Simulation Soak Test', () => {
       cwAngularVelocity: 0,
       windVelocity: new Float64Array([5, 0, 2]),
       time: 0,
+      isReleased: false,
     }
 
-    const config = {
-      fixedTimestep: 0.005,
+    const config: SimulationConfig = {
+      initialTimestep: 0.005,
       maxSubsteps: 10,
       maxAccumulator: 1.0,
+      tolerance: 1e-6,
+      minTimestep: 1e-7,
+      maxTimestep: 0.01,
       projectile: {
         mass: 1,
         radius: 0.05,

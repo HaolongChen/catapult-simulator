@@ -22,6 +22,7 @@ export interface PhysicsState17DOF {
   readonly cwAngularVelocity: number
   readonly windVelocity: Float64Array
   readonly time: number
+  readonly isReleased: boolean
 }
 
 export interface PhysicsDerivative17DOF {
@@ -35,6 +36,7 @@ export interface PhysicsDerivative17DOF {
   readonly cwAngularVelocity: number
   readonly windVelocity: Float64Array
   readonly time: number
+  readonly isReleased: boolean
 }
 
 export interface ProjectileProperties {

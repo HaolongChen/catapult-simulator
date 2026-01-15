@@ -140,6 +140,7 @@ function createTestState(): PhysicsState17DOF {
     cwAngularVelocity: 0,
     windVelocity: new Float64Array([0, 0, 0]),
     time: 0,
+    isReleased: false,
   }
 }
 
@@ -155,6 +156,7 @@ function createZeroDerivative(): PhysicsDerivative17DOF {
     cwAngularVelocity: 0,
     windVelocity: new Float64Array([0, 0, 0]),
     time: 1,
+    isReleased: false,
   }
 }
 

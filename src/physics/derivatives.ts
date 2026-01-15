@@ -92,12 +92,12 @@ export function computeDerivatives(
     orientation,
     angularVelocity,
     windVelocity,
+    isReleased: wasReleased,
   } = state
   const {
     longArmLength: L1,
     shortArmLength: L2,
     slingLength: Ls,
-    releaseAngle,
     counterweightMass: Mcw,
     counterweightRadius: Rcw,
     armMass: Ma,
@@ -106,25 +106,6 @@ export function computeDerivatives(
   } = trebuchetProps
   const Mp = projectile.mass
   const g = 9.81
-
-  const wasReleased = orientation[0] > 0.5
-  const tipX = L1 * Math.cos(armAngle)
-  const tipY = H + L1 * Math.sin(armAngle)
-  const dx = position[0] - tipX
-  const dy = position[1] - tipY
-  const dz = position[2]
-  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz + 1e-12)
-  const ux = dx / dist,
-    uy = dy / dist,
-    uz = dz / dist
-  const armVecX = Math.cos(armAngle),
-    armVecY = Math.sin(armAngle)
-  const slingDotArm = ux * armVecX + uy * armVecY
-  const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360
-  const isUpward = normAng > 45 && normAng < 225
-  const releaseCondition =
-    !wasReleased && isUpward && slingDotArm > Math.cos(releaseAngle)
-  const isReleased = wasReleased || releaseCondition
 
   const airVel = new Float64Array([
     velocity[0] - windVelocity[0],
@@ -139,9 +120,21 @@ export function computeDerivatives(
     288.15,
   )
 
-  if (isReleased) {
+  const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360
+
+  if (wasReleased) {
     return computeFreeFlight(state, projectile, trebuchetProps, aero)
   }
+
+  const tipX = L1 * Math.cos(armAngle)
+  const tipY = H + L1 * Math.sin(armAngle)
+  const dx = position[0] - tipX
+  const dy = position[1] - tipY
+  const dz = position[2]
+  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz + 1e-12)
+  const ux = dx / dist,
+    uy = dy / dist,
+    uz = dz / dist
 
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
   const Icw_box = 0.4 * Mcw * Rcw * Rcw
@@ -158,7 +151,7 @@ export function computeDerivatives(
   const Q_th =
     -Ma * g * armCG * Math.cos(armAngle) +
     Mcw * g * L2 * Math.cos(armAngle) +
-    t_ext -
+    t_ext +
     Mcw * L2 * Rcw * cwAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
   const Q_phi =
     -Mcw * g * Rcw * Math.sin(cwAngle) -
@@ -173,8 +166,9 @@ export function computeDerivatives(
 
   const isTaut = dist >= Ls * 0.999
   const onGround = position[1] <= 0.005
+
   const J1 = [
-    L1 * (uy * Math.cos(armAngle) - ux * Math.sin(armAngle)),
+    L1 * (ux * Math.sin(armAngle) - uy * Math.cos(armAngle)),
     0,
     ux,
     uy,
@@ -191,14 +185,15 @@ export function computeDerivatives(
     J1[2] * velocity[0] +
     J1[3] * velocity[1] +
     J1[4] * velocity[2]
+
   const gamma1 =
-    -(relVelX ** 2 + relVelY ** 2 + relVelZ ** 2) / dist -
+    (C1_dot * C1_dot - (relVelX ** 2 + relVelY ** 2 + relVelZ ** 2)) / dist -
     armAngularVelocity ** 2 *
       L1 *
       (ux * Math.cos(armAngle) + uy * Math.sin(armAngle))
 
-  const alpha = 80,
-    beta = 150
+  const alpha = 20,
+    beta = 100
   const b_vec = [
     Q_forces[0],
     Q_forces[1],
@@ -216,10 +211,6 @@ export function computeDerivatives(
   A_matrix[2][2] = M_diag[2]
   A_matrix[3][3] = M_diag[3]
   A_matrix[4][4] = M_diag[4]
-
-  // Regularization for stability with extreme mass ratios
-  const eps = 1e-8
-  for (let i = 0; i < 7; i++) A_matrix[i][i] += eps
 
   if (isTaut) {
     for (let i = 0; i < 5; i++) {
@@ -246,8 +237,8 @@ export function computeDerivatives(
     ax = x[2],
     ay = x[3],
     az = x[4]
-  const lambda1 = x[5]
-  const lambda2 = x[6]
+  let lambda1 = x[5]
+  let lambda2 = x[6]
 
   let needResolve = false
   if (isTaut && lambda1 < 0) {
@@ -269,6 +260,8 @@ export function computeDerivatives(
     ax = x2[2]
     ay = x2[3]
     az = x2[4]
+    lambda1 = x2[5]
+    lambda2 = x2[6]
   }
 
   const w = angularVelocity,
@@ -284,9 +277,9 @@ export function computeDerivatives(
         0.5 * (q[0] * w[2] + q[1] * w[1] - q[2] * w[0]),
       ]),
       angularVelocity: new Float64Array([
-        -0.01 * w[0],
-        -0.01 * w[1],
-        -0.01 * w[2],
+        -0.1 * w[0],
+        -0.1 * w[1],
+        -0.1 * w[2],
       ]),
       armAngle: armAngularVelocity,
       armAngularVelocity: th_ddot,
@@ -294,6 +287,7 @@ export function computeDerivatives(
       cwAngularVelocity: phi_ddot,
       windVelocity: new Float64Array(3),
       time: 1,
+      isReleased: wasReleased,
     },
     forces: {
       drag: aero.drag,
@@ -343,7 +337,6 @@ function computeFreeFlight(
   const M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle)
   const M22 = Icw + Mcw * Rcw * Rcw
 
-  // Stable determinant calculation for extreme mass ratios
   const delta = armAngle - cwAngle
   const det =
     Ia * Icw +
@@ -354,11 +347,12 @@ function computeFreeFlight(
 
   const armCG = (L1 - L2) / 2
   const G1 =
-      -Ma * g * armCG * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle),
-    G2 = -Mcw * g * Rcw * Math.sin(cwAngle)
+    -Ma * g * armCG * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle)
+  const G2 = -Mcw * g * Rcw * Math.sin(cwAngle)
   const C1 =
-      -Mcw * L2 * Rcw * cwAngularVelocity ** 2 * Math.cos(armAngle - cwAngle),
-    C2 = Mcw * L2 * Rcw * armAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
+    -Mcw * L2 * Rcw * cwAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
+  const C2 =
+    Mcw * L2 * Rcw * armAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
   const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360
   let t_ext = -Math.sign(armAngularVelocity) * jointFriction * Mcw * g
   if (normAng > 160 && normAng < 180 && armAngularVelocity > 0)
@@ -370,9 +364,8 @@ function computeFreeFlight(
 
   let ay = (aero.total[1] - Mp * g) / Mp
 
-  // Improved ground collision: acceleration-based penalty to avoid mass-ratio issues and tunnelling
   if (position[1] < 0) {
-    const stiffness = 2000000 // Higher stiffness for high speed
+    const stiffness = 2000000
     const damping = 4000
     ay += stiffness * -position[1] - damping * velocity[1]
   }
@@ -396,6 +389,7 @@ function computeFreeFlight(
       cwAngularVelocity: phi_ddot,
       windVelocity: new Float64Array(3),
       time: 1,
+      isReleased: state.isReleased,
     },
     forces: {
       drag: aero.drag,

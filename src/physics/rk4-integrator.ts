@@ -36,27 +36,26 @@ export class RK4Integrator {
     this.accumulator += frameTime
 
     let steps = 0
-    const targetAccumulator = this.currentTimestep
 
-    while (
-      this.accumulator >= targetAccumulator &&
-      steps < this.config.maxSubsteps
-    ) {
+    while (this.accumulator >= this.config.initialTimestep) {
+      const dt = this.config.initialTimestep
       this.previousState = this.cloneState(this.state)
 
-      const adaptiveResult = this.adaptiveStep(
-        this.state,
-        derivative,
-        this.currentTimestep,
-      )
+      // Use a fixed step for integration stages to ensure 4th order convergence
+      const adaptiveResult = this.adaptiveStep(this.state, derivative, dt)
       this.state = adaptiveResult.newState
+
+      // We still update currentTimestep for the next frame's adaptive logic,
+      // but the accumulator loop uses initialTimestep to stay aligned with the frame.
       this.currentTimestep = adaptiveResult.nextTimestep
 
-      this.accumulator -= targetAccumulator
+      this.accumulator -= dt
       steps++
+
+      if (steps >= this.config.maxSubsteps) break
     }
 
-    const interpolationAlpha = this.accumulator / this.currentTimestep
+    const interpolationAlpha = this.accumulator / this.config.initialTimestep
 
     return {
       newState: this.state,
@@ -167,6 +166,7 @@ export class RK4Integrator {
         scale,
       ),
       time: newTime,
+      isReleased: state.isReleased || derivative.isReleased,
     }
   }
 
@@ -250,6 +250,12 @@ export class RK4Integrator {
         d4.windVelocity,
       ),
       time: state.time + dt,
+      isReleased:
+        state.isReleased ||
+        d1.isReleased ||
+        d2.isReleased ||
+        d3.isReleased ||
+        d4.isReleased,
     }
   }
 
@@ -275,6 +281,7 @@ export class RK4Integrator {
       cwAngle: state.cwAngle,
       cwAngularVelocity: state.cwAngularVelocity,
       time: state.time,
+      isReleased: state.isReleased,
     }
   }
 
@@ -313,6 +320,7 @@ export class RK4Integrator {
       cwAngularVelocity:
         s1.cwAngularVelocity * (1 - alpha) + s2.cwAngularVelocity * alpha,
       time: s1.time * (1 - alpha) + s2.time * alpha,
+      isReleased: s2.isReleased,
     }
   }
 

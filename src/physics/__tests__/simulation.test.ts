@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { physicsLogger } from '../logging'
 import type { PhysicsState17DOF, SimulationConfig } from '../types'
@@ -116,6 +116,7 @@ function createTestState(): PhysicsState17DOF {
     cwAngularVelocity: 0,
     windVelocity: new Float64Array([0, 0, 0]),
     time: 0,
+    isReleased: false,
   }
 }
 

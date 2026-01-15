@@ -52,76 +52,48 @@ export class CatapultSimulation {
     }
 
     const result = this.integrator.update(deltaTime, derivativeFunction)
-    this.state = this.projectConstraints(result.newState)
-    this.latchRelease()
+    this.state = result.newState
+
+    const q = this.state.orientation
+    const qMag = Math.sqrt(
+      q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3],
+    )
+    if (qMag > 1e-12) {
+      this.state = {
+        ...this.state,
+        orientation: new Float64Array([
+          q[0] / qMag,
+          q[1] / qMag,
+          q[2] / qMag,
+          q[3] / qMag,
+        ]),
+      }
+    }
+
+    // Check for release condition
+    if (!this.state.isReleased) {
+      const tension = this.lastForces.tension
+      const tensionMag = Math.sqrt(
+        tension[0] ** 2 + tension[1] ** 2 + tension[2] ** 2,
+      )
+      const releaseThreshold = 0.1 * this.config.projectile.mass * 9.81
+
+      // Get arm angle to check if it's upward
+      const normAng =
+        ((((this.state.armAngle * 180) / Math.PI) % 360) + 360) % 360
+      const isUpward = normAng > 45 && normAng < 225
+
+      if (isUpward && tensionMag < releaseThreshold) {
+        this.state = {
+          ...this.state,
+          isReleased: true,
+        }
+      }
+    }
 
     physicsLogger.log(this.state, this.lastForces, this.config)
 
     return this.state
-  }
-
-  private latchRelease() {
-    if (this.state.orientation[0] > 0.5) return
-
-    const {
-      longArmLength: L1,
-      pivotHeight: H,
-      releaseAngle,
-    } = this.config.trebuchet
-    const { armAngle, position } = this.state
-    const tipX = L1 * Math.cos(armAngle)
-    const tipY = H + L1 * Math.sin(armAngle)
-    const dx = position[0] - tipX
-    const dy = position[1] - tipY
-    const dz = position[2]
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz + 1e-12)
-    const ux = dx / dist,
-      uy = dy / dist
-
-    const armVecX = Math.cos(armAngle),
-      armVecY = Math.sin(armAngle)
-    const slingDotArm = ux * armVecX + uy * armVecY
-    const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360
-
-    if (normAng > 45 && normAng < 270 && slingDotArm > Math.cos(releaseAngle)) {
-      ;(this.state.orientation as any)[0] = 1.0
-    }
-  }
-
-  private projectConstraints(state: PhysicsState17DOF): PhysicsState17DOF {
-    const isReleased = state.orientation[0] > 0.5
-    if (isReleased) return state
-
-    const {
-      longArmLength: L1,
-      slingLength: Ls,
-      pivotHeight: H,
-    } = this.config.trebuchet
-    const { armAngle, position } = state
-
-    const tipX = L1 * Math.cos(armAngle)
-    const tipY = H + L1 * Math.sin(armAngle)
-    const dx = position[0] - tipX
-    const dy = position[1] - tipY
-    const dz = position[2]
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz + 1e-12)
-
-    if (Math.abs(dist - Ls) > 0.0001) {
-      const ux = dx / dist
-      const uy = dy / dist
-      const uz = dz / dist
-
-      const newPos = new Float64Array(position)
-      newPos[0] = tipX + ux * Ls
-      newPos[1] = Math.max(0, tipY + uy * Ls)
-      newPos[2] = uz * Ls
-
-      return {
-        ...state,
-        position: newPos,
-      }
-    }
-    return state
   }
 
   getLastForces(): PhysicsForces {

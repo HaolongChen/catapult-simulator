@@ -11,7 +11,7 @@ export interface LogRecord {
 }
 
 export class PhysicsLogger {
-  private records: LogRecord[] = []
+  private records: Array<LogRecord> = []
   private isEnabled = false
 
   public enable() {
@@ -70,7 +70,7 @@ export class PhysicsLogger {
     )
   }
 
-  public getRecords(): LogRecord[] {
+  public getRecords(): Array<LogRecord> {
     return this.records
   }
 
