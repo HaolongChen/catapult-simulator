@@ -65,9 +65,12 @@ export interface TrebuchetProperties {
 }
 
 export interface SimulationConfig {
-  fixedTimestep: number
+  initialTimestep: number
   maxSubsteps: number
   maxAccumulator: number
+  tolerance: number
+  minTimestep: number
+  maxTimestep: number
   projectile: ProjectileProperties
   trebuchet: TrebuchetProperties
 }
@@ -89,9 +92,12 @@ export type DerivativeFunction = (
 }
 
 export interface RK4Config {
-  fixedTimestep: number
+  initialTimestep: number
   maxSubsteps: number
   maxAccumulator: number
+  tolerance: number
+  minTimestep: number
+  maxTimestep: number
 }
 
 export interface RK4Result {

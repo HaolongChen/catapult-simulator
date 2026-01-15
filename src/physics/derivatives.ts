@@ -14,53 +14,65 @@ function solveLinearSystem(
   b: Array<number>,
 ): Array<number> {
   const n = b.length
-  const matrix = A.map((row) => [...row])
-  const rhs = [...b]
+  const L = Array.from({ length: n }, () => new Array(n).fill(0))
+  const U = A.map((row) => [...row])
+  const P = Array.from({ length: n }, (_, i) => i)
 
-  // Forward elimination with partial pivoting
   for (let i = 0; i < n; i++) {
-    let max = Math.abs(matrix[i][i])
+    let max = Math.abs(U[i][i])
     let maxRow = i
     for (let k = i + 1; k < n; k++) {
-      if (Math.abs(matrix[k][i]) > max) {
-        max = Math.abs(matrix[k][i])
+      if (Math.abs(U[k][i]) > max) {
+        max = Math.abs(U[k][i])
         maxRow = k
       }
     }
-    const tempRow = matrix[maxRow]
-    matrix[maxRow] = matrix[i]
-    matrix[i] = tempRow
-    const tempB = rhs[maxRow]
-    rhs[maxRow] = rhs[i]
-    rhs[i] = tempB
 
-    const pivotVal = matrix[i][i]
+    const tempRow = U[i]
+    U[i] = U[maxRow]
+    U[maxRow] = tempRow
+    const tempP = P[i]
+    P[i] = P[maxRow]
+    P[maxRow] = tempP
+
+    for (let k = 0; k < i; k++) {
+      const tempL = L[i][k]
+      L[i][k] = L[maxRow][k]
+      L[maxRow][k] = tempL
+    }
+
+    const pivotVal = U[i][i]
     if (Math.abs(pivotVal) < 1e-20) {
-      matrix[i][i] = matrix[i][i] < 0 ? -1e-20 : 1e-20
+      U[i][i] = pivotVal < 0 ? -1e-20 : 1e-20
     }
 
     for (let k = i + 1; k < n; k++) {
-      const c = -matrix[k][i] / matrix[i][i]
-      matrix[k][i] = 0
-      for (let j = i + 1; j < n; j++) {
-        matrix[k][j] += c * matrix[i][j]
+      L[k][i] = U[k][i] / U[i][i]
+      for (let j = i; j < n; j++) {
+        U[k][j] -= L[k][i] * U[i][j]
       }
-      rhs[k] += c * rhs[i]
     }
+    L[i][i] = 1
   }
 
-  // Back substitution
+  const y = new Array(n).fill(0)
+  for (let i = 0; i < n; i++) {
+    let sum = 0
+    for (let j = 0; j < i; j++) {
+      sum += L[i][j] * y[j]
+    }
+    y[i] = b[P[i]] - sum
+  }
+
   const x = new Array(n).fill(0)
   for (let i = n - 1; i >= 0; i--) {
     let sum = 0
     for (let j = i + 1; j < n; j++) {
-      sum += matrix[i][j] * x[j]
+      sum += U[i][j] * x[j]
     }
-    const pivotVal = matrix[i][i]
-    x[i] =
-      (rhs[i] - sum) /
-      (Math.abs(pivotVal) < 1e-20 ? (pivotVal < 0 ? -1e-20 : 1e-20) : pivotVal)
+    x[i] = (y[i] - sum) / U[i][i]
   }
+
   return x
 }
 

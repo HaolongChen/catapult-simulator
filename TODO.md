@@ -1,6 +1,6 @@
 # PROJECT TODO
 
-**Updated:** 2026-01-13
+**Updated:** 2026-01-14
 **Project:** Catapult Simulator (University-Grade Computational Physics Laboratory)
 
 ---
@@ -23,47 +23,68 @@ Build an **extremely realistic** university-grade computational physics laborato
 
 - [x] Project initialization with TanStack Start stack
 - [x] Lagrangian Mechanics foundation (17-DOF state space)
-- [x] **Lagrangian DAE Solver** - Coupled 6x6 matrix solver for rigid constraints
+- [x] **Lagrangian DAE Solver** - Coupled matrix solver for rigid constraints
 - [x] **Full 17-DOF Integration** - Quaternion-based rotation + translational motion
 - [x] **3D Aerodynamic Model** - Magnus lift + quadratic drag in true 3D space
 - [x] **A-Frame Trebuchet Model** - Engineering-accurate pivot/axle alignment
-- [x] Comprehensive test suite (60+ tests passing)
+- [x] Comprehensive test suite (86+ tests passing)
 
 ---
 
 ## 🚧 In Progress
 
-### Phase 4: Advanced Visualization & Camera (Current)
+### Phase 1-2: Physics Engine Perfection (Current)
 
-- [ ] Post-processing pipeline
-  - [ ] ACES Tone Mapping
-  - [ ] Motion Blur
-  - [ ] Bloom
-- [ ] Particle systems
-  - [ ] Ground impact debris
-  - [ ] Counterweight launch dust
-- [ ] Dynamic Camera System
-  - [ ] Tracking shot
-  - [ ] Target-view
+The goal is to achieve research-grade accuracy and numerical stability before any visualization.
+
+- [x] **Numerical Stability & Robustness**
+  - [x] Implement adaptive time-stepping (Richardson Extrapolation) in RK4 integrator
+  - [x] Refactor DAE solver to use LU decomposition with partial pivoting
+  - [ ] Make Baumgarte stabilization parameters (alpha, beta) configurable
+  - [ ] Implement singularity handling for vertical arm and aligned sling positions
+- [ ] **Physical Rigor & Fidelity**
+  - [ ] Integrate `catapultTorque` from `trebuchet.ts` into `derivatives.ts` for consistency
+  - [ ] Implement Euler-Bernoulli arm flexure (vibration modes) in derivative calculations
+  - [ ] Fix Magnus coefficient to use dynamic spin parameter based on actual velocity
+  - [ ] Fully integrate `atmosphericModel` with dynamic surface temperature and pressure
+- [ ] **Sling & Rope Dynamics**
+  - [ ] Transition from rigid constraint to multi-segment lumped-mass cable model
+- [ ] **Verification & Validation**
+  - [ ] Implement Hamiltonian (Energy) monitoring to verify conservation
+  - [ ] Add Richardson Extrapolation convergence analysis tests
+  - [ ] Performance optimization (GC pressure reduction, pre-allocated Float64Arrays)
 
 ---
 
 ## 📋 Planned
 
-### Phase 5: Ultra-Realistic Assets
+### Phase 3: Collision Detection & Environment (Rapier)
 
-- [ ] 4K Wood and Iron textures
-- [ ] Multi-segment flexible rope model
-- [ ] Weather effects (Wind visualization)
+- [ ] Rapier integration for ground and object collisions
+- [ ] Impulse-based collision resolution for projectile bounces
+- [ ] Destructible targets and environment interaction
 
-### Phase 6: Collision Detection & Targets
+### Phase 4: 3D Visualization (R3F)
 
-- [ ] Rapier integration for environment collision
-- [ ] Destructible targets
-- [ ] Accuracy scoring
+- [ ] 3D Rendering of Trebuchet and Projectile
+- [ ] Scene lighting, HDRI, and shadows
+- [ ] Vector visualization (forces, velocity, acceleration)
+- [ ] Ghost trajectories and historical data display
 
-### Phase 7: Validation & Polish
+### Phase 5: UI & Educational Controls
 
-- [ ] Euler-Bernoulli Beam Flexure for arm vibration
-- [ ] GPU physics performance optimization
+- [ ] Advanced parameter control panel (Shadcn UI)
+- [ ] Real-time graphing of energy and force vectors
+- [ ] Tutorial system and physics explanations
+
+### Phase 6: Visual Polish & Advanced Assets
+
+- [ ] Post-processing (Bloom, ACES, Motion Blur)
+- [ ] Particle systems (Dust, Debris, Air displacement)
+- [ ] 4K PBR textures and high-fidelity models
+
+### Phase 7: Final Validation & API
+
 - [ ] API Documentation
+- [ ] Final performance benchmarking
+- [ ] Browser compatibility and responsiveness

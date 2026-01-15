@@ -9,14 +9,18 @@ import type {
 export type { RK4Config }
 
 const DEFAULT_CONFIG: RK4Config = {
-  fixedTimestep: 0.01,
-  maxSubsteps: 100,
+  initialTimestep: 0.001,
+  maxSubsteps: 1000,
   maxAccumulator: 1.0,
+  tolerance: 1e-6,
+  minTimestep: 1e-7,
+  maxTimestep: 0.01,
 }
 
 export class RK4Integrator {
   private config: RK4Config
   private accumulator = 0
+  private currentTimestep: number
 
   private state: PhysicsState17DOF
   private previousState: PhysicsState17DOF
@@ -25,33 +29,89 @@ export class RK4Integrator {
     this.config = { ...DEFAULT_CONFIG, ...config }
     this.state = initialState
     this.previousState = this.cloneState(initialState)
+    this.currentTimestep = this.config.initialTimestep
   }
 
   update(frameTime: number, derivative: DerivativeFunction): RK4Result {
     this.accumulator += frameTime
 
     let steps = 0
+    const targetAccumulator = this.currentTimestep
+
     while (
-      this.accumulator >= this.config.fixedTimestep &&
+      this.accumulator >= targetAccumulator &&
       steps < this.config.maxSubsteps
     ) {
       this.previousState = this.cloneState(this.state)
-      const subStepSize = this.config.fixedTimestep / 10
-      for (let i = 0; i < 10; i++) {
-        const { derivative: d } = derivative(this.state.time, this.state)
-        this.state = this.rk4Step(this.state, d, derivative, subStepSize)
-      }
-      this.accumulator -= this.config.fixedTimestep
+
+      const adaptiveResult = this.adaptiveStep(
+        this.state,
+        derivative,
+        this.currentTimestep,
+      )
+      this.state = adaptiveResult.newState
+      this.currentTimestep = adaptiveResult.nextTimestep
+
+      this.accumulator -= targetAccumulator
       steps++
     }
 
-    const interpolationAlpha = this.accumulator / this.config.fixedTimestep
+    const interpolationAlpha = this.accumulator / this.currentTimestep
 
     return {
       newState: this.state,
       stepsTaken: steps,
       interpolationAlpha,
     }
+  }
+
+  private adaptiveStep(
+    state: PhysicsState17DOF,
+    derivative: DerivativeFunction,
+    dt: number,
+  ): { newState: PhysicsState17DOF; nextTimestep: number } {
+    const { derivative: d1 } = derivative(state.time, state)
+    const stateFull = this.rk4Step(state, d1, derivative, dt)
+
+    const dtHalf = dt * 0.5
+    const stateHalf1 = this.rk4Step(state, d1, derivative, dtHalf)
+    const { derivative: dHalf2 } = derivative(stateHalf1.time, stateHalf1)
+    const stateHalf2 = this.rk4Step(stateHalf1, dHalf2, derivative, dtHalf)
+
+    const error = this.calculateError(stateFull, stateHalf2)
+
+    let nextTimestep = dt
+    if (error > 0) {
+      const scale = 0.9 * Math.pow(this.config.tolerance / error, 0.2)
+      nextTimestep = Math.max(
+        this.config.minTimestep,
+        Math.min(this.config.maxTimestep, dt * scale),
+      )
+    }
+
+    return { newState: stateHalf2, nextTimestep }
+  }
+
+  private calculateError(s1: PhysicsState17DOF, s2: PhysicsState17DOF): number {
+    let maxError = 0
+
+    const checkArray = (a: Float64Array, b: Float64Array) => {
+      for (let i = 0; i < a.length; i++) {
+        const diff = Math.abs(a[i] - b[i])
+        if (diff > maxError) maxError = diff
+      }
+    }
+
+    checkArray(s1.position, s2.position)
+    checkArray(s1.velocity, s2.velocity)
+
+    const armAngleDiff = Math.abs(s1.armAngle - s2.armAngle)
+    if (armAngleDiff > maxError) maxError = armAngleDiff
+
+    const cwAngleDiff = Math.abs(s1.cwAngle - s2.cwAngle)
+    if (cwAngleDiff > maxError) maxError = cwAngleDiff
+
+    return maxError
   }
 
   public getState(): PhysicsState17DOF {
@@ -219,7 +279,7 @@ export class RK4Integrator {
   }
 
   getInterpolationAlpha(): number {
-    return this.accumulator / this.config.fixedTimestep
+    return this.accumulator / this.currentTimestep
   }
 
   getRenderState(): PhysicsState17DOF {

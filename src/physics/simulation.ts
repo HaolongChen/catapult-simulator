@@ -1,5 +1,6 @@
 import { RK4Integrator } from './rk4-integrator'
 import { computeDerivatives } from './derivatives'
+import { physicsLogger } from './logging'
 import type {
   PhysicsForces,
   PhysicsState17DOF,
@@ -28,10 +29,14 @@ export class CatapultSimulation {
     this.config = config
     this.normalForce = config.trebuchet.counterweightMass * 9.81
     this.integrator = new RK4Integrator(initialState, {
-      fixedTimestep: config.fixedTimestep,
+      initialTimestep: config.initialTimestep,
       maxSubsteps: config.maxSubsteps,
       maxAccumulator: config.maxAccumulator,
+      tolerance: config.tolerance,
+      minTimestep: config.minTimestep,
+      maxTimestep: config.maxTimestep,
     })
+    physicsLogger.log(this.state, this.lastForces, this.config)
   }
 
   update(deltaTime: number): PhysicsState17DOF {
@@ -49,6 +54,8 @@ export class CatapultSimulation {
     const result = this.integrator.update(deltaTime, derivativeFunction)
     this.state = this.projectConstraints(result.newState)
     this.latchRelease()
+
+    physicsLogger.log(this.state, this.lastForces, this.config)
 
     return this.state
   }
