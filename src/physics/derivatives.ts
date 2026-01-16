@@ -299,6 +299,7 @@ export function computeDerivatives(
         aero.total[1] - uy * lambda1 - Mp * g - lambda2,
         aero.total[2] - uz * lambda1,
       ]),
+      groundNormal: -lambda2,
     },
   }
 }
@@ -397,6 +398,7 @@ function computeFreeFlight(
       gravity: new Float64Array([0, -Mp * g, 0]),
       tension: new Float64Array(3),
       total: aero.total,
+      groundNormal: position[1] < 0 ? 2000000 * -position[1] : 0,
     },
   }
 }

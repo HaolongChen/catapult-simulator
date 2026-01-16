@@ -2,6 +2,7 @@ import { RK4Integrator } from './rk4-integrator'
 import { computeDerivatives } from './derivatives'
 import { physicsLogger } from './logging'
 import type {
+  FrameData,
   PhysicsForces,
   PhysicsState17DOF,
   SimulationConfig,
@@ -15,6 +16,7 @@ const EMPTY_FORCES: PhysicsForces = {
   gravity: new Float64Array(3),
   tension: new Float64Array(3),
   total: new Float64Array(3),
+  groundNormal: 0,
 }
 
 export class CatapultSimulation {
@@ -98,6 +100,204 @@ export class CatapultSimulation {
 
   getLastForces(): PhysicsForces {
     return this.lastForces
+  }
+
+  exportFrameData(): FrameData {
+    const {
+      longArmLength: L1,
+      shortArmLength: L2,
+      pivotHeight: H,
+      counterweightRadius: Rcw,
+      slingLength: Ls,
+    } = this.config.trebuchet
+    const {
+      armAngle,
+      cwAngle,
+      position,
+      orientation,
+      velocity,
+      angularVelocity,
+      isReleased,
+      time,
+    } = this.state
+
+    // Calculate 3D positions
+    const pivot: [number, number, number] = [0, H, 0]
+    const longArmTip: [number, number, number] = [
+      L1 * Math.cos(armAngle),
+      H + L1 * Math.sin(armAngle),
+      0,
+    ]
+    const shortArmTip: [number, number, number] = [
+      -L2 * Math.cos(armAngle),
+      H - L2 * Math.sin(armAngle),
+      0,
+    ]
+    const counterweightPos: [number, number, number] = [
+      shortArmTip[0] + Rcw * Math.sin(cwAngle),
+      shortArmTip[1] - Rcw * Math.cos(cwAngle),
+      0,
+    ]
+
+    // Calculate bounding boxes
+    const projectileBB = {
+      min: [
+        position[0] - this.config.projectile.radius,
+        position[1] - this.config.projectile.radius,
+        position[2] - this.config.projectile.radius,
+      ] as [number, number, number],
+      max: [
+        position[0] + this.config.projectile.radius,
+        position[1] + this.config.projectile.radius,
+        position[2] + this.config.projectile.radius,
+      ] as [number, number, number],
+    }
+    const armBB = {
+      min: [
+        Math.min(shortArmTip[0], longArmTip[0]),
+        Math.min(shortArmTip[1], longArmTip[1]),
+        -0.1,
+      ] as [number, number, number],
+      max: [
+        Math.max(shortArmTip[0], longArmTip[0]),
+        Math.max(shortArmTip[1], longArmTip[1]),
+        0.1,
+      ] as [number, number, number],
+    }
+    const cwBB = {
+      min: [counterweightPos[0] - Rcw, counterweightPos[1] - Rcw, -Rcw] as [
+        number,
+        number,
+        number,
+      ],
+      max: [counterweightPos[0] + Rcw, counterweightPos[1] + Rcw, Rcw] as [
+        number,
+        number,
+        number,
+      ],
+    }
+
+    // Calculate sling constraint violation
+    const slingStart = longArmTip
+    const slingEnd = [position[0], position[1], position[2]]
+    const currentSlingLength = Math.sqrt(
+      (slingEnd[0] - slingStart[0]) ** 2 +
+        (slingEnd[1] - slingStart[1]) ** 2 +
+        (slingEnd[2] - slingStart[2]) ** 2,
+    )
+
+    // Determine phase
+    let phase = isReleased ? 'released' : 'swinging'
+    if (!isReleased && this.lastForces.groundNormal > 0) {
+      phase = 'ground_dragging'
+    }
+
+    return {
+      time,
+      timestep: this.config.initialTimestep,
+      projectile: {
+        position: [position[0], position[1], position[2]],
+        orientation: [
+          orientation[0],
+          orientation[1],
+          orientation[2],
+          orientation[3],
+        ],
+        velocity: [velocity[0], velocity[1], velocity[2]],
+        angularVelocity: [
+          angularVelocity[0],
+          angularVelocity[1],
+          angularVelocity[2],
+        ],
+        radius: this.config.projectile.radius,
+        boundingBox: projectileBB,
+      },
+      arm: {
+        angle: armAngle,
+        angularVelocity: this.state.armAngularVelocity,
+        pivot,
+        longArmTip,
+        shortArmTip,
+        longArmLength: L1,
+        shortArmLength: L2,
+        boundingBox: armBB,
+      },
+      counterweight: {
+        angle: cwAngle,
+        angularVelocity: this.state.cwAngularVelocity,
+        position: counterweightPos,
+        radius: Rcw,
+        attachmentPoint: shortArmTip,
+        boundingBox: cwBB,
+      },
+      sling: {
+        isAttached: !isReleased,
+        startPoint: longArmTip,
+        endPoint: slingEnd as [number, number, number],
+        length: Ls,
+        tension: Math.sqrt(
+          this.lastForces.tension[0] ** 2 +
+            this.lastForces.tension[1] ** 2 +
+            this.lastForces.tension[2] ** 2,
+        ),
+        tensionVector: [
+          this.lastForces.tension[0],
+          this.lastForces.tension[1],
+          this.lastForces.tension[2],
+        ],
+      },
+      ground: {
+        height: 0,
+        normalForce: this.lastForces.groundNormal,
+      },
+      forces: {
+        projectile: {
+          gravity: [
+            this.lastForces.gravity[0],
+            this.lastForces.gravity[1],
+            this.lastForces.gravity[2],
+          ],
+          drag: [
+            this.lastForces.drag[0],
+            this.lastForces.drag[1],
+            this.lastForces.drag[2],
+          ],
+          magnus: [
+            this.lastForces.magnus[0],
+            this.lastForces.magnus[1],
+            this.lastForces.magnus[2],
+          ],
+          tension: [
+            this.lastForces.tension[0],
+            this.lastForces.tension[1],
+            this.lastForces.tension[2],
+          ],
+          total: [
+            this.lastForces.total[0],
+            this.lastForces.total[1],
+            this.lastForces.total[2],
+          ],
+        },
+        arm: {
+          springTorque: 0, // Not implemented
+          dampingTorque: 0, // Not implemented
+          frictionTorque: 0, // Not implemented
+          totalTorque: 0, // Not implemented
+        },
+      },
+      constraints: {
+        slingLength: {
+          current: currentSlingLength,
+          target: Ls,
+          violation: currentSlingLength - Ls,
+        },
+        groundContact: {
+          penetration: Math.min(0, counterweightPos[1] - Rcw),
+          isActive: this.lastForces.groundNormal > 0,
+        },
+      },
+      phase,
+    }
   }
 
   getRenderState(): PhysicsState17DOF {

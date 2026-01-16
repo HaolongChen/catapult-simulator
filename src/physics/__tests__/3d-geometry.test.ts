@@ -264,7 +264,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
     it('should have smooth projectile position transitions', () => {
       const config = createStandardConfig()
       const sim = new CatapultSimulation(createInitialState(config), config)
-      let prevPos = new Float64Array(createInitialState(config).position)
+      const prevPos = new Float64Array(createInitialState(config).position)
       for (let i = 0; i < 200; i++) {
         const s = sim.update(0.01)
         const dx = s.position[0] - prevPos[0]
@@ -382,6 +382,68 @@ describe('3D Geometry & Collision Validation Suite', () => {
         expect(forces.total).toHaveLength(3)
         expect(forces.total[0]).not.toBeNaN()
       }
+    })
+  })
+
+  describe('exportFrameData', () => {
+    it('should export complete and valid frame data', () => {
+      const config = createStandardConfig()
+      const sim = new CatapultSimulation(createInitialState(config), config)
+      sim.update(0.1)
+      const frame = sim.exportFrameData()
+
+      // Check that all top-level keys exist
+      expect(frame).toHaveProperty('time')
+      expect(frame).toHaveProperty('projectile')
+      expect(frame).toHaveProperty('arm')
+      expect(frame).toHaveProperty('counterweight')
+      expect(frame).toHaveProperty('sling')
+      expect(frame).toHaveProperty('ground')
+      expect(frame).toHaveProperty('forces')
+      expect(frame).toHaveProperty('constraints')
+      expect(frame).toHaveProperty('phase')
+
+      // Check a few key values
+      expect(frame.projectile.position.every(isFinite)).toBe(true)
+      expect(frame.arm.longArmTip.every(isFinite)).toBe(true)
+      expect(frame.counterweight.position.every(isFinite)).toBe(true)
+      expect(frame.sling.startPoint.every(isFinite)).toBe(true)
+      expect(frame.sling.endPoint.every(isFinite)).toBe(true)
+    })
+
+    it('should correctly calculate arm tip positions', () => {
+      const config = createStandardConfig()
+      // Set armAngle to 0 for easy calculation
+      const initialState = createInitialState(config)
+      const state = { ...initialState, armAngle: 0 }
+      const sim = new CatapultSimulation(state, config)
+      const frame = sim.exportFrameData()
+
+      const expectedLongTip = [
+        config.trebuchet.longArmLength * Math.cos(0),
+        config.trebuchet.pivotHeight +
+          config.trebuchet.longArmLength * Math.sin(0),
+        0,
+      ]
+      expect(frame.arm.longArmTip[0]).toBeCloseTo(expectedLongTip[0])
+      expect(frame.arm.longArmTip[1]).toBeCloseTo(expectedLongTip[1])
+    })
+
+    it('should correctly calculate sling length violation', () => {
+      const config = createStandardConfig()
+      const sim = new CatapultSimulation(createInitialState(config), config)
+      sim.update(0.1)
+      const frame = sim.exportFrameData()
+
+      const dx = frame.sling.endPoint[0] - frame.sling.startPoint[0]
+      const dy = frame.sling.endPoint[1] - frame.sling.startPoint[1]
+      const dz = frame.sling.endPoint[2] - frame.sling.startPoint[2]
+      const length = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+      expect(frame.constraints.slingLength.current).toBeCloseTo(length)
+      expect(frame.constraints.slingLength.violation).toBeCloseTo(
+        length - frame.sling.length,
+      )
     })
   })
 })
