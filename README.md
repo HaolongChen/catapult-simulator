@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# Catapult Simulator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A high-fidelity 17-DOF physics simulation of a medieval trebuchet, built with Vite, React, and React Three Fiber.
 
-Currently, two official plugins are available:
+## 🚀 Getting Started
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1.  **Install dependencies:**
 
-## React Compiler
+    ```bash
+    pnpm install
+    ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+2.  **Export simulation trajectory:**
 
-## Expanding the ESLint configuration
+    ```bash
+    pnpm export-trajectory
+    ```
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+3.  **Start development server:**
+    ```bash
+    pnpm dev
+    ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🛠️ Tech Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **Frontend:** React 19, Vite, Tailwind CSS
+- **Visualization:** React Three Fiber, Three.js
+- **Physics Engine:** Custom 17-DOF Lagrangian mechanics solver
+- **State Management:** @tanstack/store
+- **Testing:** Vitest
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 📐 Physics Engineering
+
+The simulator implements a high-fidelity Lagrangian DAE (Differential-Algebraic Equation) system:
+
+- **Integrator:** RK4 (Runge-Kutta 4th order) with adaptive sub-stepping
+- **Constraint Solver:** Baumgarte-stabilized penalty method
+- **Aerodynamics:** Drag and Magnus effect models for spherical projectiles
+- **Degrees of Freedom:** 17-DOF covering arm rotation, counterweight swing, and full 3D projectile motion (position + orientation)
+
+## 🧪 Testing
+
+Run the full verification suite:
+
+```bash
+pnpm test
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Specific validation suites:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- `comprehensive-validation.test.ts`: Energy conservation, convergence, analytical solutions.
+- `3d-geometry.test.ts`: Forward kinematics, collision avoidance, visual continuity.

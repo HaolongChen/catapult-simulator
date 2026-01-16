@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { CatapultSimulation } from '../simulation'
-import { physicsLogger } from '../logging'
-import type { PhysicsState17DOF, SimulationConfig } from '../types'
+import { beforeEach, describe, expect, it } from "vitest";
+import { CatapultSimulation } from "../simulation";
+import { physicsLogger } from "../logging";
+import type { PhysicsState17DOF, SimulationConfig } from "../types";
 
 const MOCK_TREBUCHET = {
   longArmLength: 8,
@@ -18,7 +18,7 @@ const MOCK_TREBUCHET = {
   flexuralStiffness: 1000000,
   armMass: 100,
   pivotHeight: 5,
-}
+};
 
 const BASE_CONFIG = {
   initialTimestep: 0.01,
@@ -27,82 +27,82 @@ const BASE_CONFIG = {
   tolerance: 1e-6,
   minTimestep: 1e-7,
   maxTimestep: 0.01,
-}
+};
 
-describe('catapult-simulation', () => {
+describe("catapult-simulation", () => {
   beforeEach(() => {
-    physicsLogger.clear()
-    physicsLogger.enable()
-  })
+    physicsLogger.clear();
+    physicsLogger.enable();
+  });
 
-  describe('constructor', () => {
-    it('should initialize with config', () => {
-      const state: PhysicsState17DOF = createTestState()
+  describe("constructor", () => {
+    it("should initialize with config", () => {
+      const state: PhysicsState17DOF = createTestState();
       const config: SimulationConfig = {
         ...BASE_CONFIG,
         projectile: createTestProjectile(),
         trebuchet: MOCK_TREBUCHET,
-      }
-      const sim = new CatapultSimulation(state, config)
-      expect(sim).toBeDefined()
-    })
+      };
+      const sim = new CatapultSimulation(state, config);
+      expect(sim).toBeDefined();
+    });
 
-    it('should log initial state', () => {
-      const state: PhysicsState17DOF = createTestState()
+    it("should log initial state", () => {
+      const state: PhysicsState17DOF = createTestState();
       const config: SimulationConfig = {
         ...BASE_CONFIG,
         projectile: createTestProjectile(),
         trebuchet: MOCK_TREBUCHET,
-      }
-      new CatapultSimulation(state, config)
-      expect(physicsLogger.getRecords()).toHaveLength(1)
-      expect(physicsLogger.getRecords()[0].state.time).toBe(0)
-    })
-  })
+      };
+      new CatapultSimulation(state, config);
+      expect(physicsLogger.getRecords()).toHaveLength(1);
+      expect(physicsLogger.getRecords()[0].state.time).toBe(0);
+    });
+  });
 
-  describe('update', () => {
-    it('should advance simulation state', () => {
-      const state = createTestState()
+  describe("update", () => {
+    it("should advance simulation state", () => {
+      const state = createTestState();
       const config: SimulationConfig = {
         ...BASE_CONFIG,
         projectile: createTestProjectile(),
         trebuchet: MOCK_TREBUCHET,
-      }
-      const sim = new CatapultSimulation(state, config)
-      const newState = sim.update(0.01667)
-      expect(newState.time).toBeGreaterThan(0)
-    })
+      };
+      const sim = new CatapultSimulation(state, config);
+      const newState = sim.update(0.01667);
+      expect(newState.time).toBeGreaterThan(0);
+    });
 
-    it('should log subsequent states', () => {
-      const state = createTestState()
+    it("should log subsequent states", () => {
+      const state = createTestState();
       const config: SimulationConfig = {
         ...BASE_CONFIG,
         projectile: createTestProjectile(),
         trebuchet: MOCK_TREBUCHET,
-      }
-      const sim = new CatapultSimulation(state, config)
-      sim.update(0.01667)
-      sim.update(0.01667)
-      expect(physicsLogger.getRecords().length).toBeGreaterThan(2)
-    })
+      };
+      const sim = new CatapultSimulation(state, config);
+      sim.update(0.01667);
+      sim.update(0.01667);
+      expect(physicsLogger.getRecords().length).toBeGreaterThan(2);
+    });
 
-    it('should record all parameters in each record', () => {
-      const state = createTestState()
+    it("should record all parameters in each record", () => {
+      const state = createTestState();
       const config: SimulationConfig = {
         ...BASE_CONFIG,
         projectile: createTestProjectile(),
         trebuchet: MOCK_TREBUCHET,
-      }
-      const sim = new CatapultSimulation(state, config)
-      sim.update(0.01)
+      };
+      const sim = new CatapultSimulation(state, config);
+      sim.update(0.01);
 
       const lastRecord =
-        physicsLogger.getRecords()[physicsLogger.getRecords().length - 1]
-      expect(lastRecord.config.trebuchet.longArmLength).toBe(8)
-      expect(lastRecord.config.projectile.mass).toBe(1)
-    })
-  })
-})
+        physicsLogger.getRecords()[physicsLogger.getRecords().length - 1];
+      expect(lastRecord.config.trebuchet.longArmLength).toBe(8);
+      expect(lastRecord.config.projectile.mass).toBe(1);
+    });
+  });
+});
 
 function createTestState(): PhysicsState17DOF {
   return {
@@ -117,7 +117,7 @@ function createTestState(): PhysicsState17DOF {
     windVelocity: new Float64Array([0, 0, 0]),
     time: 0,
     isReleased: false,
-  }
+  };
 }
 
 function createTestProjectile() {
@@ -129,5 +129,5 @@ function createTestProjectile() {
     magnusCoefficient: 0.3,
     momentOfInertia: new Float64Array([0.01, 0.01, 0.01]),
     spin: 0,
-  }
+  };
 }

@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { computeDerivatives } from '../derivatives'
+import { describe, expect, it } from "vitest";
+import { computeDerivatives } from "../derivatives";
 import type {
   PhysicsState17DOF,
   ProjectileProperties,
   TrebuchetProperties,
-} from '../types'
+} from "../types";
 
-describe('Sling Physics', () => {
+describe("Sling Physics", () => {
   const projectile: ProjectileProperties = {
     mass: 5.0,
     radius: 0.1,
@@ -15,7 +15,7 @@ describe('Sling Physics', () => {
     magnusCoefficient: 0,
     momentOfInertia: new Float64Array([0.01, 0.01, 0.01]),
     spin: 0,
-  }
+  };
 
   const trebuchet: TrebuchetProperties = {
     longArmLength: 3.0,
@@ -32,9 +32,9 @@ describe('Sling Physics', () => {
     flexuralStiffness: 0,
     armMass: 20.0,
     pivotHeight: 2.0,
-  }
+  };
 
-  it('should compute sling tension when projectile is stretched', () => {
+  it("should compute sling tension when projectile is stretched", () => {
     const state: PhysicsState17DOF = {
       position: new Float64Array([8.1, 2, 0]),
       velocity: new Float64Array([0, 0, 0]),
@@ -47,12 +47,12 @@ describe('Sling Physics', () => {
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
       isReleased: false,
-    }
-    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0)
-    expect(derivative.velocity[0]).toBeLessThan(0)
-  })
+    };
+    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0);
+    expect(derivative.velocity[0]).toBeLessThan(0);
+  });
 
-  it('should handle ground phase', () => {
+  it("should handle ground phase", () => {
     const state: PhysicsState17DOF = {
       position: new Float64Array([2, 0, 0]),
       velocity: new Float64Array([1, 0, 0]),
@@ -65,12 +65,12 @@ describe('Sling Physics', () => {
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
       isReleased: false,
-    }
-    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0)
-    expect(derivative.position[1]).toBe(0)
-  })
+    };
+    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0);
+    expect(derivative.position[1]).toBe(0);
+  });
 
-  it('should not produce NaN values', () => {
+  it("should not produce NaN values", () => {
     const state: PhysicsState17DOF = {
       position: new Float64Array([0, 0, 0]),
       velocity: new Float64Array([0, 0, 0]),
@@ -83,9 +83,9 @@ describe('Sling Physics', () => {
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
       isReleased: false,
-    }
-    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0)
-    expect(isFinite(derivative.velocity[0])).toBe(true)
-    expect(isFinite(derivative.armAngularVelocity)).toBe(true)
-  })
-})
+    };
+    const { derivative } = computeDerivatives(state, projectile, trebuchet, 0);
+    expect(isFinite(derivative.velocity[0])).toBe(true);
+    expect(isFinite(derivative.armAngularVelocity)).toBe(true);
+  });
+});

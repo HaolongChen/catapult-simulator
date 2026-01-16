@@ -4,9 +4,9 @@ import type {
   PhysicsState17DOF,
   RK4Config,
   RK4Result,
-} from './types'
+} from "./types";
 
-export type { RK4Config }
+export type { RK4Config };
 
 const DEFAULT_CONFIG: RK4Config = {
   initialTimestep: 0.001,
@@ -15,53 +15,53 @@ const DEFAULT_CONFIG: RK4Config = {
   tolerance: 1e-6,
   minTimestep: 1e-7,
   maxTimestep: 0.01,
-}
+};
 
 export class RK4Integrator {
-  private config: RK4Config
-  private accumulator = 0
-  private currentTimestep: number
+  private config: RK4Config;
+  private accumulator = 0;
+  private currentTimestep: number;
 
-  private state: PhysicsState17DOF
-  private previousState: PhysicsState17DOF
+  private state: PhysicsState17DOF;
+  private previousState: PhysicsState17DOF;
 
   constructor(initialState: PhysicsState17DOF, config?: Partial<RK4Config>) {
-    this.config = { ...DEFAULT_CONFIG, ...config }
-    this.state = initialState
-    this.previousState = this.cloneState(initialState)
-    this.currentTimestep = this.config.initialTimestep
+    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.state = initialState;
+    this.previousState = this.cloneState(initialState);
+    this.currentTimestep = this.config.initialTimestep;
   }
 
   update(frameTime: number, derivative: DerivativeFunction): RK4Result {
-    this.accumulator += frameTime
+    this.accumulator += frameTime;
 
-    let steps = 0
+    let steps = 0;
 
     while (this.accumulator >= this.config.initialTimestep) {
-      const dt = this.config.initialTimestep
-      this.previousState = this.cloneState(this.state)
+      const dt = this.config.initialTimestep;
+      this.previousState = this.cloneState(this.state);
 
       // Use a fixed step for integration stages to ensure 4th order convergence
-      const adaptiveResult = this.adaptiveStep(this.state, derivative, dt)
-      this.state = adaptiveResult.newState
+      const adaptiveResult = this.adaptiveStep(this.state, derivative, dt);
+      this.state = adaptiveResult.newState;
 
       // We still update currentTimestep for the next frame's adaptive logic,
       // but the accumulator loop uses initialTimestep to stay aligned with the frame.
-      this.currentTimestep = adaptiveResult.nextTimestep
+      this.currentTimestep = adaptiveResult.nextTimestep;
 
-      this.accumulator -= dt
-      steps++
+      this.accumulator -= dt;
+      steps++;
 
-      if (steps >= this.config.maxSubsteps) break
+      if (steps >= this.config.maxSubsteps) break;
     }
 
-    const interpolationAlpha = this.accumulator / this.config.initialTimestep
+    const interpolationAlpha = this.accumulator / this.config.initialTimestep;
 
     return {
       newState: this.state,
       stepsTaken: steps,
       interpolationAlpha,
-    }
+    };
   }
 
   private adaptiveStep(
@@ -69,52 +69,52 @@ export class RK4Integrator {
     derivative: DerivativeFunction,
     dt: number,
   ): { newState: PhysicsState17DOF; nextTimestep: number } {
-    const { derivative: d1 } = derivative(state.time, state)
-    const stateFull = this.rk4Step(state, d1, derivative, dt)
+    const { derivative: d1 } = derivative(state.time, state);
+    const stateFull = this.rk4Step(state, d1, derivative, dt);
 
-    const dtHalf = dt * 0.5
-    const stateHalf1 = this.rk4Step(state, d1, derivative, dtHalf)
-    const { derivative: dHalf2 } = derivative(stateHalf1.time, stateHalf1)
-    const stateHalf2 = this.rk4Step(stateHalf1, dHalf2, derivative, dtHalf)
+    const dtHalf = dt * 0.5;
+    const stateHalf1 = this.rk4Step(state, d1, derivative, dtHalf);
+    const { derivative: dHalf2 } = derivative(stateHalf1.time, stateHalf1);
+    const stateHalf2 = this.rk4Step(stateHalf1, dHalf2, derivative, dtHalf);
 
-    const error = this.calculateError(stateFull, stateHalf2)
+    const error = this.calculateError(stateFull, stateHalf2);
 
-    let nextTimestep = dt
+    let nextTimestep = dt;
     if (error > 0) {
-      const scale = 0.9 * Math.pow(this.config.tolerance / error, 0.2)
+      const scale = 0.9 * Math.pow(this.config.tolerance / error, 0.2);
       nextTimestep = Math.max(
         this.config.minTimestep,
         Math.min(this.config.maxTimestep, dt * scale),
-      )
+      );
     }
 
-    return { newState: stateHalf2, nextTimestep }
+    return { newState: stateHalf2, nextTimestep };
   }
 
   private calculateError(s1: PhysicsState17DOF, s2: PhysicsState17DOF): number {
-    let maxError = 0
+    let maxError = 0;
 
     const checkArray = (a: Float64Array, b: Float64Array) => {
       for (let i = 0; i < a.length; i++) {
-        const diff = Math.abs(a[i] - b[i])
-        if (diff > maxError) maxError = diff
+        const diff = Math.abs(a[i] - b[i]);
+        if (diff > maxError) maxError = diff;
       }
-    }
+    };
 
-    checkArray(s1.position, s2.position)
-    checkArray(s1.velocity, s2.velocity)
+    checkArray(s1.position, s2.position);
+    checkArray(s1.velocity, s2.velocity);
 
-    const armAngleDiff = Math.abs(s1.armAngle - s2.armAngle)
-    if (armAngleDiff > maxError) maxError = armAngleDiff
+    const armAngleDiff = Math.abs(s1.armAngle - s2.armAngle);
+    if (armAngleDiff > maxError) maxError = armAngleDiff;
 
-    const cwAngleDiff = Math.abs(s1.cwAngle - s2.cwAngle)
-    if (cwAngleDiff > maxError) maxError = cwAngleDiff
+    const cwAngleDiff = Math.abs(s1.cwAngle - s2.cwAngle);
+    if (cwAngleDiff > maxError) maxError = cwAngleDiff;
 
-    return maxError
+    return maxError;
   }
 
   public getState(): PhysicsState17DOF {
-    return this.state
+    return this.state;
   }
 
   private rk4Step(
@@ -123,16 +123,16 @@ export class RK4Integrator {
     derivative: DerivativeFunction,
     dt: number,
   ): PhysicsState17DOF {
-    const state2 = this.addState(state, d1, dt * 0.5, state.time + dt * 0.5)
-    const { derivative: d2 } = derivative(state2.time, state2)
+    const state2 = this.addState(state, d1, dt * 0.5, state.time + dt * 0.5);
+    const { derivative: d2 } = derivative(state2.time, state2);
 
-    const state3 = this.addState(state, d2, dt * 0.5, state.time + dt * 0.5)
-    const { derivative: d3 } = derivative(state3.time, state3)
+    const state3 = this.addState(state, d2, dt * 0.5, state.time + dt * 0.5);
+    const { derivative: d3 } = derivative(state3.time, state3);
 
-    const state4 = this.addState(state, d3, dt, state.time + dt)
-    const { derivative: d4 } = derivative(state4.time, state4)
+    const state4 = this.addState(state, d3, dt, state.time + dt);
+    const { derivative: d4 } = derivative(state4.time, state4);
 
-    return this.combineState(state, d1, d2, d3, d4, dt)
+    return this.combineState(state, d1, d2, d3, d4, dt);
   }
 
   private addState(
@@ -167,7 +167,7 @@ export class RK4Integrator {
       ),
       time: newTime,
       isReleased: state.isReleased || derivative.isReleased,
-    }
+    };
   }
 
   private combineState(
@@ -178,7 +178,7 @@ export class RK4Integrator {
     d4: PhysicsDerivative17DOF,
     dt: number,
   ): PhysicsState17DOF {
-    const dto6 = dt / 6
+    const dto6 = dt / 6;
     const combine = (
       s: Float64Array,
       v1: Float64Array,
@@ -186,12 +186,12 @@ export class RK4Integrator {
       v3: Float64Array,
       v4: Float64Array,
     ) => {
-      const res = new Float64Array(s.length)
+      const res = new Float64Array(s.length);
       for (let i = 0; i < s.length; i++) {
-        res[i] = s[i] + dto6 * (v1[i] + 2 * v2[i] + 2 * v3[i] + v4[i])
+        res[i] = s[i] + dto6 * (v1[i] + 2 * v2[i] + 2 * v3[i] + v4[i]);
       }
-      return res
-    }
+      return res;
+    };
 
     return {
       position: combine(
@@ -256,7 +256,7 @@ export class RK4Integrator {
         d2.isReleased ||
         d3.isReleased ||
         d4.isReleased,
-    }
+    };
   }
 
   private addArrays(
@@ -264,9 +264,9 @@ export class RK4Integrator {
     b: Float64Array,
     scale: number,
   ): Float64Array {
-    const res = new Float64Array(a.length)
-    for (let i = 0; i < a.length; i++) res[i] = a[i] + b[i] * scale
-    return res
+    const res = new Float64Array(a.length);
+    for (let i = 0; i < a.length; i++) res[i] = a[i] + b[i] * scale;
+    return res;
   }
 
   private cloneState(state: PhysicsState17DOF): PhysicsState17DOF {
@@ -282,18 +282,18 @@ export class RK4Integrator {
       cwAngularVelocity: state.cwAngularVelocity,
       time: state.time,
       isReleased: state.isReleased,
-    }
+    };
   }
 
   getInterpolationAlpha(): number {
-    return this.accumulator / this.currentTimestep
+    return this.accumulator / this.currentTimestep;
   }
 
   getRenderState(): PhysicsState17DOF {
-    const alpha = this.getInterpolationAlpha()
-    if (alpha <= 0.0001) return this.state
-    if (alpha >= 0.9999) return this.state
-    return this.interpolateState(this.previousState, this.state, alpha)
+    const alpha = this.getInterpolationAlpha();
+    if (alpha <= 0.0001) return this.state;
+    if (alpha >= 0.9999) return this.state;
+    return this.interpolateState(this.previousState, this.state, alpha);
   }
 
   private interpolateState(
@@ -302,11 +302,11 @@ export class RK4Integrator {
     alpha: number,
   ): PhysicsState17DOF {
     const lerp = (a: Float64Array, b: Float64Array) => {
-      const res = new Float64Array(a.length)
+      const res = new Float64Array(a.length);
       for (let i = 0; i < a.length; i++)
-        res[i] = a[i] * (1 - alpha) + b[i] * alpha
-      return res
-    }
+        res[i] = a[i] * (1 - alpha) + b[i] * alpha;
+      return res;
+    };
     return {
       position: lerp(s1.position, s2.position),
       velocity: lerp(s1.velocity, s2.velocity),
@@ -321,10 +321,10 @@ export class RK4Integrator {
         s1.cwAngularVelocity * (1 - alpha) + s2.cwAngularVelocity * alpha,
       time: s1.time * (1 - alpha) + s2.time * alpha,
       isReleased: s2.isReleased,
-    }
+    };
   }
 
   reset(): void {
-    this.accumulator = 0
+    this.accumulator = 0;
   }
 }

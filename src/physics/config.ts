@@ -1,4 +1,4 @@
-import type { PhysicsState17DOF, SimulationConfig } from './types'
+import type { PhysicsState17DOF, SimulationConfig } from "./types";
 
 export function createConfig(): SimulationConfig {
   return {
@@ -33,16 +33,16 @@ export function createConfig(): SimulationConfig {
       armMass: 200,
       pivotHeight: 15,
     },
-  }
+  };
 }
 
 export function createInitialState(
   config: SimulationConfig,
 ): PhysicsState17DOF {
-  const { longArmLength: L1, pivotHeight: H } = config.trebuchet
-  const armAngle = -Math.PI / 4
-  const tipX = L1 * Math.cos(armAngle)
-  const tipY = H + L1 * Math.sin(armAngle)
+  const { longArmLength: L1, pivotHeight: H } = config.trebuchet;
+  const armAngle = -Math.PI / 4;
+  const tipX = L1 * Math.cos(armAngle);
+  const tipY = H + L1 * Math.sin(armAngle);
 
   return {
     position: new Float64Array([tipX + 8, tipY, 0]),
@@ -56,5 +56,5 @@ export function createInitialState(
     windVelocity: new Float64Array([0, 0, 0]),
     time: 0,
     isReleased: false,
-  }
+  };
 }
