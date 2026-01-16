@@ -1,3 +1,4 @@
+import { PHYSICS_CONSTANTS } from "./constants";
 import { aerodynamicForce } from "./aerodynamics";
 import type {
   PhysicsDerivative17DOF,
@@ -105,7 +106,7 @@ export function computeDerivatives(
     jointFriction,
   } = trebuchetProps;
   const Mp = projectile.mass;
-  const g = 9.81;
+  const g = PHYSICS_CONSTANTS.GRAVITY;
 
   const airVel = new Float64Array([
     velocity[0] - windVelocity[0],
@@ -117,7 +118,7 @@ export function computeDerivatives(
     angularVelocity,
     projectile,
     position[1],
-    288.15,
+    PHYSICS_CONSTANTS.SEA_LEVEL_TEMPERATURE,
   );
 
   const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360;

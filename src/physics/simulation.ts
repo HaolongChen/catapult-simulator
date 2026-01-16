@@ -1,3 +1,4 @@
+import { PHYSICS_CONSTANTS } from "./constants";
 import { RK4Integrator } from "./rk4-integrator";
 import { computeDerivatives } from "./derivatives";
 import { physicsLogger } from "./logging";
@@ -29,7 +30,8 @@ export class CatapultSimulation {
   constructor(initialState: PhysicsState17DOF, config: SimulationConfig) {
     this.state = initialState;
     this.config = config;
-    this.normalForce = config.trebuchet.counterweightMass * 9.81;
+    this.normalForce =
+      config.trebuchet.counterweightMass * PHYSICS_CONSTANTS.GRAVITY;
     this.integrator = new RK4Integrator(initialState, {
       initialTimestep: config.initialTimestep,
       maxSubsteps: config.maxSubsteps,
@@ -78,7 +80,8 @@ export class CatapultSimulation {
       const tensionMag = Math.sqrt(
         tension[0] ** 2 + tension[1] ** 2 + tension[2] ** 2,
       );
-      const releaseThreshold = 0.1 * this.config.projectile.mass * 9.81;
+      const releaseThreshold =
+        0.1 * this.config.projectile.mass * PHYSICS_CONSTANTS.GRAVITY;
 
       // Get arm angle to check if it's upward
       const normAng =

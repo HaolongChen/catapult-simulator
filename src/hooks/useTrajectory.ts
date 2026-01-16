@@ -1,3 +1,4 @@
+import { UI_CONSTANTS, VISUAL_CONSTANTS } from "../physics/constants";
 import { useState, useEffect } from "react";
 import type { FrameData } from "../physics/types";
 
@@ -18,7 +19,7 @@ export function useTrajectory() {
 
     const interval = setInterval(() => {
       setFrame((f) => (f + 1) % trajectory.length);
-    }, 16); // ~60fps
+    }, UI_CONSTANTS.CONTROLS.FPS_CONVERSION / VISUAL_CONSTANTS.PLAYBACK_FPS);
 
     return () => clearInterval(interval);
   }, [isPlaying, trajectory.length]);

@@ -1,3 +1,4 @@
+import { APP_METADATA, UI_CONSTANTS } from "./physics/constants";
 import { useTrajectory } from "./hooks/useTrajectory";
 import { TrebuchetVisualization } from "./components/TrebuchetVisualization";
 import { AnimationControls } from "./components/AnimationControls";
@@ -27,12 +28,16 @@ function App() {
 
       <DebugOverlay frameData={frameData} />
 
-      <div className="fixed bottom-8 left-8 flex flex-col gap-2">
+      <div
+        className={`fixed bottom-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} left-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} flex flex-col gap-${UI_CONSTANTS.LAYOUT.GAP_SMALL}`}
+      >
         <h1 className="text-2xl font-black text-slate-800 tracking-tighter">
-          TREBUCHET_V1.0
+          {APP_METADATA.TITLE}
         </h1>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-          High Fidelity Physics Simulator
+        <p
+          className={`text-[${UI_CONSTANTS.OVERLAY.FONT_SIZE_HEADER}px] font-bold text-slate-400 uppercase tracking-[${UI_CONSTANTS.OVERLAY.TRACKING_WIDE}em]`}
+        >
+          {APP_METADATA.SUBTITLE}
         </p>
       </div>
     </div>
