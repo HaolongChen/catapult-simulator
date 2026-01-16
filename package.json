@@ -11,7 +11,8 @@
     "lint": "eslint",
     "format": "prettier",
     "check": "prettier --write . && eslint --fix",
-    "nitro": "npm:nitro-nightly@latest"
+    "nitro": "npm:nitro-nightly@latest",
+    "export-trajectory": "tsx scripts/export_trajectory.ts"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
