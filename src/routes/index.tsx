@@ -1,22 +1,35 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useTrajectory } from '../hooks/useTrajectory'
+import { useState, useEffect } from 'react'
 import { TrebuchetVisualization } from '../components/TrebuchetVisualization'
 import { AnimationControls } from '../components/AnimationControls'
 import { DebugOverlay } from '../components/DebugOverlay'
+import { getTrajectory } from '../lib/trajectory'
 
+// Loader runs on the server (or calls the server function)
 export const Route = createFileRoute('/')({
+  loader: async () => {
+    const trajectory = await getTrajectory()
+    return { trajectory }
+  },
   component: Home,
 })
 
 function Home() {
-  const {
-    frameData,
-    frame,
-    setFrame,
-    isPlaying,
-    setIsPlaying,
-    trajectoryLength,
-  } = useTrajectory()
+  const { trajectory } = Route.useLoaderData()
+  const [frame, setFrame] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(true)
+
+  useEffect(() => {
+    if (!isPlaying || !trajectory || trajectory.length === 0) return
+
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % trajectory.length)
+    }, 16) // 60fps
+
+    return () => clearInterval(interval)
+  }, [isPlaying, trajectory])
+
+  const frameData = trajectory ? trajectory[frame] : undefined
 
   return (
     <div className="w-screen h-screen bg-slate-100 relative overflow-hidden">
@@ -27,7 +40,7 @@ function Home() {
         onPlayPause={() => setIsPlaying(!isPlaying)}
         frame={frame}
         onScrub={setFrame}
-        maxFrames={trajectoryLength}
+        maxFrames={trajectory ? trajectory.length : 0}
       />
 
       <DebugOverlay frameData={frameData} />
