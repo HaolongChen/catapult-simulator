@@ -15,31 +15,50 @@ import { Suspense, useEffect, useRef } from "react";
 import * as THREE from "three";
 
 function TrebuchetModel({ frameData }: { frameData: FrameData }) {
-  const { scene } = useGLTF("/models/trebuchet.glb");
-  const { nodes, materials } = useGraph(scene);
+  const armGLTF = useGLTF("/models/arm.glb");
+  const baseGLTF = useGLTF("/models/base.glb");
+  const bezelGLTF = useGLTF("/models/bezel.glb");
+  const loopGLTF = useGLTF("/models/loop.glb");
+  const counterweightGLTF = useGLTF("/models/counterweight.glb");
+
+  const { nodes: armNodes } = useGraph(armGLTF.scene);
+  const { nodes: cwNodes } = useGraph(counterweightGLTF.scene);
 
   const armRef = useRef<THREE.Object3D | null>(null);
   const cwRef = useRef<THREE.Object3D | null>(null);
 
   useEffect(() => {
     armRef.current =
-      nodes.Arm || nodes.arm || scene.getObjectByName("Arm") || null;
+      armNodes.arm || armGLTF.scene.getObjectByName("arm") || null;
     cwRef.current =
-      nodes.Counterweight ||
-      nodes.counterweight ||
-      scene.getObjectByName("Counterweight") ||
+      cwNodes.overweight ||
+      counterweightGLTF.scene.getObjectByName("overweight") ||
       null;
-  }, [nodes, scene]);
+  }, [armNodes, cwNodes, armGLTF.scene, counterweightGLTF.scene]);
 
   useEffect(() => {
-    Object.values(materials).forEach((material) => {
+    const allMaterials = [
+      ...Object.values(armGLTF.materials),
+      ...Object.values(baseGLTF.materials),
+      ...Object.values(bezelGLTF.materials),
+      ...Object.values(loopGLTF.materials),
+      ...Object.values(counterweightGLTF.materials),
+    ];
+
+    allMaterials.forEach((material) => {
       if (material instanceof THREE.MeshStandardMaterial) {
         material.roughness = 0.6;
         material.metalness = 0.2;
         material.envMapIntensity = 1.0;
       }
     });
-  }, [materials]);
+  }, [
+    armGLTF.materials,
+    baseGLTF.materials,
+    bezelGLTF.materials,
+    loopGLTF.materials,
+    counterweightGLTF.materials,
+  ]);
 
   useFrame(() => {
     if (armRef.current) {
@@ -61,8 +80,22 @@ function TrebuchetModel({ frameData }: { frameData: FrameData }) {
     }
   });
 
-  return <primitive object={scene} castShadow receiveShadow />;
+  return (
+    <group>
+      <primitive object={armGLTF.scene} castShadow receiveShadow />
+      <primitive object={baseGLTF.scene} castShadow receiveShadow />
+      <primitive object={bezelGLTF.scene} castShadow receiveShadow />
+      <primitive object={loopGLTF.scene} castShadow receiveShadow />
+      <primitive object={counterweightGLTF.scene} castShadow receiveShadow />
+    </group>
+  );
 }
+
+useGLTF.preload("/models/arm.glb");
+useGLTF.preload("/models/base.glb");
+useGLTF.preload("/models/bezel.glb");
+useGLTF.preload("/models/loop.glb");
+useGLTF.preload("/models/counterweight.glb");
 
 export function TrebuchetVisualization({
   frameData,
