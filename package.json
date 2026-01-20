@@ -9,12 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "check": "prettier --write . && eslint --fix",
     "export-trajectory": "tsx scripts/export_trajectory.ts"
   },
   "dependencies": {
-    "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "^9.5.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-store": "^0.8.0",
     "@tanstack/store": "^0.8.0",
@@ -25,17 +24,16 @@
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.1.18",
-    "three": "^0.182.0",
     "tw-animate-css": "^1.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.57.0",
+    "@testing-library/react": "^16.2.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/three": "^0.182.0",
     "@vitejs/plugin-react": "^5.0.4",
-    "@testing-library/react": "^16.2.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

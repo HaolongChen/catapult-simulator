@@ -1,6 +1,6 @@
 # Catapult Simulator
 
-A high-fidelity 17-DOF physics simulation of a medieval trebuchet, built with Vite, React, and React Three Fiber.
+A high-fidelity 17-DOF physics simulation of a medieval trebuchet, built with Vite and React.
 
 ## 🚀 Getting Started
 
@@ -24,7 +24,7 @@ A high-fidelity 17-DOF physics simulation of a medieval trebuchet, built with Vi
 ## 🛠️ Tech Stack
 
 - **Frontend:** React 19, Vite, Tailwind CSS
-- **Visualization:** React Three Fiber, Three.js
+- **Visualization:** Canvas 2D API
 - **Physics Engine:** Custom 17-DOF Lagrangian mechanics solver
 - **State Management:** @tanstack/store
 - **Testing:** Vitest

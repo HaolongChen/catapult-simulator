@@ -1,4 +1,4 @@
-import type { PhysicsState17DOF, SimulationConfig } from "./types";
+import type { PhysicsState17DOF, SimulationConfig } from './types'
 
 export function createConfig(): SimulationConfig {
   return {
@@ -23,7 +23,7 @@ export function createConfig(): SimulationConfig {
       counterweightMass: 2000,
       counterweightRadius: 2.0,
       slingLength: 8,
-      releaseAngle: (45 * Math.PI) / 180,
+      releaseAngle: (90 * Math.PI) / 180,
       springConstant: 0,
       dampingCoefficient: 0,
       equilibriumAngle: 0,
@@ -33,19 +33,33 @@ export function createConfig(): SimulationConfig {
       armMass: 200,
       pivotHeight: 15,
     },
-  };
+  }
 }
 
 export function createInitialState(
   config: SimulationConfig,
 ): PhysicsState17DOF {
-  const { longArmLength: L1, pivotHeight: H } = config.trebuchet;
-  const armAngle = -Math.PI / 4;
-  const tipX = L1 * Math.cos(armAngle);
-  const tipY = H + L1 * Math.sin(armAngle);
+  const {
+    longArmLength: L1,
+    pivotHeight: H,
+    slingLength: Ls,
+  } = config.trebuchet
+  const armAngle = -Math.PI / 4
+  const tipX = L1 * Math.cos(armAngle)
+  const tipY = H + L1 * Math.sin(armAngle)
+
+  const projRadius = config.projectile.radius
+  const targetY = projRadius
+  const dy = tipY - targetY
+
+  let projX = tipX
+  if (dy < Ls) {
+    const dx = Math.sqrt(Ls * Ls - dy * dy)
+    projX = tipX - dx
+  }
 
   return {
-    position: new Float64Array([tipX + 8, tipY, 0]),
+    position: new Float64Array([projX, targetY, 0]),
     velocity: new Float64Array([0, 0, 0]),
     orientation: new Float64Array([1, 0, 0, 0]),
     angularVelocity: new Float64Array([0, 0, 0]),
@@ -56,5 +70,5 @@ export function createInitialState(
     windVelocity: new Float64Array([0, 0, 0]),
     time: 0,
     isReleased: false,
-  };
+  }
 }

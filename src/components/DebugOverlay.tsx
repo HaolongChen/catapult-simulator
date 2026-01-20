@@ -1,10 +1,10 @@
-import { UI_CONSTANTS, VISUAL_CONSTANTS } from "../physics/constants";
-import type { FrameData } from "../physics/types";
+import { UI_CONSTANTS, VISUAL_CONSTANTS } from '@/physics/constants'
+import type { FrameData } from '@/physics/types'
 
 export function DebugOverlay({ frameData }: { frameData?: FrameData }) {
-  if (!frameData) return null;
+  if (!frameData) return null
 
-  const { time, projectile, phase, constraints } = frameData;
+  const { time, projectile, phase, constraints } = frameData
 
   return (
     <div
@@ -17,7 +17,7 @@ export function DebugOverlay({ frameData }: { frameData?: FrameData }) {
           SIM_STATUS
         </h2>
         <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs font-bold border border-blue-500/30 uppercase">
-          {phase.replace("_", " ")}
+          {phase.replace('_', ' ')}
         </span>
       </div>
 
@@ -50,9 +50,9 @@ export function DebugOverlay({ frameData }: { frameData?: FrameData }) {
                 <span
                   className={`block text-[${UI_CONSTANTS.OVERLAY.FONT_SIZE_LABEL}px] text-slate-500 font-bold`}
                 >
-                  {["X", "Y", "Z"][i]}
+                  {['X', 'Y', 'Z'][i]}
                 </span>
-                <span className={v < 0 ? "text-red-400" : "text-blue-100"}>
+                <span className={v < 0 ? 'text-red-400' : 'text-blue-100'}>
                   {v.toFixed(UI_CONSTANTS.OVERLAY.PRECISION_COORDS)}
                 </span>
               </div>
@@ -82,8 +82,8 @@ export function DebugOverlay({ frameData }: { frameData?: FrameData }) {
                 className={
                   Math.abs(constraints.slingLength.violation) >
                   VISUAL_CONSTANTS.SLING_VIOLATION_THRESHOLD
-                    ? "text-red-400"
-                    : "text-emerald-400"
+                    ? 'text-red-400'
+                    : 'text-emerald-400'
                 }
               >
                 {(
@@ -97,5 +97,5 @@ export function DebugOverlay({ frameData }: { frameData?: FrameData }) {
         </div>
       </div>
     </div>
-  );
+  )
 }

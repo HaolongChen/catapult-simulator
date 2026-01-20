@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { RK4Integrator } from "../rk4-integrator";
+import { describe, expect, it } from 'vitest'
+import { RK4Integrator } from '../rk4-integrator'
 import type {
   PhysicsDerivative17DOF,
   PhysicsForces,
   PhysicsState17DOF,
-} from "../types";
+} from '../types'
 
 const EMPTY_FORCES: PhysicsForces = {
   drag: new Float64Array(3),
@@ -13,62 +13,62 @@ const EMPTY_FORCES: PhysicsForces = {
   tension: new Float64Array(3),
   total: new Float64Array(3),
   groundNormal: 0,
-};
+}
 
-describe("rk4-integrator", () => {
-  describe("constructor", () => {
-    it("should initialize with default config", () => {
-      const state = createTestState();
-      const integrator = new RK4Integrator(state);
-      expect(integrator).toBeDefined();
-    });
+describe('rk4-integrator', () => {
+  describe('constructor', () => {
+    it('should initialize with default config', () => {
+      const state = createTestState()
+      const integrator = new RK4Integrator(state)
+      expect(integrator).toBeDefined()
+    })
 
-    it("should accept custom config", () => {
-      const state = createTestState();
-      const integrator = new RK4Integrator(state, { initialTimestep: 0.005 });
-      expect(integrator).toBeDefined();
-    });
-  });
+    it('should accept custom config', () => {
+      const state = createTestState()
+      const integrator = new RK4Integrator(state, { initialTimestep: 0.005 })
+      expect(integrator).toBeDefined()
+    })
+  })
 
-  describe("update", () => {
-    it("should accumulate time", () => {
-      const state = createTestState();
-      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 });
+  describe('update', () => {
+    it('should accumulate time', () => {
+      const state = createTestState()
+      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 })
 
-      const result1 = integrator.update(0.005, testDerivative);
-      expect(result1.stepsTaken).toBe(0);
+      const result1 = integrator.update(0.005, testDerivative)
+      expect(result1.stepsTaken).toBe(0)
 
-      const result2 = integrator.update(0.006, testDerivative);
-      expect(result2.stepsTaken).toBe(1);
-    });
+      const result2 = integrator.update(0.006, testDerivative)
+      expect(result2.stepsTaken).toBe(1)
+    })
 
-    it("should clamp accumulator to prevent spiral of death", () => {
-      const state = createTestState();
-      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 });
+    it('should clamp accumulator to prevent spiral of death', () => {
+      const state = createTestState()
+      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 })
 
-      const result = integrator.update(1.0, testDerivative);
-      expect(result.stepsTaken).toBeLessThanOrEqual(100);
-    });
+      const result = integrator.update(1.0, testDerivative)
+      expect(result.stepsTaken).toBeLessThanOrEqual(100)
+    })
 
-    it("should compute interpolation alpha", () => {
-      const state = createTestState();
-      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 });
+    it('should compute interpolation alpha', () => {
+      const state = createTestState()
+      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 })
 
-      const result = integrator.update(0.005, testDerivative);
-      expect(result.interpolationAlpha).toBeGreaterThanOrEqual(0);
-      expect(result.interpolationAlpha).toBeLessThanOrEqual(1);
-    });
-  });
+      const result = integrator.update(0.005, testDerivative)
+      expect(result.interpolationAlpha).toBeGreaterThanOrEqual(0)
+      expect(result.interpolationAlpha).toBeLessThanOrEqual(1)
+    })
+  })
 
-  describe("rk4Step accuracy", () => {
-    it("should converge for simple harmonic oscillator", () => {
-      const k = 1.0;
-      const m = 1.0;
+  describe('rk4Step accuracy', () => {
+    it('should converge for simple harmonic oscillator', () => {
+      const k = 1.0
+      const m = 1.0
       const state = {
         ...createTestState(),
         position: new Float64Array([0]),
         velocity: new Float64Array([1.0]),
-      };
+      }
 
       const derivative = (_t: number, s: PhysicsState17DOF) => ({
         derivative: {
@@ -77,40 +77,40 @@ describe("rk4-integrator", () => {
           velocity: new Float64Array([(-k / m) * s.position[0]]),
         },
         forces: EMPTY_FORCES,
-      });
+      })
 
-      const integrator = new RK4Integrator(state, { initialTimestep: 0.001 });
-      integrator.update(0.01, derivative);
+      const integrator = new RK4Integrator(state, { initialTimestep: 0.001 })
+      integrator.update(0.01, derivative)
 
-      const finalState = integrator.getRenderState();
+      const finalState = integrator.getRenderState()
       const energy =
         0.5 * m * finalState.velocity[0] ** 2 +
-        0.5 * k * finalState.position[0] ** 2;
+        0.5 * k * finalState.position[0] ** 2
 
-      expect(energy).toBeCloseTo(0.5, 0.01);
-    });
-  });
+      expect(energy).toBeCloseTo(0.5, 0.01)
+    })
+  })
 
-  describe("performance", () => {
-    it("should handle 100 steps within performance budget", () => {
-      const state = createTestState();
-      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 });
+  describe('performance', () => {
+    it('should handle 100 steps within performance budget', () => {
+      const state = createTestState()
+      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 })
 
-      const startTime = performance.now();
-      const result = integrator.update(1.0, testDerivative);
-      const elapsed = performance.now() - startTime;
+      const startTime = performance.now()
+      const result = integrator.update(1.0, testDerivative)
+      const elapsed = performance.now() - startTime
 
-      expect(result.stepsTaken).toBeGreaterThanOrEqual(99);
-      expect(elapsed).toBeLessThanOrEqual(200);
-    });
-  });
+      expect(result.stepsTaken).toBeGreaterThanOrEqual(99)
+      expect(elapsed).toBeLessThanOrEqual(200)
+    })
+  })
 
-  describe("render state interpolation", () => {
-    it("should interpolate between previous and current state", () => {
-      const state = createTestState();
-      const initialPosition = 10.0;
-      state.position[0] = initialPosition;
-      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 });
+  describe('render state interpolation', () => {
+    it('should interpolate between previous and current state', () => {
+      const state = createTestState()
+      const initialPosition = 10.0
+      state.position[0] = initialPosition
+      const integrator = new RK4Integrator(state, { initialTimestep: 0.01 })
 
       const moveDeriv = (_t: number, _s: PhysicsState17DOF) => ({
         derivative: {
@@ -118,16 +118,16 @@ describe("rk4-integrator", () => {
           position: new Float64Array([1.0]),
         },
         forces: EMPTY_FORCES,
-      });
+      })
 
-      const result = integrator.update(0.005, moveDeriv);
-      const interpolatedState = integrator.getRenderState();
+      const result = integrator.update(0.005, moveDeriv)
+      const interpolatedState = integrator.getRenderState()
 
-      expect(result.interpolationAlpha).toBeCloseTo(0.5, 3);
-      expect(interpolatedState.position[0]).toBeDefined();
-    });
-  });
-});
+      expect(result.interpolationAlpha).toBeCloseTo(0.5, 3)
+      expect(interpolatedState.position[0]).toBeDefined()
+    })
+  })
+})
 
 function createTestState(): PhysicsState17DOF {
   return {
@@ -142,7 +142,7 @@ function createTestState(): PhysicsState17DOF {
     windVelocity: new Float64Array([0, 0, 0]),
     time: 0,
     isReleased: false,
-  };
+  }
 }
 
 function createZeroDerivative(): PhysicsDerivative17DOF {
@@ -158,12 +158,12 @@ function createZeroDerivative(): PhysicsDerivative17DOF {
     windVelocity: new Float64Array([0, 0, 0]),
     time: 1,
     isReleased: false,
-  };
+  }
 }
 
 function testDerivative(
   _t: number,
   _state: PhysicsState17DOF,
 ): { derivative: PhysicsDerivative17DOF; forces: PhysicsForces } {
-  return { derivative: createZeroDerivative(), forces: EMPTY_FORCES };
+  return { derivative: createZeroDerivative(), forces: EMPTY_FORCES }
 }

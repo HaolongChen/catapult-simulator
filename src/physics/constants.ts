@@ -1,7 +1,7 @@
 export const PHYSICS_CONSTANTS = {
   GRAVITY: 9.81,
   SEA_LEVEL_TEMPERATURE: 288.15,
-};
+}
 
 export const VISUAL_CONSTANTS = {
   GROUND_SIZE: 100,
@@ -23,7 +23,7 @@ export const VISUAL_CONSTANTS = {
     GROUND_ROTATION: [-Math.PI / 2, 0, 0] as [number, number, number],
     GROUND_POSITION: [0, 0, 0] as [number, number, number],
   },
-};
+}
 
 export const UI_CONSTANTS = {
   CONTROLS: {
@@ -56,9 +56,9 @@ export const UI_CONSTANTS = {
     GAP_LARGE: 6,
     OFFSET_STANDARD: 8,
   },
-};
+}
 
 export const APP_METADATA = {
-  TITLE: "TREBUCHET_V1.0",
-  SUBTITLE: "High Fidelity Physics Simulator",
-};
+  TITLE: 'TREBUCHET_V1.0',
+  SUBTITLE: 'High Fidelity Physics Simulator',
+}

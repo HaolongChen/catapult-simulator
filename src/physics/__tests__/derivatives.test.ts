@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { computeDerivatives } from "../derivatives";
-import type { PhysicsState17DOF } from "../types";
+import { describe, expect, it } from 'vitest'
+import { computeDerivatives } from '../derivatives'
+import type { PhysicsState17DOF } from '../types'
 
-describe("derivatives", () => {
-  it("should compute gravitational force", () => {
+describe('derivatives', () => {
+  it('should compute gravitational force', () => {
     const trebuchet = {
       longArmLength: 8,
       shortArmLength: 2,
@@ -19,7 +19,7 @@ describe("derivatives", () => {
       flexuralStiffness: 1000000,
       armMass: 100,
       pivotHeight: 5,
-    };
+    }
 
     const state: PhysicsState17DOF = {
       position: new Float64Array([8 + 3, 5 + 4, 0]),
@@ -33,7 +33,7 @@ describe("derivatives", () => {
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
       isReleased: false,
-    };
+    }
 
     const projectile = {
       mass: 10,
@@ -43,17 +43,17 @@ describe("derivatives", () => {
       magnusCoefficient: 0.3,
       momentOfInertia: new Float64Array([0.01, 0.01, 0.01]),
       spin: 0,
-    };
+    }
 
-    const normalForce = trebuchet.counterweightMass * 9.80665;
+    const normalForce = trebuchet.counterweightMass * 9.80665
     const { derivative: deriv } = computeDerivatives(
       state,
       projectile,
       trebuchet,
       normalForce,
-    );
+    )
 
-    expect(deriv.position).toEqual(state.velocity);
-    expect(deriv.velocity[1]).toBeCloseTo(-9.8, 1);
-  });
-});
+    expect(deriv.position).toEqual(state.velocity)
+    expect(deriv.velocity[1]).toBeCloseTo(-9.8, 1)
+  })
+})

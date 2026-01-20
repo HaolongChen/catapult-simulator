@@ -1,8 +1,8 @@
-import { APP_METADATA, UI_CONSTANTS } from "./physics/constants";
-import { useTrajectory } from "./hooks/useTrajectory";
-import { TrebuchetVisualization } from "./components/TrebuchetVisualization";
-import { AnimationControls } from "./components/AnimationControls";
-import { DebugOverlay } from "./components/DebugOverlay";
+import { APP_METADATA, UI_CONSTANTS } from '@/physics/constants'
+import { useTrajectory } from '@/hooks/useTrajectory'
+import { AnimationControls } from '@/components/AnimationControls'
+import { DebugOverlay } from '@/components/DebugOverlay'
+import { TrebuchetVisualization2D } from '@/components/visualization2d'
 
 function App() {
   const {
@@ -12,11 +12,11 @@ function App() {
     isPlaying,
     setIsPlaying,
     trajectoryLength,
-  } = useTrajectory();
+  } = useTrajectory()
 
   return (
     <div className="w-screen h-screen bg-slate-100 relative overflow-hidden">
-      <TrebuchetVisualization frameData={frameData} />
+      <TrebuchetVisualization2D frameData={frameData} />
 
       <AnimationControls
         isPlaying={isPlaying}
@@ -41,7 +41,7 @@ function App() {
         </p>
       </div>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

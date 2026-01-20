@@ -1,15 +1,15 @@
-import { PHYSICS_CONSTANTS } from "./constants";
-import { RK4Integrator } from "./rk4-integrator";
-import { computeDerivatives } from "./derivatives";
-import { physicsLogger } from "./logging";
+import { PHYSICS_CONSTANTS } from './constants'
+import { RK4Integrator } from './rk4-integrator'
+import { computeDerivatives } from './derivatives'
+import { physicsLogger } from './logging'
 import type {
   FrameData,
   PhysicsForces,
   PhysicsState17DOF,
   SimulationConfig,
-} from "./types";
+} from './types'
 
-export type { SimulationConfig };
+export type { SimulationConfig }
 
 const EMPTY_FORCES: PhysicsForces = {
   drag: new Float64Array(3),
@@ -18,20 +18,20 @@ const EMPTY_FORCES: PhysicsForces = {
   tension: new Float64Array(3),
   total: new Float64Array(3),
   groundNormal: 0,
-};
+}
 
 export class CatapultSimulation {
-  private integrator: RK4Integrator;
-  private state: PhysicsState17DOF;
-  private config: SimulationConfig;
-  private normalForce: number;
-  private lastForces: PhysicsForces = EMPTY_FORCES;
+  private integrator: RK4Integrator
+  private state: PhysicsState17DOF
+  private config: SimulationConfig
+  private normalForce: number
+  private lastForces: PhysicsForces = EMPTY_FORCES
 
   constructor(initialState: PhysicsState17DOF, config: SimulationConfig) {
-    this.state = initialState;
-    this.config = config;
+    this.state = initialState
+    this.config = config
     this.normalForce =
-      config.trebuchet.counterweightMass * PHYSICS_CONSTANTS.GRAVITY;
+      config.trebuchet.counterweightMass * PHYSICS_CONSTANTS.GRAVITY
     this.integrator = new RK4Integrator(initialState, {
       initialTimestep: config.initialTimestep,
       maxSubsteps: config.maxSubsteps,
@@ -39,8 +39,17 @@ export class CatapultSimulation {
       tolerance: config.tolerance,
       minTimestep: config.minTimestep,
       maxTimestep: config.maxTimestep,
-    });
-    physicsLogger.log(this.state, this.lastForces, this.config);
+    })
+
+    const res = computeDerivatives(
+      this.state,
+      this.config.projectile,
+      this.config.trebuchet,
+      this.normalForce,
+    )
+    this.lastForces = res.forces
+
+    physicsLogger.log(this.state, this.lastForces, this.config)
   }
 
   update(deltaTime: number): PhysicsState17DOF {
@@ -50,18 +59,18 @@ export class CatapultSimulation {
         this.config.projectile,
         this.config.trebuchet,
         this.normalForce,
-      );
-      this.lastForces = res.forces;
-      return res;
-    };
+      )
+      this.lastForces = res.forces
+      return res
+    }
 
-    const result = this.integrator.update(deltaTime, derivativeFunction);
-    this.state = result.newState;
+    const result = this.integrator.update(deltaTime, derivativeFunction)
+    this.state = result.newState
 
-    const q = this.state.orientation;
+    const q = this.state.orientation
     const qMag = Math.sqrt(
       q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3],
-    );
+    )
     if (qMag > 1e-12) {
       this.state = {
         ...this.state,
@@ -71,38 +80,38 @@ export class CatapultSimulation {
           q[2] / qMag,
           q[3] / qMag,
         ]),
-      };
+      }
     }
 
     // Check for release condition
     if (!this.state.isReleased) {
-      const tension = this.lastForces.tension;
+      const tension = this.lastForces.tension
       const tensionMag = Math.sqrt(
         tension[0] ** 2 + tension[1] ** 2 + tension[2] ** 2,
-      );
+      )
       const releaseThreshold =
-        0.1 * this.config.projectile.mass * PHYSICS_CONSTANTS.GRAVITY;
+        0.1 * this.config.projectile.mass * PHYSICS_CONSTANTS.GRAVITY
 
       // Get arm angle to check if it's upward
       const normAng =
-        ((((this.state.armAngle * 180) / Math.PI) % 360) + 360) % 360;
-      const isUpward = normAng > 45 && normAng < 225;
+        ((((this.state.armAngle * 180) / Math.PI) % 360) + 360) % 360
+      const isUpward = normAng > 45 && normAng < 225
 
       if (isUpward && tensionMag < releaseThreshold) {
         this.state = {
           ...this.state,
           isReleased: true,
-        };
+        }
       }
     }
 
-    physicsLogger.log(this.state, this.lastForces, this.config);
+    physicsLogger.log(this.state, this.lastForces, this.config)
 
-    return this.state;
+    return this.state
   }
 
   getLastForces(): PhysicsForces {
-    return this.lastForces;
+    return this.lastForces
   }
 
   exportFrameData(): FrameData {
@@ -112,7 +121,7 @@ export class CatapultSimulation {
       pivotHeight: H,
       counterweightRadius: Rcw,
       slingLength: Ls,
-    } = this.config.trebuchet;
+    } = this.config.trebuchet
     const {
       armAngle,
       cwAngle,
@@ -122,25 +131,25 @@ export class CatapultSimulation {
       angularVelocity,
       isReleased,
       time,
-    } = this.state;
+    } = this.state
 
     // Calculate 3D positions
-    const pivot: [number, number, number] = [0, H, 0];
+    const pivot: [number, number, number] = [0, H, 0]
     const longArmTip: [number, number, number] = [
       L1 * Math.cos(armAngle),
       H + L1 * Math.sin(armAngle),
       0,
-    ];
+    ]
     const shortArmTip: [number, number, number] = [
       -L2 * Math.cos(armAngle),
       H - L2 * Math.sin(armAngle),
       0,
-    ];
+    ]
     const counterweightPos: [number, number, number] = [
       shortArmTip[0] + Rcw * Math.sin(cwAngle),
       shortArmTip[1] - Rcw * Math.cos(cwAngle),
       0,
-    ];
+    ]
 
     // Calculate bounding boxes
     const projectileBB = {
@@ -154,7 +163,7 @@ export class CatapultSimulation {
         position[1] + this.config.projectile.radius,
         position[2] + this.config.projectile.radius,
       ] as [number, number, number],
-    };
+    }
     const armBB = {
       min: [
         Math.min(shortArmTip[0], longArmTip[0]),
@@ -166,7 +175,7 @@ export class CatapultSimulation {
         Math.max(shortArmTip[1], longArmTip[1]),
         0.1,
       ] as [number, number, number],
-    };
+    }
     const cwBB = {
       min: [counterweightPos[0] - Rcw, counterweightPos[1] - Rcw, -Rcw] as [
         number,
@@ -178,21 +187,21 @@ export class CatapultSimulation {
         number,
         number,
       ],
-    };
+    }
 
     // Calculate sling constraint violation
-    const slingStart = longArmTip;
-    const slingEnd = [position[0], position[1], position[2]];
+    const slingStart = longArmTip
+    const slingEnd = [position[0], position[1], position[2]]
     const currentSlingLength = Math.sqrt(
       (slingEnd[0] - slingStart[0]) ** 2 +
         (slingEnd[1] - slingStart[1]) ** 2 +
         (slingEnd[2] - slingStart[2]) ** 2,
-    );
+    )
 
     // Determine phase
-    let phase = isReleased ? "released" : "swinging";
+    let phase = isReleased ? 'released' : 'swinging'
     if (!isReleased && this.lastForces.groundNormal > 0) {
-      phase = "ground_dragging";
+      phase = 'ground_dragging'
     }
 
     return {
@@ -295,32 +304,32 @@ export class CatapultSimulation {
           violation: currentSlingLength - Ls,
         },
         groundContact: {
-          penetration: Math.min(0, counterweightPos[1] - Rcw),
+          penetration: Math.min(0, position[1] - this.config.projectile.radius),
           isActive: this.lastForces.groundNormal > 0,
         },
       },
       phase,
-    };
+    }
   }
 
   getRenderState(): PhysicsState17DOF {
-    return this.integrator.getRenderState();
+    return this.integrator.getRenderState()
   }
 
   getInterpolationAlpha(): number {
-    return this.integrator.getInterpolationAlpha();
+    return this.integrator.getInterpolationAlpha()
   }
 
   getState(): PhysicsState17DOF {
-    return this.state;
+    return this.state
   }
 
   setState(state: PhysicsState17DOF): void {
-    this.state = state;
+    this.state = state
   }
 
   reset(): void {
-    this.integrator.reset();
-    this.lastForces = EMPTY_FORCES;
+    this.integrator.reset()
+    this.lastForces = EMPTY_FORCES
   }
 }

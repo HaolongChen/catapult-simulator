@@ -1,12 +1,12 @@
-import { UI_CONSTANTS } from "../physics/constants";
-import { Play, Pause, RotateCcw } from "lucide-react";
+import { UI_CONSTANTS } from '@/physics/constants'
+import { Play, Pause, RotateCcw } from 'lucide-react'
 
 interface AnimationControlsProps {
-  isPlaying: boolean;
-  onPlayPause: () => void;
-  frame: number;
-  onScrub: (frame: number) => void;
-  maxFrames: number;
+  isPlaying: boolean
+  onPlayPause: () => void
+  frame: number
+  onScrub: (frame: number) => void
+  maxFrames: number
 }
 
 export function AnimationControls({
@@ -60,5 +60,5 @@ export function AnimationControls({
         />
       </div>
     </div>
-  );
+  )
 }

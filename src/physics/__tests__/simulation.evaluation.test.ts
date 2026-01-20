@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { CatapultSimulation } from "../simulation";
-import type { SimulationConfig, PhysicsState17DOF } from "../types";
+import { describe, expect, it } from 'vitest'
+import { CatapultSimulation } from '../simulation'
+import type { SimulationConfig, PhysicsState17DOF } from '../types'
 
-describe("Physics DAE Stability Evaluation", () => {
+describe('Physics DAE Stability Evaluation', () => {
   const createConfig = (): SimulationConfig => ({
     initialTimestep: 0.005,
     maxSubsteps: 100,
@@ -35,14 +35,14 @@ describe("Physics DAE Stability Evaluation", () => {
       armMass: 200,
       pivotHeight: 15,
     },
-  });
+  })
 
-  it("should maintain constraint consistency throughout the swing", () => {
-    const config = createConfig();
-    const armAngle = -Math.PI / 4;
-    const L1 = config.trebuchet.longArmLength;
-    const tipX = L1 * Math.cos(armAngle);
-    const tipY = config.trebuchet.pivotHeight + L1 * Math.sin(armAngle);
+  it('should maintain constraint consistency throughout the swing', () => {
+    const config = createConfig()
+    const armAngle = -Math.PI / 4
+    const L1 = config.trebuchet.longArmLength
+    const tipX = L1 * Math.cos(armAngle)
+    const tipY = config.trebuchet.pivotHeight + L1 * Math.sin(armAngle)
 
     const initialState: PhysicsState17DOF = {
       position: new Float64Array([tipX + 8, tipY, 0]), // Taut sling
@@ -56,54 +56,53 @@ describe("Physics DAE Stability Evaluation", () => {
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
       isReleased: false,
-    };
+    }
 
-    const sim = new CatapultSimulation(initialState, config);
+    const sim = new CatapultSimulation(initialState, config)
 
-    let maxConstraintError = 0;
-    let maxVelocityConstraintError = 0;
+    let maxConstraintError = 0
+    let maxVelocityConstraintError = 0
 
     for (let i = 0; i < 500; i++) {
-      const state = sim.update(0.005);
+      const state = sim.update(0.005)
       if (!state.isReleased) {
         // Before release
-        const tipX_curr = L1 * Math.cos(state.armAngle);
+        const tipX_curr = L1 * Math.cos(state.armAngle)
         const tipY_curr =
-          config.trebuchet.pivotHeight + L1 * Math.sin(state.armAngle);
-        const dx = state.position[0] - tipX_curr;
-        const dy = state.position[1] - tipY_curr;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+          config.trebuchet.pivotHeight + L1 * Math.sin(state.armAngle)
+        const dx = state.position[0] - tipX_curr
+        const dy = state.position[1] - tipY_curr
+        const dist = Math.sqrt(dx * dx + dy * dy)
 
         // For index-1 DAE stabilization with Baumgarte, some drift is expected.
-        const error = Math.max(0, dist - config.trebuchet.slingLength);
-        maxConstraintError = Math.max(maxConstraintError, error);
+        const error = Math.max(0, dist - config.trebuchet.slingLength)
+        maxConstraintError = Math.max(maxConstraintError, error)
 
         // Velocity constraint dot(p1 - p2, v1 - v2) = 0
         if (dist > config.trebuchet.slingLength * 0.99) {
           const vTipX =
-            -L1 * state.armAngularVelocity * Math.sin(state.armAngle);
-          const vTipY =
-            L1 * state.armAngularVelocity * Math.cos(state.armAngle);
-          const dvx = state.velocity[0] - vTipX;
-          const dvy = state.velocity[1] - vTipY;
-          const velError = Math.abs(dx * dvx + dy * dvy) / (dist + 1e-6);
+            -L1 * state.armAngularVelocity * Math.sin(state.armAngle)
+          const vTipY = L1 * state.armAngularVelocity * Math.cos(state.armAngle)
+          const dvx = state.velocity[0] - vTipX
+          const dvy = state.velocity[1] - vTipY
+          const velError = Math.abs(dx * dvx + dy * dvy) / (dist + 1e-6)
           maxVelocityConstraintError = Math.max(
             maxVelocityConstraintError,
             velError,
-          );
+          )
         }
       }
     }
 
     console.log(
       `Max Position Constraint Error: ${maxConstraintError.toExponential(4)}m`,
-    );
+    )
     console.log(
       `Max Velocity Constraint Error: ${maxVelocityConstraintError.toExponential(4)}m/s`,
-    );
+    )
 
     // Relaxed targets for Physically Pure implementation (removed projection hacks)
-    expect(maxConstraintError).toBeLessThan(0.3);
-    expect(maxVelocityConstraintError).toBeLessThan(50.0);
-  });
-});
+    expect(maxConstraintError).toBeLessThan(0.3)
+    expect(maxVelocityConstraintError).toBeLessThan(50.0)
+  })
+})

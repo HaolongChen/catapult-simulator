@@ -5,7 +5,7 @@
  * temperature, and humidity.
  */
 
-import type { AtmosphericConstants } from "./types";
+import type { AtmosphericConstants } from './types'
 
 // ============================================================================
 // Constants
@@ -24,7 +24,7 @@ export const ATMOSPHERIC_CONSTANTS: AtmosphericConstants = {
   sutherlandT0: 273.15, // K
   sutherlandMu0: 1.716e-5, // Pa·s
   sutherlandS: 110.4, // K
-};
+}
 
 /**
  * Water vapor pressure saturation (Tetens formula)
@@ -32,8 +32,8 @@ export const ATMOSPHERIC_CONSTANTS: AtmosphericConstants = {
  * @returns Saturation vapor pressure in Pa
  */
 export function saturationVaporPressure(temperature: number): number {
-  const Tc = temperature - 273.15; // Convert to Celsius
-  return 610.94 * Math.exp((17.625 * Tc) / (Tc + 243.04));
+  const Tc = temperature - 273.15 // Convert to Celsius
+  return 610.94 * Math.exp((17.625 * Tc) / (Tc + 243.04))
 }
 
 /**
@@ -48,14 +48,14 @@ export function humidityDensityCorrection(
   temperature: number,
   humidity: number,
 ): number {
-  const pSat = saturationVaporPressure(temperature);
-  const pVapor = humidity * pSat;
+  const pSat = saturationVaporPressure(temperature)
+  const pVapor = humidity * pSat
 
   // Ideal gas law correction
-  const Rv = 461.5; // Specific gas constant for water vapor
-  const vaporDensity = pVapor / (Rv * temperature);
+  const Rv = 461.5 // Specific gas constant for water vapor
+  const vaporDensity = pVapor / (Rv * temperature)
 
-  return dryDensity - vaporDensity;
+  return dryDensity - vaporDensity
 }
 
 /**
@@ -70,13 +70,13 @@ export function airDensity(
   temperature: number,
   humidity: number = 0,
 ): number {
-  const { seaLevelDensity, scaleHeight } = ATMOSPHERIC_CONSTANTS;
+  const { seaLevelDensity, scaleHeight } = ATMOSPHERIC_CONSTANTS
 
   // Barometric formula (exponential atmosphere)
-  const dryDensity = seaLevelDensity * Math.exp(-altitude / scaleHeight);
+  const dryDensity = seaLevelDensity * Math.exp(-altitude / scaleHeight)
 
   // Apply humidity correction
-  return humidityDensityCorrection(dryDensity, temperature, humidity);
+  return humidityDensityCorrection(dryDensity, temperature, humidity)
 }
 
 /**
@@ -89,11 +89,11 @@ export function airTemperature(
   altitude: number,
   surfaceTemperature: number,
 ): number {
-  const L = -0.0065; // Temperature lapse rate (K/m) in troposphere
-  const T0 = surfaceTemperature;
+  const L = -0.0065 // Temperature lapse rate (K/m) in troposphere
+  const T0 = surfaceTemperature
 
   // Linear temperature gradient in troposphere (0-11 km)
-  return T0 + L * altitude;
+  return T0 + L * altitude
 }
 
 /**
@@ -102,15 +102,15 @@ export function airTemperature(
  * @returns Dynamic viscosity in Pa·s
  */
 export function airViscosity(temperature: number): number {
-  const { sutherlandT0, sutherlandMu0, sutherlandS } = ATMOSPHERIC_CONSTANTS;
+  const { sutherlandT0, sutherlandMu0, sutherlandS } = ATMOSPHERIC_CONSTANTS
 
   // Sutherland's formula
   const mu =
     sutherlandMu0 *
     Math.pow(temperature / sutherlandT0, 1.5) *
-    ((sutherlandT0 + sutherlandS) / (temperature + sutherlandS));
+    ((sutherlandT0 + sutherlandS) / (temperature + sutherlandS))
 
-  return mu;
+  return mu
 }
 
 /**
@@ -121,11 +121,11 @@ export function airViscosity(temperature: number): number {
  * @returns Atmospheric properties object
  */
 export interface AtmosphericConditions {
-  density: number; // kg/m³
-  temperature: number; // K
-  viscosity: number; // Pa·s
-  pressure: number; // Pa
-  speedOfSound: number; // m/s
+  density: number // kg/m³
+  temperature: number // K
+  viscosity: number // Pa·s
+  pressure: number // Pa
+  speedOfSound: number // m/s
 }
 
 export function atmosphericModel(
@@ -133,17 +133,16 @@ export function atmosphericModel(
   surfaceTemperature: number,
   humidity: number = 0,
 ): AtmosphericConditions {
-  const temperature = airTemperature(altitude, surfaceTemperature);
-  const density = airDensity(altitude, temperature, humidity);
-  const viscosity = airViscosity(temperature);
+  const temperature = airTemperature(altitude, surfaceTemperature)
+  const density = airDensity(altitude, temperature, humidity)
+  const viscosity = airViscosity(temperature)
 
   // Pressure from ideal gas law
-  const { airMolarMass, universalGasConstant } = ATMOSPHERIC_CONSTANTS;
-  const pressure =
-    (density * universalGasConstant * temperature) / airMolarMass;
+  const { airMolarMass, universalGasConstant } = ATMOSPHERIC_CONSTANTS
+  const pressure = (density * universalGasConstant * temperature) / airMolarMass
 
   // Speed of sound in air (simplified)
-  const speedOfSound = 331.3 * Math.sqrt(temperature / 273.15);
+  const speedOfSound = 331.3 * Math.sqrt(temperature / 273.15)
 
   return {
     density,
@@ -151,5 +150,5 @@ export function atmosphericModel(
     viscosity,
     pressure,
     speedOfSound,
-  };
+  }
 }

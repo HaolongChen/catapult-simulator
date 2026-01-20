@@ -1,11 +1,11 @@
-import type { TrebuchetProperties, CatapultTorque } from "./types";
+import type { TrebuchetProperties, CatapultTorque } from './types'
 
 export function springTorque(
   angle: number,
   _angularVelocity: number,
   props: TrebuchetProperties,
 ): number {
-  return -props.springConstant * (angle - props.equilibriumAngle);
+  return -props.springConstant * (angle - props.equilibriumAngle)
 }
 
 export function jointFriction(
@@ -13,8 +13,8 @@ export function jointFriction(
   props: TrebuchetProperties,
   normalForce: number,
 ): number {
-  if (Math.abs(angularVelocity) < 1e-2) return 0;
-  return -Math.sign(angularVelocity) * props.jointFriction * normalForce;
+  if (Math.abs(angularVelocity) < 1e-2) return 0
+  return -Math.sign(angularVelocity) * props.jointFriction * normalForce
 }
 
 export function flexureTorque(
@@ -22,11 +22,11 @@ export function flexureTorque(
   angularVelocity: number,
   props: TrebuchetProperties,
 ): number {
-  return -props.flexuralStiffness * angularVelocity;
+  return -props.flexuralStiffness * angularVelocity
 }
 
 export function energyLoss(props: TrebuchetProperties): number {
-  return props.efficiency;
+  return props.efficiency
 }
 
 export function catapultTorque(
@@ -35,10 +35,10 @@ export function catapultTorque(
   props: TrebuchetProperties,
   normalForce: number,
 ): CatapultTorque {
-  const spring = springTorque(angle, angularVelocity, props);
-  const friction = jointFriction(angularVelocity, props, normalForce);
-  const flexure = flexureTorque(angle, angularVelocity, props);
-  const damping = -props.dampingCoefficient * angularVelocity;
+  const spring = springTorque(angle, angularVelocity, props)
+  const friction = jointFriction(angularVelocity, props, normalForce)
+  const flexure = flexureTorque(angle, angularVelocity, props)
+  const damping = -props.dampingCoefficient * angularVelocity
 
   return {
     spring,
@@ -46,5 +46,5 @@ export function catapultTorque(
     friction,
     flexure,
     total: spring + damping + friction + flexure,
-  };
+  }
 }

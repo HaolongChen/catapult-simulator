@@ -33,15 +33,15 @@
 **To Projectile**:
 
 ```typescript
-F_sling = -T * (r_rel / dist); // Points toward arm tip
-a_projectile = (F_gravity + F_aero + F_sling) / m;
+F_sling = -T * (r_rel / dist) // Points toward arm tip
+a_projectile = (F_gravity + F_aero + F_sling) / m
 ```
 
 **To Arm (as torque)**:
 
 ```typescript
-τ_sling = L_arm * (cos(θ) * F_y - sin(θ) * F_x);
-θ̈ = (τ_gravity + τ_spring + τ_damping + τ_sling) / I_total;
+τ_sling = L_arm * (cos(θ) * F_y - sin(θ) * F_x)
+θ̈ = (τ_gravity + τ_spring + τ_damping + τ_sling) / I_total
 ```
 
 ### 3. Three-Phase Dynamics

@@ -1,6 +1,6 @@
 # PROJECT AGENT KNOWLEDGE BASE
 
-**Stack:** Vite + React 19 + React Three Fiber + @tanstack/store
+**Stack:** Vite + React 19 + @tanstack/store
 **Core Focus:** 17-DOF high-fidelity physics simulation of medieval trebuchets.
 
 ## 1. COMMANDS
@@ -26,7 +26,7 @@
 ```text
 src/
 ├── components/          # React components
-│   ├── TrebuchetVisualization.tsx # 3D R3F visualization
+│   ├── TrebuchetVisualization2D.tsx # 2D Canvas visualization
 │   ├── AnimationControls.tsx      # Playback controls
 │   └── DebugOverlay.tsx           # Physics telemetry overlay
 ├── physics/             # 17-DOF Physics Engine (Pure TS)
@@ -90,14 +90,6 @@ The simulator implements a high-fidelity Lagrangian DAE (Differential-Algebraic 
 - **State Management**: Use `@tanstack/store` for performance-sensitive simulation state.
 - **React 19**: Use new patterns where appropriate.
 - **Optimization**: Avoid unnecessary re-renders. Heavy physics logic should stay in the physics engine.
-
----
-
-## 6. VISUALIZATION (R3F)
-
-- All 3D rendering happens in `src/components/TrebuchetVisualization.tsx`.
-- Use `OrbitControls` for camera movement.
-- Trajectory data is loaded from `public/trajectory.json`.
 
 ---
 

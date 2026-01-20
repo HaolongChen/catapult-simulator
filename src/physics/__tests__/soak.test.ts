@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { CatapultSimulation } from "../simulation";
-import type { PhysicsState17DOF, SimulationConfig } from "../types";
+import { describe, expect, it } from 'vitest'
+import { CatapultSimulation } from '../simulation'
+import type { PhysicsState17DOF, SimulationConfig } from '../types'
 
-describe("Simulation Soak Test", () => {
-  it("should maintain stability over 10 seconds of heavy simulation", () => {
+describe('Simulation Soak Test', () => {
+  it('should maintain stability over 10 seconds of heavy simulation', () => {
     const initialState: PhysicsState17DOF = {
       position: new Float64Array([14, 0, 0]),
       velocity: new Float64Array([0, 0, 0]),
@@ -16,7 +16,7 @@ describe("Simulation Soak Test", () => {
       windVelocity: new Float64Array([5, 0, 2]),
       time: 0,
       isReleased: false,
-    };
+    }
 
     const config: SimulationConfig = {
       initialTimestep: 0.005,
@@ -50,28 +50,28 @@ describe("Simulation Soak Test", () => {
         armMass: 100,
         pivotHeight: 5,
       },
-    };
+    }
 
-    const sim = new CatapultSimulation(initialState, config);
+    const sim = new CatapultSimulation(initialState, config)
 
-    const dt = 0.016;
-    const totalSteps = Math.ceil(10 / dt);
+    const dt = 0.016
+    const totalSteps = Math.ceil(10 / dt)
 
     for (let i = 0; i < totalSteps; i++) {
-      const state = sim.update(dt);
+      const state = sim.update(dt)
 
-      expect(state.armAngle).not.toBeNaN();
-      expect(state.position[0]).not.toBeNaN();
-      expect(state.position[1]).not.toBeNaN();
+      expect(state.armAngle).not.toBeNaN()
+      expect(state.position[0]).not.toBeNaN()
+      expect(state.position[1]).not.toBeNaN()
 
       const vMag = Math.sqrt(
         state.velocity[0] ** 2 +
           state.velocity[1] ** 2 +
           state.velocity[2] ** 2,
-      );
-      expect(vMag).toBeLessThan(500);
+      )
+      expect(vMag).toBeLessThan(500)
     }
 
-    expect(sim.getState().time).toBeGreaterThan(9.9);
-  });
-});
+    expect(sim.getState().time).toBeGreaterThan(9.9)
+  })
+})
