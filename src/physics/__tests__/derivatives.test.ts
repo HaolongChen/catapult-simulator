@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computeDerivatives } from '../derivatives'
-import type { PhysicsState19DOF } from '../types'
+import type { PhysicsState17DOF } from '../types'
 
 describe('derivatives', () => {
   it('should compute gravitational force', () => {
@@ -20,7 +20,7 @@ describe('derivatives', () => {
       pivotHeight: 5,
     }
 
-    const state: PhysicsState19DOF = {
+    const state: PhysicsState17DOF = {
       position: new Float64Array([8 + 3, 5 + 4, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),

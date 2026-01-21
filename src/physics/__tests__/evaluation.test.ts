@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import type {
-  PhysicsState19DOF,
+  PhysicsState17DOF,
   ProjectileProperties,
   SimulationConfig,
   TrebuchetProperties,
@@ -10,7 +10,7 @@ import type {
 const G = 9.81
 
 function calculateTotalEnergy(
-  state: PhysicsState19DOF,
+  state: PhysicsState17DOF,
   trebuchet: TrebuchetProperties,
   projectile: ProjectileProperties,
 ): number {
@@ -84,7 +84,7 @@ function createDefaultConfig(): SimulationConfig {
 function createInitialState(
   trebuchet: TrebuchetProperties,
   armAngle: number = -Math.PI / 4,
-): PhysicsState19DOF {
+): PhysicsState17DOF {
   const L1 = trebuchet.longArmLength,
     H = trebuchet.pivotHeight,
     Ls = trebuchet.slingLength,
@@ -181,7 +181,7 @@ describe('Comprehensive Evaluation Suite', () => {
 
   it('should not allow projectile to plummet through ground', () => {
     const config = createDefaultConfig()
-    const state: PhysicsState19DOF = {
+    const state: PhysicsState17DOF = {
       ...createInitialState(config.trebuchet),
       position: new Float64Array([0, 2, 0]),
       velocity: new Float64Array([0, -100, 0]),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { PhysicsState19DOF, SimulationConfig } from '../types'
+import type { PhysicsState17DOF, SimulationConfig } from '../types'
 
 function createStandardConfig(): SimulationConfig {
   return {
@@ -40,7 +40,7 @@ function createStandardConfig(): SimulationConfig {
 describe('Simulation Soak Test', () => {
   it('should maintain stability over a heavy swing', () => {
     const config = createStandardConfig()
-    const initialState: PhysicsState19DOF = {
+    const initialState: PhysicsState17DOF = {
       position: new Float64Array([14, 0, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),

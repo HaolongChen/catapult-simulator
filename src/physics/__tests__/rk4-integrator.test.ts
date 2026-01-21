@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { RK4Integrator } from '../rk4-integrator'
 import type {
-  PhysicsDerivative19DOF,
+  PhysicsDerivative17DOF,
   PhysicsForces,
-  PhysicsState19DOF,
+  PhysicsState17DOF,
 } from '../types'
 
 const EMPTY_FORCES: PhysicsForces = {
@@ -17,7 +17,7 @@ const EMPTY_FORCES: PhysicsForces = {
   lambda: new Float64Array(6),
 }
 
-function createTestState(): PhysicsState19DOF {
+function createTestState(): PhysicsState17DOF {
   return {
     position: new Float64Array([0, 0, 0]),
     velocity: new Float64Array([0, 0, 0]),
@@ -39,7 +39,7 @@ function createTestState(): PhysicsState19DOF {
   }
 }
 
-function createZeroDerivative(): PhysicsDerivative19DOF {
+function createZeroDerivative(): PhysicsDerivative17DOF {
   return {
     position: new Float64Array(3),
     velocity: new Float64Array(3),

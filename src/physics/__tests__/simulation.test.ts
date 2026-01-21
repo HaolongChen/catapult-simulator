@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { physicsLogger } from '../logging'
-import type { PhysicsState19DOF, SimulationConfig } from '../types'
+import type { PhysicsState17DOF, SimulationConfig } from '../types'
 
 const MOCK_TREBUCHET = {
   longArmLength: 8,
@@ -36,7 +36,7 @@ describe('catapult-simulation', () => {
 
   describe('constructor', () => {
     it('should initialize with config', () => {
-      const state: PhysicsState19DOF = createTestState()
+      const state: PhysicsState17DOF = createTestState()
       const config: SimulationConfig = {
         ...BASE_CONFIG,
         projectile: createTestProjectile(),
@@ -62,7 +62,7 @@ describe('catapult-simulation', () => {
   })
 })
 
-function createTestState(): PhysicsState19DOF {
+function createTestState(): PhysicsState17DOF {
   return {
     position: new Float64Array([0, 0, 0]),
     velocity: new Float64Array([1, 0, 0]),

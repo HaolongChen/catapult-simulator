@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { SimulationConfig, PhysicsState19DOF } from '../types'
+import type { SimulationConfig, PhysicsState17DOF } from '../types'
 
 describe('Physics DAE Stability Evaluation', () => {
   const createConfig = (): SimulationConfig => ({
@@ -43,7 +43,7 @@ describe('Physics DAE Stability Evaluation', () => {
     const tipX = L1 * Math.cos(armAngle)
     const tipY = config.trebuchet.pivotHeight + L1 * Math.sin(armAngle)
 
-    const initialState: PhysicsState19DOF = {
+    const initialState: PhysicsState17DOF = {
       position: new Float64Array([tipX + 8, tipY, 0]), // Taut sling
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),

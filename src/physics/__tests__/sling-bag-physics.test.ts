@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { createInitialState } from '../config'
 import type {
-  PhysicsState19DOF,
+  PhysicsState17DOF,
   ProjectileProperties,
   TrebuchetProperties,
   SimulationConfig,
@@ -53,7 +53,7 @@ describe('Sling Bag High-Fidelity Physics', () => {
     const slingBagX = tipX + 3.0
     const slingBagY = tipY - 1.8
 
-    const state: PhysicsState19DOF = {
+    const state: PhysicsState17DOF = {
       position: new Float64Array([slingBagX, slingBagY + 0.15, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),
@@ -84,7 +84,7 @@ describe('Sling Bag High-Fidelity Physics', () => {
 
   it('should follow contact physics: separation logic handles high fidelity interaction', () => {
     const armAngle = -0.5
-    const state: PhysicsState19DOF = {
+    const state: PhysicsState17DOF = {
       position: new Float64Array([4, 0.1, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),

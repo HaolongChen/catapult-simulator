@@ -55,26 +55,21 @@ export function createInitialState(
   const cwY = shortTipY - config.trebuchet.counterweightRadius
 
   const projRadius = config.projectile.radius
-  const targetY = projRadius
-  const dy = tipY - targetY
 
-  let projX = tipX
-  if (dy < Ls) {
-    const dx = Math.sqrt(Ls * Ls - dy * dy)
+  let projX: number
+  let projY: number
+
+  const dy_max = tipY - projRadius
+  if (Ls > dy_max) {
+    projY = projRadius
+    const dx = Math.sqrt(Ls * Ls - dy_max * dy_max)
     projX = tipX - dx
+  } else {
+    projX = tipX
+    projY = tipY - Ls
   }
 
-  const R_p = projRadius * 1.5
-  const dx_sling = projX - tipX
-  const dy_sling = targetY - tipY
-  const dist_sling = Math.sqrt(dx_sling * dx_sling + dy_sling * dy_sling)
-  const ux = dx_sling / dist_sling
-  const uy = dy_sling / dist_sling
-
-  const slingBagX = projX - R_p * ux
-  const slingBagY = targetY - R_p * uy
-
-  const initialSlingBagAngle = Math.atan2(projX - tipX, tipY - targetY)
+  const initialSlingBagAngle = Math.atan2(projX - tipX, tipY - projY)
 
   return {
     armAngle,
@@ -83,11 +78,11 @@ export function createInitialState(
     cwVelocity: new Float64Array([0, 0]),
     cwAngle: 0,
     cwAngularVelocity: 0,
-    slingBagPosition: new Float64Array([slingBagX, slingBagY]),
+    slingBagPosition: new Float64Array([projX, projY]),
     slingBagVelocity: new Float64Array([0, 0]),
     slingBagAngle: initialSlingBagAngle,
     slingBagAngularVelocity: 0,
-    position: new Float64Array([projX, targetY, 0]),
+    position: new Float64Array([projX, projY, 0]),
     velocity: new Float64Array([0, 0, 0]),
     orientation: new Float64Array([1, 0, 0, 0]),
     angularVelocity: new Float64Array([0, 0, 0]),

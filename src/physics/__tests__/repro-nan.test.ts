@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { PhysicsState19DOF, SimulationConfig } from '../types'
+import type { PhysicsState17DOF, SimulationConfig } from '../types'
 
 describe('NaN Reproduction', () => {
   it('should reproduce NaN with massive Mcw', () => {
@@ -55,7 +55,7 @@ describe('NaN Reproduction', () => {
     const bagX = tipX + dx
     const angle = Math.atan2(rp - tipY, dx)
 
-    const state: PhysicsState19DOF = {
+    const state: PhysicsState17DOF = {
       position: new Float64Array([bagX, rp, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { physicsLogger } from '../logging'
 import type {
-  PhysicsState19DOF,
+  PhysicsState17DOF,
   SimulationConfig,
   TrebuchetProperties,
   ProjectileProperties,
@@ -45,7 +45,7 @@ function createTestProjectile(): ProjectileProperties {
   }
 }
 
-function createTestState(): PhysicsState19DOF {
+function createTestState(): PhysicsState17DOF {
   return {
     position: new Float64Array([10, 20, 0]),
     velocity: new Float64Array([0, 0, 0]),
@@ -74,7 +74,7 @@ describe('physics-perfection', () => {
   })
 
   it('should maintain state consistency', () => {
-    const state: PhysicsState19DOF = createTestState()
+    const state: PhysicsState17DOF = createTestState()
     const config: SimulationConfig = {
       ...BASE_CONFIG,
       projectile: createTestProjectile(),

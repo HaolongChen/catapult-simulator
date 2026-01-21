@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { PhysicsState19DOF, SimulationConfig } from '../types'
+import type { PhysicsState17DOF, SimulationConfig } from '../types'
 
 function createStandardConfig(): SimulationConfig {
   return {
@@ -37,7 +37,7 @@ function createStandardConfig(): SimulationConfig {
   }
 }
 
-function createInitialState(config: SimulationConfig): PhysicsState19DOF {
+function createInitialState(config: SimulationConfig): PhysicsState17DOF {
   const { longArmLength: L1, pivotHeight: H } = config.trebuchet
   return {
     position: new Float64Array([L1 + 5, H, 0]),
