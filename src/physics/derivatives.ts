@@ -103,7 +103,7 @@ export function computeDerivatives(
     position[1],
     PHYSICS_CONSTANTS.SEA_LEVEL_TEMPERATURE,
   )
-  if (isReleased) return computeFreeFlight(state, projectile, aero)
+  if (isReleased) return computeFreeFlight(state, projectile, trebuchetProps, aero)
 
   const cosT = Math.cos(th),
     sinT = Math.sin(th),
@@ -246,24 +246,94 @@ export function computeDerivatives(
 function computeFreeFlight(
   state: PhysicsState17DOF,
   projectile: ProjectileProperties,
+  trebuchetProps: TrebuchetProperties, // Make sure to pass this arg in the main function call!
   aero: { drag: Float64Array; magnus: Float64Array; total: Float64Array },
 ): { derivative: PhysicsDerivative17DOF; forces: PhysicsForces } {
-  const Mp = projectile.mass,
-    g = PHYSICS_CONSTANTS.GRAVITY,
-    { velocity, position } = state
+  const Mp = projectile.mass
+  const g = PHYSICS_CONSTANTS.GRAVITY
+  const {
+    velocity,
+    position,
+    armAngle,
+    armAngularVelocity,
+    cwAngle,
+    cwAngularVelocity,
+  } = state
+  const {
+    longArmLength: L1,
+    shortArmLength: L2,
+    counterweightMass: Mcw,
+    counterweightRadius: Rcw,
+    armMass: Ma,
+    jointFriction,
+  } = trebuchetProps
+
+  // --- 1. Solve Arm Dynamics (Recoil) ---
+  // We solve M * acc = Q for the reduced system (Arm + CW, no projectile)
+  
+  // Inertia of Arm
+  const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
+  // Inertia of CW relative to its hinge
+  const Icw = 0.4 * Mcw * Rcw * Rcw 
+
+  // Matrix Components for Double Pendulum (Arm + Hinged CW)
+  // M11: Arm Inertia + CW point mass effect
+  const M11 = Ia + Mcw * L2 * L2
+  // M12: Coupling between Arm and CW Hinge
+  const M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle)
+  // M22: CW Inertia + CW point mass effect
+  const M22 = Icw + Mcw * Rcw * Rcw
+  
+  const det = M11 * M22 - M12 * M12 + 1e-9
+
+  // Generalized Forces (Gravity + Coriolis)
+  const armCG = (L1 - L2) / 2
+  // Gravity torques
+  const G1 = -Ma * g * armCG * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle)
+  const G2 = -Mcw * g * Rcw * Math.sin(cwAngle)
+  
+  // Coriolis/Centripetal torques
+  const C1 = -Mcw * L2 * Rcw * (cwAngularVelocity ** 2) * Math.cos(armAngle - cwAngle)
+  const C2 = Mcw * L2 * Rcw * (armAngularVelocity ** 2) * Math.cos(armAngle - cwAngle)
+  
+  // Friction
+  const normalForce = Mcw * g // Approx
+  const t_ext = -Math.tanh(armAngularVelocity * 10) * jointFriction * normalForce
+
+  // Cramers Rule / Direct Inversion for 2x2 system
+  const RHS1 = G1 - C1 + t_ext
+  const RHS2 = G2 - C2
+  
+  const th_ddot = (RHS1 * M22 - RHS2 * M12) / det
+  const phi_ddot = (M11 * RHS2 - M12 * RHS1) / det
+
+  // --- 2. Solve Projectile Dynamics (Ballistics) ---
   let ay = (aero.total[1] - Mp * g) / Mp
   if (position[1] < projectile.radius) {
-    // Revert to stable penalty ground for free flight
-    ay +=
-      Math.max(0, 50000 * (projectile.radius - position[1])) - 200 * velocity[1]
+    ay += Math.max(0, 50000 * (projectile.radius - position[1])) - 200 * velocity[1]
   }
+
+  // --- 3. Return Derivatives ---
+  // Note: slingBag visual derivatives set to 0 to stop them flying around
   return {
     derivative: {
-      ...state,
+      armAngle: armAngularVelocity,
+      armAngularVelocity: th_ddot, // Correct acceleration
+      cwPosition: new Float64Array([state.cwVelocity[0], state.cwVelocity[1]]),
+      cwVelocity: new Float64Array([0, 0]), // Simplified: CW follows arm kinematically
+      cwAngle: cwAngularVelocity,
+      cwAngularVelocity: phi_ddot, // Correct acceleration
+      slingBagPosition: new Float64Array([0, 0]),
+      slingBagVelocity: new Float64Array([0, 0]),
+      slingBagAngle: 0,
+      slingBagAngularVelocity: 0,
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
       velocity: new Float64Array([aero.total[0] / Mp, ay, 0]),
+      orientation: new Float64Array(4),
+      angularVelocity: new Float64Array(3),
+      windVelocity: new Float64Array(3),
       time: 1,
-      isReleased: false, // derivative of constant is 0, but field is boolean. Keep as is or false.
+      isReleased: false, 
     },
     forces: {
       drag: aero.drag,
