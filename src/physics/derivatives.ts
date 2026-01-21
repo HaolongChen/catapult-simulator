@@ -142,11 +142,11 @@ export function computeDerivatives(
   const M_diag = [Ia, Is, Mcw, Mcw, Icw, Mp, Mp]
 
   const friction =
-    -Math.tanh(dth * 100.0) * jointFriction * Math.abs(normalForce)
+    -Math.tanh(dth * 20.0) * jointFriction * Math.abs(normalForce)
 
   let projGndFric = 0
   if (position[1] - Rp <= 0.05) {
-    projGndFric = -Math.tanh(velocity[0] * 10.0) * 0.4 * Mp * g
+    projGndFric = -Math.tanh(velocity[0] * 10.0) * 0.15 * Mp * g
   }
 
   const Q = [
@@ -162,8 +162,8 @@ export function computeDerivatives(
   // --- 3. Constraints (5 total) ---
   const J = Array.from({ length: 5 }, () => new Array(7).fill(0))
   const gamma = new Array(5).fill(0)
-  const alpha = 10.0,
-    beta = 100.0
+  const alpha = 2.0,
+    beta = 20.0
 
   // C0, C1: CW Hinge (xcw = xts + Rcw*sinP, ycw = yts - Rcw*cosP)
   const C0 = state.cwPosition[0] - (xts + Rcw * sinP)

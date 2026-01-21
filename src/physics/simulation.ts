@@ -138,10 +138,26 @@ export class CatapultSimulation {
         this.config.trebuchet.releaseAngle,
       )
 
+      // Calculate projectile velocity angle and magnitude
+      const velocityAngle = Math.atan2(newState.velocity[1], newState.velocity[0])
+      const velocityAngleDeg = (velocityAngle * 180) / Math.PI
+      const velocityMag = Math.sqrt(
+        newState.velocity[0] ** 2 + newState.velocity[1] ** 2
+      )
+
+      // Release when:
+      // 1. Arm is past vertical (angle > 80°)
+      // 2. Projectile has high velocity (>40 m/s)
+      // 3. Sling relative angle is small (nearly aligned)
+      // 4. Velocity is transitioning from backward to forward
+      //
+      // The projectile swings backward initially, reaches peak velocity
+      // around 80-90°, then should release as it transitions forward
       if (
-        armAngleDeg < 120 &&
-        newState.velocity[0] > 0 &&
-        Math.abs(currentRelAngle) < releaseThresholdMagnitude
+        armAngleDeg > 80 &&
+        armAngleDeg < 95 &&
+        velocityMag > 40.0 &&
+        Math.abs(currentRelAngle) < releaseThresholdMagnitude * 0.5
       ) {
         newState = {
           ...newState,
@@ -340,11 +356,17 @@ export class CatapultSimulation {
         },
       },
       constraints: {
-        slingLength: {
-          current: currentSlingLength,
-          target: Ls,
-          violation: currentSlingLength - Ls,
-        },
+        slingLength: !isReleased
+          ? {
+              current: currentSlingLength,
+              target: Ls,
+              violation: currentSlingLength - Ls,
+            }
+          : {
+              current: 0,
+              target: 0,
+              violation: 0,
+            },
         groundContact: {
           penetration: Math.min(0, position[1] - this.config.projectile.radius),
           isActive: this.lastForces.groundNormal > 0,
