@@ -8,7 +8,7 @@ import type {
   SimulationConfig,
 } from '../types'
 
-describe('Sling Bag High-Fidelity Physics', () => {
+describe('Ghost Constraint Sling Physics', () => {
   const projectile: ProjectileProperties = {
     mass: 1.0,
     radius: 0.1,
@@ -46,7 +46,7 @@ describe('Sling Bag High-Fidelity Physics', () => {
     trebuchet,
   }
 
-  it('should maintain dual-attachment sling constraints (V-shape) under load', () => {
+  it('should maintain holonomic distance constraint under load', () => {
     const armAngle = 0
     const tipX = 4.4
     const tipY = 3.0
@@ -78,11 +78,11 @@ describe('Sling Bag High-Fidelity Physics', () => {
     const frame = sim.exportFrameData()
 
     expect(frame.sling.isAttached).toBe(true)
-    expect(frame.slingBag.contactForce).toBeDefined()
-    expect(isNaN(frame.slingBag.contactForce)).toBe(false)
+    expect(frame.sling.tension).toBeDefined()
+    expect(isNaN(frame.sling.tension)).toBe(false)
   })
 
-  it('should follow contact physics: separation logic handles high fidelity interaction', () => {
+  it('should follow kinematic release: separation logic handles angular trigger', () => {
     const armAngle = -0.5
     const state: PhysicsState17DOF = {
       position: new Float64Array([4, 0.1, 0]),
@@ -110,10 +110,10 @@ describe('Sling Bag High-Fidelity Physics', () => {
     expect(frame.projectile.position.some(isNaN)).toBe(false)
   })
 
-  it('should separate projectile from bag when normal force drops (natural release)', () => {
+  it('should separate projectile from tip when angular condition met (kinematic release)', () => {
     const configHighPower = {
       ...config,
-      trebuchet: { ...trebuchet, counterweightMass: 100000 },
+      trebuchet: { ...trebuchet, counterweightMass: 100000, releaseAngle: 0.1 },
     }
     const sim = new CatapultSimulation(
       createInitialState(configHighPower),

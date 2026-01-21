@@ -11,11 +11,13 @@ export function renderProjectile(
   const { projectile, slingBag } = currentFrameData
   const projX = toCanvasX(projectile.position[0])
   const projY = toCanvasY(projectile.position[1])
-  const slingBagX = toCanvasX(slingBag.position[0])
-  const slingBagY = toCanvasY(slingBag.position[1])
+
+  // Bag centered on projectile
+  const slingBagX = projX
+  const slingBagY = projY
 
   const projRadius = projectile.radius * zoomRef.current
-  const slingBagWidth = projRadius * 3.5
+  const slingBagWidth = slingBag.width * zoomRef.current
   const slingBagDepth = projRadius * 1.2
 
   // 1. Draw SlingBag (Pure fabric, no slingBag)
@@ -59,13 +61,6 @@ export function renderProjectile(
   ctx.strokeStyle = 'rgba(255,255,255,0.2)'
   ctx.lineWidth = 1.5
   ctx.stroke()
-
-  // Draw attachment rings/slots
-  ctx.fillStyle = '#94a3b8'
-  ctx.beginPath()
-  ctx.arc(-slingBagWidth / 2, 0, 2.5, 0, Math.PI * 2)
-  ctx.arc(slingBagWidth / 2, 0, 2.5, 0, Math.PI * 2)
-  ctx.fill()
 
   ctx.restore()
 

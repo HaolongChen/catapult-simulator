@@ -71,6 +71,14 @@ export function TrebuchetVisualization2D({
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       renderGrid(ctx, canvas, toCanvasX, toCanvasY, zoomRef)
 
+      const groundY = toCanvasY(0)
+      ctx.beginPath()
+      ctx.moveTo(0, groundY)
+      ctx.lineTo(canvas.width, groundY)
+      ctx.strokeStyle = '#334155'
+      ctx.lineWidth = 2
+      ctx.stroke()
+
       const currentFrameData = frameDataRef.current
       if (!currentFrameData) return
 
@@ -81,14 +89,6 @@ export function TrebuchetVisualization2D({
         toCanvasY,
         optionsRef.current.showTrajectory,
       )
-
-      const groundY = canvas.height * 0.8
-      ctx.beginPath()
-      ctx.moveTo(0, groundY)
-      ctx.lineTo(canvas.width, groundY)
-      ctx.strokeStyle = '#334155'
-      ctx.lineWidth = 2
-      ctx.stroke()
 
       renderTrebuchet(ctx, currentFrameData, toCanvasX, toCanvasY, zoomRef)
 

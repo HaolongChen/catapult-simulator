@@ -103,7 +103,8 @@ export function computeDerivatives(
     position[1],
     PHYSICS_CONSTANTS.SEA_LEVEL_TEMPERATURE,
   )
-  if (isReleased) return computeFreeFlight(state, projectile, trebuchetProps, aero)
+  if (isReleased)
+    return computeFreeFlight(state, projectile, trebuchetProps, aero)
 
   const cosT = Math.cos(th),
     sinT = Math.sin(th),
@@ -270,11 +271,11 @@ function computeFreeFlight(
 
   // --- 1. Solve Arm Dynamics (Recoil) ---
   // We solve M * acc = Q for the reduced system (Arm + CW, no projectile)
-  
+
   // Inertia of Arm
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
   // Inertia of CW relative to its hinge
-  const Icw = 0.4 * Mcw * Rcw * Rcw 
+  const Icw = 0.4 * Mcw * Rcw * Rcw
 
   // Matrix Components for Double Pendulum (Arm + Hinged CW)
   // M11: Arm Inertia + CW point mass effect
@@ -283,34 +284,39 @@ function computeFreeFlight(
   const M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle)
   // M22: CW Inertia + CW point mass effect
   const M22 = Icw + Mcw * Rcw * Rcw
-  
+
   const det = M11 * M22 - M12 * M12 + 1e-9
 
   // Generalized Forces (Gravity + Coriolis)
   const armCG = (L1 - L2) / 2
   // Gravity torques
-  const G1 = -Ma * g * armCG * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle)
+  const G1 =
+    -Ma * g * armCG * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle)
   const G2 = -Mcw * g * Rcw * Math.sin(cwAngle)
-  
+
   // Coriolis/Centripetal torques
-  const C1 = -Mcw * L2 * Rcw * (cwAngularVelocity ** 2) * Math.cos(armAngle - cwAngle)
-  const C2 = Mcw * L2 * Rcw * (armAngularVelocity ** 2) * Math.cos(armAngle - cwAngle)
-  
+  const C1 =
+    -Mcw * L2 * Rcw * cwAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
+  const C2 =
+    Mcw * L2 * Rcw * armAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
+
   // Friction
   const normalForce = Mcw * g // Approx
-  const t_ext = -Math.tanh(armAngularVelocity * 10) * jointFriction * normalForce
+  const t_ext =
+    -Math.tanh(armAngularVelocity * 10) * jointFriction * normalForce
 
   // Cramers Rule / Direct Inversion for 2x2 system
   const RHS1 = G1 - C1 + t_ext
   const RHS2 = G2 - C2
-  
+
   const th_ddot = (RHS1 * M22 - RHS2 * M12) / det
   const phi_ddot = (M11 * RHS2 - M12 * RHS1) / det
 
   // --- 2. Solve Projectile Dynamics (Ballistics) ---
   let ay = (aero.total[1] - Mp * g) / Mp
   if (position[1] < projectile.radius) {
-    ay += Math.max(0, 50000 * (projectile.radius - position[1])) - 200 * velocity[1]
+    ay +=
+      Math.max(0, 50000 * (projectile.radius - position[1])) - 200 * velocity[1]
   }
 
   // --- 3. Return Derivatives ---
@@ -333,7 +339,7 @@ function computeFreeFlight(
       angularVelocity: new Float64Array(3),
       windVelocity: new Float64Array(3),
       time: 1,
-      isReleased: false, 
+      isReleased: false,
     },
     forces: {
       drag: aero.drag,

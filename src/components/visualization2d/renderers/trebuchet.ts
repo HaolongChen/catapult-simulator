@@ -1,5 +1,4 @@
 import type { FrameData } from '@/physics/types'
-import { getSlingBagAttachmentPoints } from '@/physics/trebuchet'
 
 export function renderTrebuchet(
   ctx: CanvasRenderingContext2D,
@@ -56,23 +55,13 @@ export function renderTrebuchet(
   ctx.lineWidth = 2
   ctx.stroke()
 
-  // 5. Draw V-Shape Dual Sling
-  const attachments = getSlingBagAttachmentPoints(
-    slingBag.position,
-    slingBag.angle,
-    slingBag.width,
-  )
-
-  const leftSlotX = toCanvasX(attachments.left[0])
-  const leftSlotY = toCanvasY(attachments.left[1])
-  const rightSlotX = toCanvasX(attachments.right[0])
-  const rightSlotY = toCanvasY(attachments.right[1])
+  // 5. Draw Single Sling
+  const slingEndX = toCanvasX(slingBag.position[0])
+  const slingEndY = toCanvasY(slingBag.position[1])
 
   ctx.beginPath()
   ctx.moveTo(longTipX, longTipY)
-  ctx.lineTo(leftSlotX, leftSlotY)
-  ctx.moveTo(longTipX, longTipY)
-  ctx.lineTo(rightSlotX, rightSlotY)
+  ctx.lineTo(slingEndX, slingEndY)
 
   ctx.strokeStyle = '#8b4513'
   ctx.lineWidth = 1.2
