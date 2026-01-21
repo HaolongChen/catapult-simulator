@@ -12,6 +12,8 @@ import {
   CloudRain,
   LayoutDashboard,
   Settings,
+  X,
+  Menu,
 } from 'lucide-react'
 
 const HEADER_FONT = 'Orbitron, sans-serif'
@@ -142,17 +144,17 @@ const TelemetrySection: React.FC<{
 const TelemetryTable: React.FC<{
   data: { label: string; value: string | number | React.ReactNode }[]
 }> = ({ data }) => (
-  <div className="grid grid-cols-[110px_1fr] gap-y-1.5 pb-2">
+  <div className="grid grid-cols-[110px_1fr] gap-y-1.5 pb-2 max-md:grid-cols-[90px_1fr]">
     {data.map((item) => (
       <React.Fragment key={item.label}>
         <div
-          className="text-[0.65rem] font-bold uppercase text-slate-500 pr-2 self-center"
+          className="text-[0.65rem] font-bold uppercase text-slate-500 pr-2 self-center max-md:text-[0.6rem]"
           style={{ fontFamily: HEADER_FONT }}
         >
           {item.label}
         </div>
         <div
-          className="text-[0.75rem] font-mono text-slate-200 break-all leading-tight"
+          className="text-[0.75rem] font-mono text-slate-200 break-all leading-tight max-md:text-[0.65rem]"
           style={{
             fontFamily: VALUE_FONT,
             letterSpacing: '-0.02em',
@@ -169,38 +171,47 @@ export const DebugOverlay: React.FC<{
   frameData?: FrameData
 }> = ({ frameData }) => {
   const config = createConfig()
+  const [isOpen, setIsOpen] = useState(false)
 
   if (!frameData) return null
 
   return (
     <>
+      {/* Mobile Toggle Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="md:hidden fixed top-4 right-4 z-[110] w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white flex items-center justify-center shadow-lg transition-all"
+      >
+        {isOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
       <aside
-        className="fixed top-0 left-0 h-full w-[480px] z-[100] backdrop-blur-xl border-r border-white/10 shadow-[10px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto custom-scrollbar"
+        className={`fixed top-0 left-0 h-full w-[480px] z-[100] backdrop-blur-xl border-r border-white/10 shadow-[10px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto custom-scrollbar transition-transform duration-300 max-md:w-full ${isOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full'}`}
         style={{
           background:
             'linear-gradient(165deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
         }}
       >
-        <div className="p-6 border-b border-white/5 flex justify-between items-end">
+        <div className="p-6 border-b border-white/5 flex justify-between items-end max-md:p-4 max-md:pt-16">
           <div>
             <h2
-              className="text-xl font-black text-white tracking-tighter uppercase italic"
+              className="text-xl font-black text-white tracking-tighter uppercase italic max-md:text-lg"
               style={{ fontFamily: HEADER_FONT }}
             >
               Telemetry
             </h2>
-            <p className="text-[0.6rem] text-slate-500 font-bold tracking-[0.3em] uppercase">
+            <p className="text-[0.6rem] text-slate-500 font-bold tracking-[0.3em] uppercase max-md:text-[0.55rem]">
               19-DOF High Fidelity Stream
             </p>
           </div>
           <div className="text-right">
-            <span className="block text-[0.7rem] font-mono text-blue-400">
+            <span className="block text-[0.7rem] font-mono text-blue-400 max-md:text-[0.6rem]">
               FRAME_{frameData.time.toFixed(2).replace('.', '')}
             </span>
           </div>
         </div>
 
-        <div className="p-4">
+        <div className="p-4 max-md:p-3 max-md:pb-24">
           <TelemetrySection
             title="System Status"
             icon={SECTION_META[0].icon}
@@ -330,16 +341,16 @@ export const DebugOverlay: React.FC<{
                   value: `${fmt(frameData.counterweight.angularVelocity, 4)} rad/s`,
                 },
                 {
-                  label: 'Mass Center',
+                  label: 'Position',
                   value: fmtVec(frameData.counterweight.position),
-                },
-                {
-                  label: 'Joint Pt',
-                  value: fmtVec(frameData.counterweight.attachmentPoint),
                 },
                 {
                   label: 'Radius',
                   value: `${fmt(frameData.counterweight.radius)}m`,
+                },
+                {
+                  label: 'Attachment',
+                  value: fmtVec(frameData.counterweight.attachmentPoint),
                 },
                 {
                   label: 'B-Box Min',
@@ -354,7 +365,7 @@ export const DebugOverlay: React.FC<{
           </TelemetrySection>
 
           <TelemetrySection
-            title="Sling"
+            title="Sling & SlingBag"
             icon={SECTION_META[4].icon}
             accent={SECTION_META[4].accent}
             defaultOpen={false}
@@ -363,35 +374,44 @@ export const DebugOverlay: React.FC<{
               data={[
                 {
                   label: 'Attached',
-                  value: frameData.sling.isAttached ? 'TRUE' : 'FALSE',
+                  value: (
+                    <span
+                      className={`px-2 py-0.5 rounded text-[0.6rem] font-black uppercase ${
+                        frameData.sling.isAttached
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {frameData.sling.isAttached ? 'YES' : 'NO'}
+                    </span>
+                  ),
                 },
                 {
-                  label: 'Tension',
-                  value: `${fmt(frameData.sling.tension, 2)} N`,
+                  label: 'Length',
+                  value: `${fmt(frameData.sling.length)}m`,
+                },
+                {
+                  label: 'Start Point',
+                  value: fmtVec(frameData.sling.startPoint),
+                },
+                {
+                  label: 'End Point',
+                  value: fmtVec(frameData.sling.endPoint),
                 },
                 {
                   label: 'Tension Vec',
                   value: fmtVec(frameData.sling.tensionVector, true),
                 },
                 {
-                  label: 'Current L',
-                  value: `${fmt(frameData.constraints.slingLength.current, 4)}m`,
+                  label: 'Tension',
+                  value: `${fmt(frameData.sling.tension, 2)} N`,
                 },
-                {
-                  label: 'Target L',
-                  value: `${fmt(frameData.constraints.slingLength.target, 4)}m`,
-                },
-                {
-                  label: 'Sling Start',
-                  value: fmtVec(frameData.sling.startPoint),
-                },
-                { label: 'Sling End', value: fmtVec(frameData.sling.endPoint) },
               ]}
             />
           </TelemetrySection>
 
           <TelemetrySection
-            title="Forces (Projectile)"
+            title="Forces"
             icon={SECTION_META[5].icon}
             accent={SECTION_META[5].accent}
             defaultOpen={false}
@@ -415,31 +435,37 @@ export const DebugOverlay: React.FC<{
                   value: fmtVec(frameData.forces.projectile.tension, true),
                 },
                 {
-                  label: 'TOTAL FORCE',
+                  label: 'Total',
                   value: fmtVec(frameData.forces.projectile.total, true),
                 },
+              ]}
+            />
+          </TelemetrySection>
+
+
+
+          <TelemetrySection
+            title="Ground Contact"
+            icon={SECTION_META[6].icon}
+            accent="#10b981"
+            defaultOpen={false}
+          >
+            <TelemetryTable
+              data={[
                 {
-                  label: 'Arm Spring T',
-                  value: `${fmt(frameData.forces.arm.springTorque)} Nm`,
+                  label: 'Ground Height',
+                  value: `${fmt(frameData.ground.height)} m`,
                 },
                 {
-                  label: 'Arm Damp T',
-                  value: `${fmt(frameData.forces.arm.dampingTorque)} Nm`,
-                },
-                {
-                  label: 'Arm Fric T',
-                  value: `${fmt(frameData.forces.arm.frictionTorque)} Nm`,
-                },
-                {
-                  label: 'Arm TOTAL T',
-                  value: `${fmt(frameData.forces.arm.totalTorque)} Nm`,
+                  label: 'Normal Force',
+                  value: `${fmt(frameData.ground.normalForce)} N`,
                 },
               ]}
             />
           </TelemetrySection>
 
           <TelemetrySection
-            title="Stability"
+            title="Constraints & Stability"
             icon={SECTION_META[7].icon}
             accent={SECTION_META[7].accent}
             defaultOpen={false}
@@ -447,22 +473,34 @@ export const DebugOverlay: React.FC<{
             <TelemetryTable
               data={[
                 {
-                  label: 'Sling Drift',
-                  value: `${fmt(frameData.constraints.slingLength.violation * 1000, 6)} mm`,
+                  label: 'Sling Length',
+                  value: `${fmt(frameData.constraints.slingLength.current, 3)}m`,
                 },
                 {
-                  label: 'Ground Pen',
-                  value: `${fmt(frameData.constraints.groundContact.penetration * 1000, 4)} mm`,
+                  label: 'Target Length',
+                  value: `${fmt(frameData.constraints.slingLength.target, 3)}m`,
                 },
                 {
-                  label: 'Ground Force',
-                  value: `${fmt(frameData.ground.normalForce, 2)} N`,
+                  label: 'Violation',
+                  value: `${fmt(frameData.constraints.slingLength.violation, 6)}m`,
+                },
+                {
+                  label: 'Ground Pen.',
+                  value: `${fmt(frameData.constraints.groundContact.penetration, 6)}m`,
                 },
                 {
                   label: 'Ground Active',
-                  value: frameData.constraints.groundContact.isActive
-                    ? 'YES'
-                    : 'NO',
+                  value: (
+                    <span
+                      className={`px-2 py-0.5 rounded text-[0.6rem] font-black uppercase ${
+                        frameData.constraints.groundContact.isActive
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-slate-500/20 text-slate-400'
+                      }`}
+                    >
+                      {frameData.constraints.groundContact.isActive ? 'YES' : 'NO'}
+                    </span>
+                  ),
                 },
               ]}
             />
@@ -477,64 +515,30 @@ export const DebugOverlay: React.FC<{
             <TelemetryTable
               data={[
                 {
-                  label: 'Init Δt',
-                  value: `${fmt(config.initialTimestep, 4)}s`,
-                },
-                { label: 'Max Substeps', value: config.maxSubsteps },
-                {
-                  label: 'Proj Mass',
-                  value: `${fmt(config.projectile.mass)} kg`,
+                  label: 'Timestep',
+                  value: `${fmt(config.initialTimestep, 5)}s`,
                 },
                 {
-                  label: 'Proj Radius',
-                  value: `${fmt(config.projectile.radius)}m`,
+                  label: 'Tolerance',
+                  value: `${fmt(config.tolerance, 8)}`,
                 },
                 {
-                  label: 'Drag Coeff',
-                  value: fmt(config.projectile.dragCoefficient),
+                  label: 'Max Substeps',
+                  value: config.maxSubsteps,
                 },
-                {
-                  label: 'Magnus Coeff',
-                  value: fmt(config.projectile.magnusCoefficient),
-                },
-                {
-                  label: 'Arm Ratio',
-                  value: `${config.trebuchet.longArmLength}:${config.trebuchet.shortArmLength}`,
-                },
-                {
-                  label: 'CW Mass',
-                  value: `${fmt(config.trebuchet.counterweightMass)} kg`,
-                },
-                {
-                  label: 'Sling L',
-                  value: `${fmt(config.trebuchet.slingLength)}m`,
-                },
-                {
-                  label: 'Pivot H',
-                  value: `${fmt(config.trebuchet.pivotHeight)}m`,
-                },
-                { label: 'Joint Fric', value: config.trebuchet.jointFriction },
               ]}
             />
           </TelemetrySection>
         </div>
       </aside>
 
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.2);
-        }
-      `}</style>
+      {/* Mobile Overlay Background */}
+      {isOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-[90]"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
     </>
   )
 }
