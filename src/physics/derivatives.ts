@@ -252,16 +252,18 @@ function computeFreeFlight(
     g = PHYSICS_CONSTANTS.GRAVITY,
     { velocity, position } = state
   let ay = (aero.total[1] - Mp * g) / Mp
-  if (position[1] < projectile.radius)
+  if (position[1] < projectile.radius) {
+    // Revert to stable penalty ground for free flight
     ay +=
-      Math.max(0, 10000 * (projectile.radius - position[1])) - 100 * velocity[1]
+      Math.max(0, 50000 * (projectile.radius - position[1])) - 200 * velocity[1]
+  }
   return {
     derivative: {
       ...state,
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
       velocity: new Float64Array([aero.total[0] / Mp, ay, 0]),
       time: 1,
-      isReleased: true,
+      isReleased: false, // derivative of constant is 0, but field is boolean. Keep as is or false.
     },
     forces: {
       drag: aero.drag,

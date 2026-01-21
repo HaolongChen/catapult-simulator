@@ -80,7 +80,7 @@ export class CatapultSimulation {
     if (!newState.isReleased) {
       const {
         slingLength: Ls,
-        slingBagWidth: W,
+        longArmLength: L1,
         counterweightRadius: Rcw,
       } = this.config.trebuchet
 
@@ -90,12 +90,9 @@ export class CatapultSimulation {
         newState.slingBagAngle,
         this.config.trebuchet,
       )
-      const { longArmTip: tip, shortArmTip: shortTip } = kinematics
-
-      const R_p = this.config.projectile.radius * 1.5
+      const { longArmTip: tip, shortArmTip: shortTip, pivot } = kinematics
 
       // 2.1 Counterweight Position Projection (Hinge)
-      // Constrains CW center to be exactly Rcw from the short arm tip.
       const dx_cw = newState.cwPosition[0] - shortTip.x
       const dy_cw = newState.cwPosition[1] - shortTip.y
       const dist_cw = Math.sqrt(dx_cw * dx_cw + dy_cw * dy_cw + 1e-12)
@@ -103,51 +100,72 @@ export class CatapultSimulation {
       newState.cwPosition[0] = shortTip.x + dx_cw * factor_cw
       newState.cwPosition[1] = shortTip.y + dy_cw * factor_cw
 
-      // 2.2 Sling Bag Position Projection (V-shape center distance)
-      // Constrains bag center to be at the target geometric distance from arm tip.
-      const targetCenterDist = Math.sqrt(Math.max(0, Ls * Ls - (W / 2) ** 2))
-      const dx_sb = newState.slingBagPosition[0] - tip.x
-      const dy_sb = newState.slingBagPosition[1] - tip.y
-      const dist_sb = Math.sqrt(dx_sb * dx_sb + dy_sb * dy_sb + 1e-12)
-      const factor_sb = targetCenterDist / dist_sb
-      newState.slingBagPosition[0] = tip.x + dx_sb * factor_sb
-      newState.slingBagPosition[1] = tip.y + dy_sb * factor_sb
+      // 2.2 Projectile Position Projection (Single Sling)
+      const dx_p = newState.position[0] - tip.x
+      const dy_p = newState.position[1] - tip.y
+      const dist_p = Math.sqrt(dx_p * dx_p + dy_p * dy_p + 1e-12)
+      const factor_p = Ls / dist_p
+      newState.position[0] = tip.x + dx_p * factor_p
+      newState.position[1] = tip.y + dy_p * factor_p
 
-      // 2.3 Projectile-Bag Contact Projection
-      // Prevents penetration between the projectile and the sling bag.
-      const dx_b = newState.position[0] - newState.slingBagPosition[0]
-      const dy_b = newState.position[1] - newState.slingBagPosition[1]
-      const dist_b = Math.sqrt(dx_b * dx_b + dy_b * dy_b + 1e-12)
-      const factor_b = R_p / dist_b
-      newState.position[0] = newState.slingBagPosition[0] + dx_b * factor_b
-      newState.position[1] = newState.slingBagPosition[1] + dy_b * factor_b
+      // 2.3 Velocity Projection (Ensure J * q_dot = 0)
+      const nx = dx_p / dist_p
+      const ny = dy_p / dist_p
+      const vxt =
+        -L1 * Math.sin(newState.armAngle) * newState.armAngularVelocity
+      const vyt = L1 * Math.cos(newState.armAngle) * newState.armAngularVelocity
+      const vrelx = newState.velocity[0] - vxt
+      const vrely = newState.velocity[1] - vyt
+      const vdotn = vrelx * nx + vrely * ny
+      newState.velocity[0] -= vdotn * nx
+      newState.velocity[1] -= vdotn * ny
 
       // Ground Collision (Hard floor)
       if (newState.position[1] < this.config.projectile.radius) {
         newState.position[1] = this.config.projectile.radius
       }
 
-      // 3. Update Orientation Angles to match projected positions
-      // Derives phi and psi from the Cartesian coordinates solved by the DAE.
+      // 3. Update Visual Orientation Angles
       newState = {
         ...newState,
         cwAngle: Math.atan2(dx_cw, -dy_cw),
-        slingBagAngle: Math.atan2(dy_sb, dx_sb) - Math.PI / 2,
+        slingBagPosition: new Float64Array([
+          newState.position[0],
+          newState.position[1],
+        ]),
+        slingBagAngle: Math.atan2(dy_p, dx_p) - Math.PI / 2,
       }
 
-      // 4. State Transitions (Natural Release)
-      // Separation occurs strictly when the normal contact force N between bag and ball is zero.
-      const normAng =
-        ((((newState.armAngle * 180) / Math.PI) % 360) + 360) % 360
-      const inReleaseWindow = normAng > 45 && normAng < 225
+      // 4. State Transitions (Kinematic Release)
+      const armVec = { x: tip.x - pivot.x, y: tip.y - pivot.y }
+      const slingVec = {
+        x: newState.position[0] - tip.x,
+        y: newState.position[1] - tip.y,
+      }
+      const det = armVec.x * slingVec.y - armVec.y * slingVec.x
+      const dot = armVec.x * slingVec.x + armVec.y * slingVec.y
+      const currentRelAngle = Math.atan2(det, dot)
 
-      if (inReleaseWindow && this.lastForces.slingBagNormal <= 0) {
+      // Release triggers when the sling leads the arm by the specified releaseAngle.
+      // We gate this with the arm's firing arc (usually > 45 degrees) to prevent
+      // accidental release while the arm is still gaining momentum.
+      const armAngleDeg = (newState.armAngle * 180) / Math.PI
+      const inFiringArc = armAngleDeg > 45 && armAngleDeg < 160
+
+      if (inFiringArc && currentRelAngle > this.config.trebuchet.releaseAngle) {
         newState = {
           ...newState,
           isReleased: true,
         }
       }
       this.integrator.setState(newState)
+    }
+
+    // Ground Collision (Hard floor) - enforced even in free flight phase
+    // to prevent significant penetration.
+    if (newState.position[1] < this.config.projectile.radius) {
+      newState.position[1] = this.config.projectile.radius
+      if (newState.velocity[1] < 0) newState.velocity[1] = 0
     }
 
     // Quaternion Normalization (Numerical stability for orientation)
@@ -290,11 +308,7 @@ export class CatapultSimulation {
           ? [slingBagPosition[0], slingBagPosition[1], 0]
           : [position[0], position[1], position[2]],
         length: Ls,
-        tension: Math.sqrt(
-          this.lastForces.tension[0] ** 2 +
-            this.lastForces.tension[1] ** 2 +
-            this.lastForces.tension[2] ** 2,
-        ),
+        tension: Math.abs(this.lastForces.lambda[2] * Ls),
         tensionVector: [
           this.lastForces.tension[0],
           this.lastForces.tension[1],
