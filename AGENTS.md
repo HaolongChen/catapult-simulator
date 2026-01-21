@@ -1,100 +1,77 @@
-# PROJECT AGENT KNOWLEDGE BASE
+# PROJECT KNOWLEDGE BASE
 
-**Stack:** Vite + React 19 + @tanstack/store
-**Core Focus:** 17-DOF high-fidelity physics simulation of medieval trebuchets.
+**Generated:** 2026-01-21 04:00:00
+**Commit:** f46d6e6
+**Branch:** rebuild
 
-## 1. COMMANDS
+## OVERVIEW
 
-### Development & Maintenance
+High-fidelity 19-DOF trebuchet simulator featuring a redundant coordinate DAE system, hinged counterweights, and dual-rope sling mechanics. Built with Vite, React 19, and @tanstack/store.
 
-- `pnpm dev` - Start development server on `http://localhost:5173` (default).
-- `pnpm build` - Production build via Vite.
-- `pnpm check` - **CRITICAL**: Runs Prettier and ESLint with auto-fix. Run this before finishing any task.
-- `pnpm lint` - Static analysis check.
-- `pnpm test` - Run all Vitest unit tests.
-- `pnpm export-trajectory` - Export simulation data to `public/trajectory.json`.
-
-### Testing
-
-- `pnpm test` - Run all tests.
-- `npx vitest run src/physics/__tests__/3d-geometry.test.ts` - Run a specific test file.
-
----
-
-## 2. PROJECT STRUCTURE
+## STRUCTURE
 
 ```text
-src/
-├── components/          # React components
-│   ├── TrebuchetVisualization2D.tsx # 2D Canvas visualization
-│   ├── AnimationControls.tsx      # Playback controls
-│   └── DebugOverlay.tsx           # Physics telemetry overlay
-├── physics/             # 17-DOF Physics Engine (Pure TS)
-│   ├── __tests__/       # Mathematical verification tests
-│   ├── aerodynamics.ts  # Drag and Magnus effect models
-│   ├── derivatives.ts   # ODE system derivatives
-│   ├── simulation.ts    # Main simulation controller
-│   └── types.ts         # High-precision type definitions
-├── hooks/               # Custom React hooks
-│   └── useTrajectory.ts # Trajectory data management
-├── lib/                 # Utilities
-│   └── utils.ts         # Tailwind merger (cn)
-├── App.tsx              # Main application component
-├── main.tsx             # Application entry point
-├── index.css            # Global styles (Tailwind)
-└── styles.css           # Additional styles
+./
+├── src/
+│   ├── components/      # React UI modules
+│   │   └── visualization2d/ # Modular canvas renderer (renderers/hooks)
+│   ├── physics/         # 19-DOF Lagrangian Engine (Pure TS)
+│   │   └── __tests__/   # Energy conservation & mathematical validation
+│   ├── hooks/           # App-level React hooks (trajectory management)
+│   └── lib/             # UI utilities (Tailwind cn)
+├── public/              # Static assets (trajectory.json)
+└── scripts/             # Headless simulation export tools
 ```
 
----
+## WHERE TO LOOK
 
-## 3. CODE STYLE & CONVENTIONS
+| Task            | Location                          | Notes                                 |
+| --------------- | --------------------------------- | ------------------------------------- |
+| Physics Engine  | `src/physics/`                    | KKT solver, RK4 integrator, DAE logic |
+| 2D Rendering    | `src/components/visualization2d/` | Stateless Canvas drawing              |
+| Telemetry UI    | `src/components/DebugOverlay.tsx` | Real-time physics metrics             |
+| Sim Data Export | `scripts/export_trajectory.ts`    | Generates public/trajectory.json      |
 
-### General
+## CODE MAP
 
-- **No Semicolons**: Do not use semicolons at the end of statements.
-- **Quotes**: Use single quotes `'` for strings.
-- **Trailing Commas**: Always include trailing commas in multiline objects/arrays.
-- **Path Aliases**: Always use `@/` to refer to `./src/`.
+| Symbol                       | Type      | Location                                   | Role                           |
+| ---------------------------- | --------- | ------------------------------------------ | ------------------------------ |
+| `CatapultSimulation`         | Class     | `src/physics/simulation.ts`                | Main controller & orchestrator |
+| `computeDerivatives`         | Function  | `src/physics/derivatives.ts`               | Core DAE/KKT numerical solver  |
+| `RK4Integrator`              | Class     | `src/physics/rk4-integrator.ts`            | Adaptive numerical integration |
+| `TrebuchetVisualization2D`   | Component | `src/components/visualization2d/index.tsx` | Main renderer component        |
+| `computeTrebuchetKinematics` | Function  | `src/physics/kinematics.ts`                | Geometry source of truth       |
 
-### Naming Conventions
+## CONVENTIONS
 
-- **Components**: PascalCase.
-- **Files**: kebab-case.
-- **Variables/Functions**: camelCase.
-- **Constants**: UPPER_SNAKE_CASE.
-- **Types/Interfaces**: PascalCase.
+- **19-DOF Model**: Redundant coordinates (Cartesian + Angles) for extreme stability.
+- **Natural Release**: Ball separates when $N \le 0$, not at fixed angles.
+- **V-Shape Sling**: Dual-rope attachment solved dynamically.
+- **No Semicolons**: Prettier/ESLint enforced.
+- **Single Source of Truth**: All geometry points MUST derive from `kinematics.ts`.
 
-### TypeScript & Types
+## ANTI-PATTERNS (THIS PROJECT)
 
-- Use `interface` for object shapes, `type` for unions/aliases.
-- **Strict Typing**: Avoid `any` or `@ts-ignore`.
-- **Numerical Precision**: Physics variables must use `number`. Use `Float64Array` for state vectors to ensure 64-bit precision during integration.
+- **Hardcoded constants**: Use `src/physics/constants.ts`.
+- **Manual angle calculation**: Do NOT calculate arm/bag points in renderers; use `kinematics.ts`.
+- **Legacy Torque**: Avoid penalty-based forces; the DAE solver handles constraints natively.
+- **NaN Suppression**: Never use `as any` or `@ts-ignore` to hide numerical instability.
 
----
+## UNIQUE STYLES
 
-## 4. PHYSICS ENGINEERING STANDARDS
+- **Telegraphic Code**: Minimal abstractions in math sections for readability.
+- **Stepwise Rendering**: Renderer functions use numbered comments for drawing sequences.
 
-The simulator implements a high-fidelity Lagrangian DAE (Differential-Algebraic Equation) system.
+## COMMANDS
 
-- **Integrator**: Fixed-timestep RK4 with internal sub-stepping. Default $\Delta t = 0.005s$.
-- **Constraint Solver**: Baumgarte-stabilized Penalty Method.
-- **Coordinates**:
-  - `theta`: Arm angle (radians). $0$ is horizontal-right, positive is CCW.
-  - `cwAngle`: Counterweight angle relative to vertical-down.
-  - `position`: Projectile world coordinates $[x, y, z]$.
+```bash
+pnpm dev              # Start app
+pnpm test             # Run 80+ physics tests
+pnpm check            # lint + format + fix
+pnpm export-trajectory # Generate fresh JSON data
+```
 
----
+## NOTES
 
-## 5. REACT PATTERNS
-
-- **State Management**: Use `@tanstack/store` for performance-sensitive simulation state.
-- **React 19**: Use new patterns where appropriate.
-- **Optimization**: Avoid unnecessary re-renders. Heavy physics logic should stay in the physics engine.
-
----
-
-## 7. ANTI-PATTERNS
-
-- **No Double Quotes**: Except where necessary.
-- **No Component Bloat**: Keep components focused.
-- **No Mocking without justification**: Always use real physics constants ($g = 9.81$).
+- **Ground Rail**: Projectile is constrained horizontally until vertical tension exceeds weight.
+- **Interpolation**: Rendering uses `alpha` interpolation between fixed physics steps for smooth 60fps visuals.
