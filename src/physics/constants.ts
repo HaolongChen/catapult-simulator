@@ -27,7 +27,7 @@ export const VISUAL_CONSTANTS = {
 
 export const UI_CONSTANTS = {
   CONTROLS: {
-    WIDTH: 600,
+    WIDTH: 1200,
     ICON_SIZE_LARGE: 24,
     ICON_SIZE_MEDIUM: 20,
     RESET_FRAME: 0,

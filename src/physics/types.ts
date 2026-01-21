@@ -11,29 +11,54 @@ export interface AtmosphericConstants {
   sutherlandS: number
 }
 
+/**
+ * 19-DOF High Fidelity Physics State
+ * Uses redundant world-space coordinates for numerical stability.
+ */
 export interface PhysicsState17DOF {
-  readonly position: Float64Array
-  readonly velocity: Float64Array
-  readonly orientation: Float64Array
-  readonly angularVelocity: Float64Array
+  // Arm
   readonly armAngle: number
   readonly armAngularVelocity: number
+
+  // Counterweight (Hinged)
+  readonly cwPosition: Float64Array // [x, y]
+  readonly cwVelocity: Float64Array // [vx, vy]
   readonly cwAngle: number
   readonly cwAngularVelocity: number
+
+  // Sling Bag (Dual Attachment)
+  readonly slingBagPosition: Float64Array // [x, y]
+  readonly slingBagVelocity: Float64Array // [vx, vy]
+  readonly slingBagAngle: number
+  readonly slingBagAngularVelocity: number
+
+  // Projectile
+  readonly position: Float64Array // [x, y, z]
+  readonly velocity: Float64Array // [vx, vy, vz]
+  readonly orientation: Float64Array // [q1, q2, q3, q4]
+  readonly angularVelocity: Float64Array // [wx, wy, wz]
+
+  // Environment & Meta
   readonly windVelocity: Float64Array
   readonly time: number
   readonly isReleased: boolean
 }
 
 export interface PhysicsDerivative17DOF {
+  readonly armAngle: number
+  readonly armAngularVelocity: number
+  readonly cwPosition: Float64Array
+  readonly cwVelocity: Float64Array
+  readonly cwAngle: number
+  readonly cwAngularVelocity: number
+  readonly slingBagPosition: Float64Array
+  readonly slingBagVelocity: Float64Array
+  readonly slingBagAngle: number
+  readonly slingBagAngularVelocity: number
   readonly position: Float64Array
   readonly velocity: Float64Array
   readonly orientation: Float64Array
   readonly angularVelocity: Float64Array
-  readonly armAngle: number
-  readonly armAngularVelocity: number
-  readonly cwAngle: number
-  readonly cwAngularVelocity: number
   readonly windVelocity: Float64Array
   readonly time: number
   readonly isReleased: boolean
@@ -53,15 +78,14 @@ export interface TrebuchetProperties {
   longArmLength: number
   shortArmLength: number
   counterweightMass: number
-  counterweightRadius: number
+  counterweightRadius: number // Distance to CW hinge
+  counterweightInertia: number // Inertia of CW container
   slingLength: number
   releaseAngle: number
-  springConstant: number
-  dampingCoefficient: number
-  equilibriumAngle: number
+  slingBagWidth: number // Width of the bag for dual ropes
+  slingBagMass: number
+  slingBagInertia: number
   jointFriction: number
-  efficiency: number
-  flexuralStiffness: number
   armMass: number
   pivotHeight: number
 }
@@ -84,6 +108,8 @@ export interface PhysicsForces {
   readonly tension: Float64Array
   readonly total: Float64Array
   readonly groundNormal: number
+  readonly slingBagNormal: number // Force N between bag and ball
+  readonly lambda: Float64Array // Raw multipliers for debugging
 }
 
 export type DerivativeFunction = (
@@ -115,20 +141,9 @@ export interface AerodynamicForce {
   readonly total: Float64Array
 }
 
-export interface CatapultTorque {
-  readonly spring: number
-  readonly damping: number
-  readonly friction: number
-  readonly flexure: number
-  readonly total: number
-}
-
 export interface FrameData {
-  // Time
   time: number
   timestep: number
-
-  // Projectile
   projectile: {
     position: [number, number, number]
     orientation: [number, number, number, number]
@@ -140,8 +155,6 @@ export interface FrameData {
       max: [number, number, number]
     }
   }
-
-  // Arm
   arm: {
     angle: number
     angularVelocity: number
@@ -155,8 +168,6 @@ export interface FrameData {
       max: [number, number, number]
     }
   }
-
-  // Counterweight
   counterweight: {
     angle: number
     angularVelocity: number
@@ -168,8 +179,6 @@ export interface FrameData {
       max: [number, number, number]
     }
   }
-
-  // Sling
   sling: {
     isAttached: boolean
     startPoint: [number, number, number]
@@ -178,14 +187,15 @@ export interface FrameData {
     tension: number
     tensionVector: [number, number, number]
   }
-
-  // Ground
+  slingBag: {
+    position: [number, number, number]
+    angle: number
+    contactForce: number
+  }
   ground: {
     height: number
     normalForce: number
   }
-
-  // Forces (for debug visualization)
   forces: {
     projectile: {
       gravity: [number, number, number]
@@ -201,8 +211,6 @@ export interface FrameData {
       totalTorque: number
     }
   }
-
-  // Constraints (for debug visualization)
   constraints: {
     slingLength: {
       current: number
@@ -214,7 +222,5 @@ export interface FrameData {
       isActive: boolean
     }
   }
-
-  // Phase
   phase: string
 }

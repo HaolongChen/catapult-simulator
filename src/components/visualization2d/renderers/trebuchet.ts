@@ -1,4 +1,5 @@
 import type { FrameData } from '@/physics/types'
+import { getSlingBagAttachmentPoints } from './projectile'
 
 export function renderTrebuchet(
   ctx: CanvasRenderingContext2D,
@@ -7,7 +8,7 @@ export function renderTrebuchet(
   toCanvasY: (y: number) => number,
   zoomRef: React.MutableRefObject<number>,
 ) {
-  const { arm, counterweight, sling } = currentFrameData
+  const { arm, counterweight, slingBag } = currentFrameData
 
   const pivotX = toCanvasX(arm.pivot[0])
   const pivotY = toCanvasY(arm.pivot[1])
@@ -16,6 +17,7 @@ export function renderTrebuchet(
   const shortTipX = toCanvasX(arm.shortArmTip[0])
   const shortTipY = toCanvasY(arm.shortArmTip[1])
 
+  // 1. Draw Arm
   ctx.beginPath()
   ctx.moveTo(shortTipX, shortTipY)
   ctx.lineTo(longTipX, longTipY)
@@ -24,11 +26,16 @@ export function renderTrebuchet(
   ctx.lineCap = 'round'
   ctx.stroke()
 
+  // 2. Draw Pivot
   ctx.beginPath()
-  ctx.arc(pivotX, pivotY, 4, 0, Math.PI * 2)
+  ctx.arc(pivotX, pivotY, 6, 0, Math.PI * 2)
   ctx.fillStyle = '#1e293b'
   ctx.fill()
+  ctx.strokeStyle = '#94a3b8'
+  ctx.lineWidth = 2
+  ctx.stroke()
 
+  // 3. Draw Counterweight
   const cwX = toCanvasX(counterweight.position[0])
   const cwY = toCanvasY(counterweight.position[1])
   const cwRadius = counterweight.radius * zoomRef.current
@@ -41,6 +48,7 @@ export function renderTrebuchet(
   ctx.lineWidth = 2
   ctx.stroke()
 
+  // 4. Draw CW Rope
   ctx.beginPath()
   ctx.moveTo(shortTipX, shortTipY)
   ctx.lineTo(cwX, cwY)
@@ -48,12 +56,28 @@ export function renderTrebuchet(
   ctx.lineWidth = 2
   ctx.stroke()
 
-  if (sling.isAttached) {
-    ctx.beginPath()
-    ctx.moveTo(toCanvasX(sling.startPoint[0]), toCanvasY(sling.startPoint[1]))
-    ctx.lineTo(toCanvasX(sling.endPoint[0]), toCanvasY(sling.endPoint[1]))
-    ctx.strokeStyle = '#8b4513'
-    ctx.lineWidth = 1
-    ctx.stroke()
-  }
+  // 5. Draw V-Shape Dual Sling
+  const slingBagWidthPhys = 0.1 * 3.5
+  const attachments = getSlingBagAttachmentPoints(
+    slingBag.position,
+    slingBag.angle,
+    slingBagWidthPhys,
+  )
+
+  const leftSlotX = toCanvasX(attachments.left[0])
+  const leftSlotY = toCanvasY(attachments.left[1])
+  const rightSlotX = toCanvasX(attachments.right[0])
+  const rightSlotY = toCanvasY(attachments.right[1])
+
+  ctx.beginPath()
+  ctx.moveTo(longTipX, longTipY)
+  ctx.lineTo(leftSlotX, leftSlotY)
+  ctx.moveTo(longTipX, longTipY)
+  ctx.lineTo(rightSlotX, rightSlotY)
+
+  ctx.strokeStyle = '#8b4513'
+  ctx.lineWidth = 1.2
+  ctx.globalAlpha = 0.8
+  ctx.stroke()
+  ctx.globalAlpha = 1.0
 }

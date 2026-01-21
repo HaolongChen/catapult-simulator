@@ -72,8 +72,10 @@ export function airDensity(
 ): number {
   const { seaLevelDensity, scaleHeight } = ATMOSPHERIC_CONSTANTS
 
+  const safeAltitude = Math.max(-100, altitude)
+
   // Barometric formula (exponential atmosphere)
-  const dryDensity = seaLevelDensity * Math.exp(-altitude / scaleHeight)
+  const dryDensity = seaLevelDensity * Math.exp(-safeAltitude / scaleHeight)
 
   // Apply humidity correction
   return humidityDensityCorrection(dryDensity, temperature, humidity)

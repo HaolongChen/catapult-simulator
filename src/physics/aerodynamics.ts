@@ -79,7 +79,10 @@ export function dragForce(
   const vMag = Math.sqrt(vSq)
   const result = new Float64Array(3)
   if (vMag > 1e-6) {
-    const fDrag = 0.5 * density * vSq * cd * area
+    let fDrag = 0.5 * density * vSq * cd * area
+
+    fDrag = Math.min(fDrag, 1e7)
+
     result[0] = -fDrag * (velocity[0] / vMag)
     result[1] = -fDrag * (velocity[1] / vMag)
     result[2] = -fDrag * (velocity[2] / vMag)
@@ -101,10 +104,59 @@ export function magnusForce(
     const crossX = spinVector[1] * velocity[2] - spinVector[2] * velocity[1]
     const crossY = spinVector[2] * velocity[0] - spinVector[0] * velocity[2]
     const crossZ = spinVector[0] * velocity[1] - spinVector[1] * velocity[0]
-    const fMag = density * cl * area * vMag
+    let fMag = density * cl * area * vMag
+    fMag = Math.min(fMag, 1e6)
     result[0] = fMag * (crossX / vMag)
     result[1] = fMag * (crossY / vMag)
     result[2] = fMag * (crossZ / vMag)
+  }
+  return result
+}
+
+export function aerodynamicTorque(
+  velocity: Float64Array,
+  spinVector: Float64Array,
+  projectile: ProjectileProperties,
+  density: number,
+): Float64Array {
+  const vSq = velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2
+  const vMag = Math.sqrt(vSq)
+  const result = new Float64Array(3)
+
+  if (vMag > 1e-6) {
+    // 1. Roll Damping (Spin decay)
+    // T_damping = -0.5 * rho * v * Area * Radius^2 * C_md * omega
+    const radius = projectile.radius
+    const area = projectile.area
+    const spinDecayConst = 0.01 // Simplified spin decay coefficient
+
+    result[0] =
+      -0.5 *
+      density *
+      vMag *
+      area *
+      radius *
+      radius *
+      spinDecayConst *
+      spinVector[0]
+    result[1] =
+      -0.5 *
+      density *
+      vMag *
+      area *
+      radius *
+      radius *
+      spinDecayConst *
+      spinVector[1]
+    result[2] =
+      -0.5 *
+      density *
+      vMag *
+      area *
+      radius *
+      radius *
+      spinDecayConst *
+      spinVector[2]
   }
   return result
 }
@@ -138,11 +190,12 @@ export function aerodynamicForce(
 
   const drag = dragForce(velocity, density, cd, area)
   const magnus = magnusForce(velocity, spinVector, density, cl, area)
+  const torque = aerodynamicTorque(velocity, spinVector, projectile, density)
 
   const total = new Float64Array(3)
   total[0] = drag[0] + magnus[0]
   total[1] = drag[1] + magnus[1]
   total[2] = drag[2] + magnus[2]
 
-  return { drag, magnus, total }
+  return { drag, magnus, total, torque }
 }

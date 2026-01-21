@@ -14,12 +14,19 @@ export function useCanvasTransform(
   opts: {
     defaultZoom?: number
     groundAnchorFactor?: number
+    defaultOffsetX?: number
+    defaultOffsetY?: number
   } = {},
 ): CanvasTransformApi {
-  const { defaultZoom = 30, groundAnchorFactor = 0.8 } = opts
+  const {
+    defaultZoom = 30,
+    groundAnchorFactor = 0.8,
+    defaultOffsetX = 0,
+    defaultOffsetY = 0,
+  } = opts
 
   const zoomRef = useRef(defaultZoom)
-  const offsetRef = useRef({ x: 0, y: 0 })
+  const offsetRef = useRef({ x: defaultOffsetX, y: defaultOffsetY })
 
   const toCanvasX = useCallback(
     (x: number) => {

@@ -18,6 +18,8 @@ const EMPTY_FORCES: PhysicsForces = {
   tension: new Float64Array(3),
   total: new Float64Array(3),
   groundNormal: 0,
+  slingBagNormal: 0,
+  lambda: new Float64Array(6),
 }
 
 export class CatapultSimulation {
@@ -52,7 +54,12 @@ export class CatapultSimulation {
     physicsLogger.log(this.state, this.lastForces, this.config)
   }
 
+  /**
+   * Advances the simulation by deltaTime.
+   * Performs integration, coordinate projection, and state transition checks.
+   */
   update(deltaTime: number): PhysicsState17DOF {
+    // 1. Integration Step (using Adaptive RK4)
     const derivativeFunction = (_t: number, state: PhysicsState17DOF) => {
       const res = computeDerivatives(
         state,
@@ -65,48 +72,94 @@ export class CatapultSimulation {
     }
 
     const result = this.integrator.update(deltaTime, derivativeFunction)
-    this.state = result.newState
+    let newState = result.newState
 
-    const q = this.state.orientation
+    // 2. Coordinate Projection (SHAKE-style)
+    // Ensures that redundant world-space coordinates satisfy geometric constraints.
+    if (!newState.isReleased) {
+      const {
+        longArmLength: L1,
+        shortArmLength: L2,
+        pivotHeight: H,
+        slingLength: Ls,
+        slingBagWidth: W,
+        counterweightRadius: Rcw,
+      } = this.config.trebuchet
+      const tipX = L1 * Math.cos(newState.armAngle)
+      const tipY = H + L1 * Math.sin(newState.armAngle)
+
+      const shortTipX = -L2 * Math.cos(newState.armAngle)
+      const shortTipY = H - L2 * Math.sin(newState.armAngle)
+
+      const R_p = this.config.projectile.radius * 1.5
+
+      // 2.1 Counterweight Position Projection (Hinge)
+      // Constrains CW center to be exactly Rcw from the short arm tip.
+      const dx_cw = newState.cwPosition[0] - shortTipX
+      const dy_cw = newState.cwPosition[1] - shortTipY
+      const dist_cw = Math.sqrt(dx_cw * dx_cw + dy_cw * dy_cw + 1e-12)
+      const factor_cw = Rcw / dist_cw
+      newState.cwPosition[0] = shortTipX + dx_cw * factor_cw
+      newState.cwPosition[1] = shortTipY + dy_cw * factor_cw
+
+      // 2.2 Sling Bag Position Projection (V-shape center distance)
+      // Constrains bag center to be at the target geometric distance from arm tip.
+      const targetCenterDist = Math.sqrt(Math.max(0, Ls * Ls - (W / 2) ** 2))
+      const dx_sb = newState.slingBagPosition[0] - tipX
+      const dy_sb = newState.slingBagPosition[1] - tipY
+      const dist_sb = Math.sqrt(dx_sb * dx_sb + dy_sb * dy_sb + 1e-12)
+      const factor_sb = targetCenterDist / dist_sb
+      newState.slingBagPosition[0] = tipX + dx_sb * factor_sb
+      newState.slingBagPosition[1] = tipY + dy_sb * factor_sb
+
+      // 2.3 Projectile-Bag Contact Projection
+      // Prevents penetration between the projectile and the sling bag.
+      const dx_b = newState.position[0] - newState.slingBagPosition[0]
+      const dy_b = newState.position[1] - newState.slingBagPosition[1]
+      const dist_b = Math.sqrt(dx_b * dx_b + dy_b * dy_b + 1e-12)
+      const factor_b = R_p / dist_b
+      newState.position[0] = newState.slingBagPosition[0] + dx_b * factor_b
+      newState.position[1] = newState.slingBagPosition[1] + dy_b * factor_b
+
+      // Ground Collision (Hard floor)
+      if (newState.position[1] < this.config.projectile.radius) {
+        newState.position[1] = this.config.projectile.radius
+      }
+
+      // 3. Update Orientation Angles to match projected positions
+      // Derives phi and psi from the Cartesian coordinates solved by the DAE.
+      newState = {
+        ...newState,
+        cwAngle: Math.atan2(dx_cw, -dy_cw),
+        slingBagAngle: Math.atan2(dy_sb, dx_sb) - Math.PI / 2,
+      }
+
+      // 4. State Transitions (Natural Release)
+      // Separation occurs strictly when the normal contact force N between bag and ball is zero.
+      const normAng =
+        ((((newState.armAngle * 180) / Math.PI) % 360) + 360) % 360
+      const inReleaseWindow = normAng > 45 && normAng < 225
+
+      if (inReleaseWindow && this.lastForces.slingBagNormal <= 0) {
+        newState = {
+          ...newState,
+          isReleased: true,
+        }
+      }
+      this.integrator.setState(newState)
+    }
+
+    // Quaternion Normalization (Numerical stability for orientation)
+    const q = newState.orientation
     const qMag = Math.sqrt(
       q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3],
     )
     if (qMag > 1e-12) {
-      this.state = {
-        ...this.state,
-        orientation: new Float64Array([
-          q[0] / qMag,
-          q[1] / qMag,
-          q[2] / qMag,
-          q[3] / qMag,
-        ]),
-      }
+      for (let i = 0; i < 4; i++) q[i] /= qMag
     }
 
-    // Check for release condition
-    if (!this.state.isReleased) {
-      const tension = this.lastForces.tension
-      const tensionMag = Math.sqrt(
-        tension[0] ** 2 + tension[1] ** 2 + tension[2] ** 2,
-      )
-      const releaseThreshold =
-        0.1 * this.config.projectile.mass * PHYSICS_CONSTANTS.GRAVITY
-
-      // Get arm angle to check if it's upward
-      const normAng =
-        ((((this.state.armAngle * 180) / Math.PI) % 360) + 360) % 360
-      const isUpward = normAng > 45 && normAng < 225
-
-      if (isUpward && tensionMag < releaseThreshold) {
-        this.state = {
-          ...this.state,
-          isReleased: true,
-        }
-      }
-    }
-
+    this.state = newState
     physicsLogger.log(this.state, this.lastForces, this.config)
-
     return this.state
   }
 
@@ -125,6 +178,9 @@ export class CatapultSimulation {
     const {
       armAngle,
       cwAngle,
+      slingBagAngle,
+      slingBagPosition,
+      cwPosition,
       position,
       orientation,
       velocity,
@@ -133,7 +189,6 @@ export class CatapultSimulation {
       time,
     } = this.state
 
-    // Calculate 3D positions
     const pivot: [number, number, number] = [0, H, 0]
     const longArmTip: [number, number, number] = [
       L1 * Math.cos(armAngle),
@@ -145,13 +200,7 @@ export class CatapultSimulation {
       H - L2 * Math.sin(armAngle),
       0,
     ]
-    const counterweightPos: [number, number, number] = [
-      shortArmTip[0] + Rcw * Math.sin(cwAngle),
-      shortArmTip[1] - Rcw * Math.cos(cwAngle),
-      0,
-    ]
 
-    // Calculate bounding boxes
     const projectileBB = {
       min: [
         position[0] - this.config.projectile.radius,
@@ -177,28 +226,24 @@ export class CatapultSimulation {
       ] as [number, number, number],
     }
     const cwBB = {
-      min: [counterweightPos[0] - Rcw, counterweightPos[1] - Rcw, -Rcw] as [
+      min: [cwPosition[0] - Rcw, cwPosition[1] - Rcw, -Rcw] as [
         number,
         number,
         number,
       ],
-      max: [counterweightPos[0] + Rcw, counterweightPos[1] + Rcw, Rcw] as [
+      max: [cwPosition[0] + Rcw, cwPosition[1] + Rcw, Rcw] as [
         number,
         number,
         number,
       ],
     }
 
-    // Calculate sling constraint violation
-    const slingStart = longArmTip
-    const slingEnd = [position[0], position[1], position[2]]
     const currentSlingLength = Math.sqrt(
-      (slingEnd[0] - slingStart[0]) ** 2 +
-        (slingEnd[1] - slingStart[1]) ** 2 +
-        (slingEnd[2] - slingStart[2]) ** 2,
+      (position[0] - longArmTip[0]) ** 2 +
+        (position[1] - longArmTip[1]) ** 2 +
+        (position[2] - longArmTip[2]) ** 2,
     )
 
-    // Determine phase
     let phase = isReleased ? 'released' : 'swinging'
     if (!isReleased && this.lastForces.groundNormal > 0) {
       phase = 'ground_dragging'
@@ -237,7 +282,7 @@ export class CatapultSimulation {
       counterweight: {
         angle: cwAngle,
         angularVelocity: this.state.cwAngularVelocity,
-        position: counterweightPos,
+        position: [cwPosition[0], cwPosition[1], 0],
         radius: Rcw,
         attachmentPoint: shortArmTip,
         boundingBox: cwBB,
@@ -245,7 +290,9 @@ export class CatapultSimulation {
       sling: {
         isAttached: !isReleased,
         startPoint: longArmTip,
-        endPoint: slingEnd as [number, number, number],
+        endPoint: isReleased
+          ? [slingBagPosition[0], slingBagPosition[1], 0]
+          : [position[0], position[1], position[2]],
         length: Ls,
         tension: Math.sqrt(
           this.lastForces.tension[0] ** 2 +
@@ -257,6 +304,11 @@ export class CatapultSimulation {
           this.lastForces.tension[1],
           this.lastForces.tension[2],
         ],
+      },
+      slingBag: {
+        position: [slingBagPosition[0], slingBagPosition[1], 0],
+        angle: slingBagAngle,
+        contactForce: this.lastForces.slingBagNormal,
       },
       ground: {
         height: 0,
@@ -291,10 +343,10 @@ export class CatapultSimulation {
           ],
         },
         arm: {
-          springTorque: 0, // Not implemented
-          dampingTorque: 0, // Not implemented
-          frictionTorque: 0, // Not implemented
-          totalTorque: 0, // Not implemented
+          springTorque: 0,
+          dampingTorque: 0,
+          frictionTorque: 0,
+          totalTorque: 0,
         },
       },
       constraints: {
@@ -326,6 +378,7 @@ export class CatapultSimulation {
 
   setState(state: PhysicsState17DOF): void {
     this.state = state
+    this.integrator.setState(state)
   }
 
   reset(): void {

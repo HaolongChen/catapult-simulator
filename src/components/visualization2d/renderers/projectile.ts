@@ -1,5 +1,35 @@
 import type { FrameData } from '@/physics/types'
 
+/**
+ * Calculates the visual attachment points for the dual-rope V-shape sling.
+ * These points are on the left and right edges of the slingBag.
+ */
+export function getSlingBagAttachmentPoints(
+  slingBagPos: [number, number, number],
+  angle: number,
+  slingBagWidth: number,
+) {
+  // SlingBag angle 0 is vertical down.
+  // The 'width' vector is perpendicular to the slingBag-to-tip vector.
+  // Vector from tip to slingBag is [sin(angle), -cos(angle)]
+  // Perpendicular vector is [cos(angle), sin(angle)]
+  const dx = (slingBagWidth / 2) * Math.cos(angle)
+  const dy = (slingBagWidth / 2) * Math.sin(angle)
+
+  return {
+    left: [slingBagPos[0] - dx, slingBagPos[1] - dy, 0] as [
+      number,
+      number,
+      number,
+    ],
+    right: [slingBagPos[0] + dx, slingBagPos[1] + dy, 0] as [
+      number,
+      number,
+      number,
+    ],
+  }
+}
+
 export function renderProjectile(
   ctx: CanvasRenderingContext2D,
   currentFrameData: FrameData,
@@ -8,12 +38,68 @@ export function renderProjectile(
   zoomRef: React.MutableRefObject<number>,
   rotationAngleRef: React.MutableRefObject<number>,
 ) {
-  const { projectile } = currentFrameData
+  const { projectile, slingBag } = currentFrameData
   const projX = toCanvasX(projectile.position[0])
   const projY = toCanvasY(projectile.position[1])
+  const slingBagX = toCanvasX(slingBag.position[0])
+  const slingBagY = toCanvasY(slingBag.position[1])
 
   const projRadius = projectile.radius * zoomRef.current
+  const slingBagWidth = projRadius * 3.5
+  const slingBagDepth = projRadius * 1.2
 
+  // 1. Draw SlingBag (Pure fabric, no slingBag)
+  ctx.save()
+  ctx.translate(slingBagX, slingBagY)
+  ctx.rotate(slingBag.angle)
+
+  // Create fabric gradient
+  const grad = ctx.createLinearGradient(0, -slingBagDepth / 2, 0, slingBagDepth)
+  grad.addColorStop(0.0, '#475569') // Slate 600
+  grad.addColorStop(0.5, '#1e293b') // Slate 900
+  grad.addColorStop(1.0, '#0f172a') // Slate 950
+
+  ctx.beginPath()
+  // Bottom curve (the 'belly' of the slingBag)
+  ctx.moveTo(-slingBagWidth / 2, 0)
+  ctx.bezierCurveTo(
+    -slingBagWidth / 4,
+    slingBagDepth,
+    slingBagWidth / 4,
+    slingBagDepth,
+    slingBagWidth / 2,
+    0,
+  )
+  // Top edge (slightly curved inwards)
+  ctx.bezierCurveTo(
+    slingBagWidth / 4,
+    slingBagDepth * 0.2,
+    -slingBagWidth / 4,
+    slingBagDepth * 0.2,
+    -slingBagWidth / 2,
+    0,
+  )
+
+  ctx.fillStyle = grad
+  ctx.shadowColor = 'rgba(0,0,0,0.4)'
+  ctx.shadowBlur = 6
+  ctx.fill()
+
+  // Highlight edge
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+
+  // Draw attachment rings/slots
+  ctx.fillStyle = '#94a3b8'
+  ctx.beginPath()
+  ctx.arc(-slingBagWidth / 2, 0, 2.5, 0, Math.PI * 2)
+  ctx.arc(slingBagWidth / 2, 0, 2.5, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.restore()
+
+  // 2. Projectile itself
   const vx = projectile.velocity[0]
   const vy = projectile.velocity[1]
   const vMag = Math.sqrt(vx * vx + vy * vy)
@@ -28,12 +114,13 @@ export function renderProjectile(
 
   ctx.beginPath()
   ctx.arc(projX, projY, Math.max(2, projRadius), 0, Math.PI * 2)
-  ctx.fillStyle = '#d4af37'
+  ctx.fillStyle = '#d4af37' // Gold
   ctx.fill()
   ctx.strokeStyle = '#854d0e'
   ctx.lineWidth = 1
   ctx.stroke()
 
+  // Rotation detail
   ctx.beginPath()
   ctx.moveTo(projX, projY)
   ctx.lineTo(
@@ -43,13 +130,6 @@ export function renderProjectile(
   ctx.strokeStyle = '#1a1a1a'
   ctx.lineWidth = 2
   ctx.stroke()
-
-  const indicatorX = projX + Math.cos(rotationAngle) * projRadius * 0.6
-  const indicatorY = projY + Math.sin(rotationAngle) * projRadius * 0.6
-  ctx.beginPath()
-  ctx.arc(indicatorX, indicatorY, 2, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffffff'
-  ctx.fill()
 }
 
 export function renderVelocityVector(
@@ -69,9 +149,7 @@ export function renderVelocityVector(
   const vy = projectile.velocity[1]
   const vMag = Math.sqrt(vx * vx + vy * vy)
 
-  if (vMag < 0.1) return
-
-  const arrowLength = Math.min(vMag * 2, 50)
+  const arrowLength = Math.min(vMag * 20, 500)
   const angle = Math.atan2(-vy, vx)
 
   ctx.beginPath()
@@ -128,10 +206,9 @@ function drawArrow(
   color: string,
 ) {
   const fMag = Math.sqrt(fx * fx + fy * fy)
-  if (fMag < 0.1) return
 
-  const scaleForce = 0.01
-  const arrowLength = Math.min(fMag * scaleForce, 40)
+  const scaleForce = 10
+  const arrowLength = Math.min(fMag * scaleForce, 400)
   const angle = Math.atan2(-fy, fx)
 
   ctx.beginPath()

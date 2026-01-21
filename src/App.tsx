@@ -11,11 +11,13 @@ function App() {
     setFrame,
     isPlaying,
     setIsPlaying,
+    playbackSpeed,
+    setPlaybackSpeed,
     trajectoryLength,
   } = useTrajectory()
 
   return (
-    <div className="w-screen h-screen bg-slate-100 relative overflow-hidden">
+    <div className="fixed inset-0 w-screen h-screen bg-slate-900 overflow-hidden text-slate-200">
       <TrebuchetVisualization2D frameData={frameData} />
 
       <AnimationControls
@@ -24,6 +26,8 @@ function App() {
         frame={frame}
         onScrub={setFrame}
         maxFrames={trajectoryLength}
+        playbackSpeed={playbackSpeed}
+        onSpeedChange={setPlaybackSpeed}
       />
 
       <DebugOverlay frameData={frameData} />
@@ -31,7 +35,7 @@ function App() {
       <div
         className={`fixed bottom-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} left-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} flex flex-col gap-${UI_CONSTANTS.LAYOUT.GAP_SMALL}`}
       >
-        <h1 className="text-2xl font-black text-slate-800 tracking-tighter">
+        <h1 className="text-2xl font-black text-slate-100 tracking-tighter">
           {APP_METADATA.TITLE}
         </h1>
         <p

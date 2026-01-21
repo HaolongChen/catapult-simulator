@@ -10,7 +10,7 @@ import {
   renderVelocityVector,
   renderForceVectors,
 } from './renderers/projectile'
-import { renderTrajectory, renderPhaseIndicator } from './renderers/telemetry'
+import { renderTrajectory } from './renderers/telemetry'
 
 export function TrebuchetVisualization2D({
   frameData,
@@ -24,7 +24,11 @@ export function TrebuchetVisualization2D({
   const frameDataRef = useRef(frameData)
   const optionsRef = useRef({ showForces, showTrajectory, showVelocity })
 
-  const transformApi = useCanvasTransform(canvasRef)
+  const transformApi = useCanvasTransform(canvasRef, {
+    defaultZoom: 25,
+    groundAnchorFactor: 0.85,
+    defaultOffsetX: -15,
+  })
   const { toCanvasX, toCanvasY, zoomRef } = transformApi
 
   useCanvasInteraction(canvasRef, transformApi)
@@ -136,7 +140,6 @@ export function TrebuchetVisualization2D({
         toCanvasY,
         optionsRef.current.showVelocity,
       )
-      renderPhaseIndicator(ctx, currentFrameData.phase)
     }
 
     requestRef.current = requestAnimationFrame(render)
@@ -160,8 +163,8 @@ export function TrebuchetVisualization2D({
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-full bg-[#050505]"
-      style={{ display: 'block' }}
+      className="absolute inset-0 w-full h-full bg-[#050505]"
+      style={{ display: 'block', zIndex: 0 }}
     />
   )
 }

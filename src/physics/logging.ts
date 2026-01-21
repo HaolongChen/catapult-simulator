@@ -1,11 +1,11 @@
 import type {
   PhysicsForces,
-  PhysicsState17DOF,
+  PhysicsState19DOF,
   SimulationConfig,
 } from './types'
 
 export interface LogRecord {
-  state: PhysicsState17DOF
+  state: PhysicsState19DOF
   forces: PhysicsForces
   config: SimulationConfig
 }
@@ -23,7 +23,7 @@ export class PhysicsLogger {
   }
 
   public log(
-    state: PhysicsState17DOF,
+    state: PhysicsState19DOF,
     forces: PhysicsForces,
     config: SimulationConfig,
   ) {

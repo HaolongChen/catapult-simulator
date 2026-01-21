@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computeDerivatives } from '../derivatives'
-import type { PhysicsState17DOF } from '../types'
+import type { PhysicsState19DOF } from '../types'
 
 describe('derivatives', () => {
   it('should compute gravitational force', () => {
@@ -11,17 +11,19 @@ describe('derivatives', () => {
       counterweightRadius: 1.5,
       slingLength: 6,
       releaseAngle: (45 * Math.PI) / 180,
-      springConstant: 50000,
-      dampingCoefficient: 100,
-      equilibriumAngle: 0,
+      counterweightInertia: 500,
+      slingBagWidth: 0.35,
+      slingBagMass: 5,
+      slingBagInertia: 0.1,
       jointFriction: 0.3,
-      efficiency: 0.9,
-      flexuralStiffness: 1000000,
+      flexStiffness: 500000,
+      flexDamping: 5000,
+      flexPoint: 3.5,
       armMass: 100,
       pivotHeight: 5,
     }
 
-    const state: PhysicsState17DOF = {
+    const state: PhysicsState19DOF = {
       position: new Float64Array([8 + 3, 5 + 4, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),
@@ -30,6 +32,14 @@ describe('derivatives', () => {
       armAngularVelocity: 0,
       cwAngle: 0,
       cwAngularVelocity: 0,
+      flexAngle: 0,
+      flexAngularVelocity: 0,
+      cwPosition: new Float64Array([-2, 5 - 1.5]),
+      cwVelocity: new Float64Array([0, 0]),
+      slingBagAngle: 0,
+      slingBagAngularVelocity: 0,
+      slingBagPosition: new Float64Array([8 + 3, 5 + 4, 0]),
+      slingBagVelocity: new Float64Array([0, 0, 0]),
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
       isReleased: false,

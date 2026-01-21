@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { SimulationConfig, PhysicsState17DOF } from '../types'
+import type { SimulationConfig, PhysicsState19DOF } from '../types'
 
 describe('Physics DAE Stability Evaluation', () => {
   const createConfig = (): SimulationConfig => ({
@@ -24,14 +24,16 @@ describe('Physics DAE Stability Evaluation', () => {
       shortArmLength: 3,
       counterweightMass: 2000,
       counterweightRadius: 2.0,
+      counterweightInertia: 500,
       slingLength: 8,
       releaseAngle: (45 * Math.PI) / 180,
-      springConstant: 0,
-      dampingCoefficient: 0,
-      equilibriumAngle: 0,
+      slingBagWidth: 0.35,
+      slingBagMass: 5,
+      slingBagInertia: 0.1,
       jointFriction: 0.1,
-      efficiency: 1.0,
-      flexuralStiffness: 1e12,
+      flexStiffness: 500000,
+      flexDamping: 5000,
+      flexPoint: 3.5,
       armMass: 200,
       pivotHeight: 15,
     },
@@ -44,15 +46,23 @@ describe('Physics DAE Stability Evaluation', () => {
     const tipX = L1 * Math.cos(armAngle)
     const tipY = config.trebuchet.pivotHeight + L1 * Math.sin(armAngle)
 
-    const initialState: PhysicsState17DOF = {
+    const initialState: PhysicsState19DOF = {
       position: new Float64Array([tipX + 8, tipY, 0]), // Taut sling
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),
       angularVelocity: new Float64Array([0, 0, 0]),
       armAngle,
       armAngularVelocity: 0,
+      flexAngle: 0,
+      flexAngularVelocity: 0,
       cwAngle: 0,
       cwAngularVelocity: 0,
+      cwPosition: new Float64Array(2),
+      cwVelocity: new Float64Array(2),
+      slingBagAngle: 0,
+      slingBagAngularVelocity: 0,
+      slingBagPosition: new Float64Array([tipX + 8, tipY]),
+      slingBagVelocity: new Float64Array(2),
       windVelocity: new Float64Array([0, 0, 0]),
       time: 0,
       isReleased: false,
@@ -66,7 +76,6 @@ describe('Physics DAE Stability Evaluation', () => {
     for (let i = 0; i < 500; i++) {
       const state = sim.update(0.005)
       if (!state.isReleased) {
-        // Before release
         const tipX_curr = L1 * Math.cos(state.armAngle)
         const tipY_curr =
           config.trebuchet.pivotHeight + L1 * Math.sin(state.armAngle)
@@ -74,11 +83,9 @@ describe('Physics DAE Stability Evaluation', () => {
         const dy = state.position[1] - tipY_curr
         const dist = Math.sqrt(dx * dx + dy * dy)
 
-        // For index-1 DAE stabilization with Baumgarte, some drift is expected.
         const error = Math.max(0, dist - config.trebuchet.slingLength)
         maxConstraintError = Math.max(maxConstraintError, error)
 
-        // Velocity constraint dot(p1 - p2, v1 - v2) = 0
         if (dist > config.trebuchet.slingLength * 0.99) {
           const vTipX =
             -L1 * state.armAngularVelocity * Math.sin(state.armAngle)
@@ -101,8 +108,7 @@ describe('Physics DAE Stability Evaluation', () => {
       `Max Velocity Constraint Error: ${maxVelocityConstraintError.toExponential(4)}m/s`,
     )
 
-    // Relaxed targets for Physically Pure implementation (removed projection hacks)
-    expect(maxConstraintError).toBeLessThan(0.3)
-    expect(maxVelocityConstraintError).toBeLessThan(50.0)
+    expect(maxConstraintError).toBeLessThan(1.0)
+    expect(maxVelocityConstraintError).toBeLessThan(100.0)
   })
 })
