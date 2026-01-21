@@ -24,7 +24,7 @@ export function createConfig(): SimulationConfig {
       counterweightRadius: 0.8,
       counterweightInertia: 500,
       slingLength: 3.5,
-      releaseAngle: (90 * Math.PI) / 180,
+      releaseAngle: (-30 * Math.PI) / 180,
       slingBagWidth: 0.35,
       slingBagMass: 5.0,
       slingBagInertia: 0.1,
@@ -44,7 +44,7 @@ export function createInitialState(
     pivotHeight: H,
     slingLength: Ls,
   } = config.trebuchet
-  const armAngle = -Math.PI * (5 / 6) // -150 degrees (back and down)
+  const armAngle = -Math.PI / 6 // -30 degrees (back and down)
   const tipX = L1 * Math.cos(armAngle)
   const tipY = H + L1 * Math.sin(armAngle)
 

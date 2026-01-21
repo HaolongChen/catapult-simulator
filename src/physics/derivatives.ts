@@ -135,7 +135,7 @@ export function computeDerivatives(
     yts_g = L2 * sinT * dth ** 2
 
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
-  const Is = 1e-6
+  const Is = Mp * Ls * Ls
   const M_diag = [Ia, Is, Mcw, Mcw, Icw, Msb, Msb, Isb, Mp, Mp]
 
   const friction =
@@ -148,7 +148,7 @@ export function computeDerivatives(
 
   const Q = [
     -Ma * g * ((L1 - L2) / 2) * cosT + friction,
-    0,
+    -Mp * g * Ls * cosS + Mp * L1 * Ls * Math.sin(th - phi_s) * dth ** 2,
     0,
     -Mcw * g,
     0,
@@ -217,6 +217,10 @@ export function computeDerivatives(
       A[i][i] = M_diag[i]
       B[i] = Q[i]
     }
+    // Add arm-sling coupling
+    const coupling = Mp * L1 * Ls * Math.cos(th - phi_s)
+    A[0][1] = coupling
+    A[1][0] = coupling
     const active = [true, true, true, true, true, true, actR]
     for (let i = 0; i < 7; i++) {
       if (active[i]) {

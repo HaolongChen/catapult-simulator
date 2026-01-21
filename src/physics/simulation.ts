@@ -90,7 +90,7 @@ export class CatapultSimulation {
         newState.slingBagAngle,
         this.config.trebuchet,
       )
-      const { longArmTip: tip, shortArmTip: shortTip, pivot } = kinematics
+      const { longArmTip: tip, shortArmTip: shortTip } = kinematics
 
       // 2.1 Counterweight Position Projection (Hinge)
       const dx_cw = newState.cwPosition[0] - shortTip.x
@@ -130,23 +130,20 @@ export class CatapultSimulation {
       }
 
       // 4. State Transitions (Kinematic Release)
-      const armVec = { x: tip.x - pivot.x, y: tip.y - pivot.y }
-      const slingVec = {
-        x: newState.position[0] - tip.x,
-        y: newState.position[1] - tip.y,
-      }
-      const det = armVec.x * slingVec.y - armVec.y * slingVec.x
-      const dot = armVec.x * slingVec.x + armVec.y * slingVec.y
-      const currentRelAngle = Math.atan2(det, dot)
+      // Release when sling reaches target angle (measured from horizontal)
+      // Sling angle: 0° = right, 90° = up, 180° = left
+      const targetSlingAngle = (90 - this.config.trebuchet.releaseAngle * 180 / Math.PI)  // e.g., 45° release = 45° from horizontal
+      const slingAngleDeg = (newState.slingAngle * 180 / Math.PI)
 
       // Normalize arm angle to [0, 360) for the firing arc check
       const armAngleDeg =
         ((((newState.armAngle * 180) / Math.PI) % 360) + 360) % 360
-      const inFiringArc = armAngleDeg > 20 && armAngleDeg < 160
+      // Release when arm is moving forward (0-90°) and sling reaches target angle
+      const inFiringArc = armAngleDeg > 0 && armAngleDeg < 90
 
       if (
         inFiringArc &&
-        Math.abs(currentRelAngle) > this.config.trebuchet.releaseAngle
+        slingAngleDeg >= targetSlingAngle
       ) {
         newState = {
           ...newState,
