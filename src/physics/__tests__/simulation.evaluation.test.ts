@@ -59,6 +59,8 @@ describe('Physics DAE Stability Evaluation', () => {
       slingBagPosition: new Float64Array([tipX + 8, tipY]),
       slingBagVelocity: new Float64Array(2),
       windVelocity: new Float64Array([0, 0, 0]),
+      slingAngle: 0,
+      slingAngularVelocity: 0,
       time: 0,
       isReleased: false,
     }

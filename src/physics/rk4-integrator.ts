@@ -136,6 +136,9 @@ export class RK4Integrator {
     const sbAngleDiff = Math.abs(s1.slingBagAngle - s2.slingBagAngle)
     if (sbAngleDiff > maxError) maxError = sbAngleDiff
 
+    const slingAngleDiff = Math.abs(s1.slingAngle - s2.slingAngle)
+    if (slingAngleDiff > maxError) maxError = slingAngleDiff
+
     return maxError
   }
 
@@ -224,6 +227,9 @@ export class RK4Integrator {
       slingBagAngularVelocity:
         state.slingBagAngularVelocity +
         derivative.slingBagAngularVelocity * scale,
+      slingAngle: state.slingAngle + derivative.slingAngle * scale,
+      slingAngularVelocity:
+        state.slingAngularVelocity + derivative.slingAngularVelocity * scale,
       windVelocity: this.addArrays(
         state.windVelocity,
         derivative.windVelocity,
@@ -348,6 +354,20 @@ export class RK4Integrator {
             2 * d2.slingBagAngularVelocity +
             2 * d3.slingBagAngularVelocity +
             d4.slingBagAngularVelocity),
+      slingAngle:
+        state.slingAngle +
+        dto6 *
+          (d1.slingAngle +
+            2 * d2.slingAngle +
+            2 * d3.slingAngle +
+            d4.slingAngle),
+      slingAngularVelocity:
+        state.slingAngularVelocity +
+        dto6 *
+          (d1.slingAngularVelocity +
+            2 * d2.slingAngularVelocity +
+            2 * d3.slingAngularVelocity +
+            d4.slingAngularVelocity),
       windVelocity: combine(
         state.windVelocity,
         d1.windVelocity,
@@ -392,6 +412,8 @@ export class RK4Integrator {
       cwAngularVelocity: state.cwAngularVelocity,
       slingBagAngle: state.slingBagAngle,
       slingBagAngularVelocity: state.slingBagAngularVelocity,
+      slingAngle: state.slingAngle,
+      slingAngularVelocity: state.slingAngularVelocity,
       time: state.time,
       isReleased: state.isReleased,
     }
@@ -439,6 +461,9 @@ export class RK4Integrator {
       slingBagAngularVelocity:
         s1.slingBagAngularVelocity * (1 - alpha) +
         s2.slingBagAngularVelocity * alpha,
+      slingAngle: s1.slingAngle * (1 - alpha) + s2.slingAngle * alpha,
+      slingAngularVelocity:
+        s1.slingAngularVelocity * (1 - alpha) + s2.slingAngularVelocity * alpha,
       time: s1.time * (1 - alpha) + s2.time * alpha,
       isReleased: s2.isReleased,
     }

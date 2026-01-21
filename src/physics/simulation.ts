@@ -100,25 +100,18 @@ export class CatapultSimulation {
       newState.cwPosition[0] = shortTip.x + dx_cw * factor_cw
       newState.cwPosition[1] = shortTip.y + dy_cw * factor_cw
 
-      // 2.2 Projectile Position Projection (Single Sling)
-      const dx_p = newState.position[0] - tip.x
-      const dy_p = newState.position[1] - tip.y
-      const dist_p = Math.sqrt(dx_p * dx_p + dy_p * dy_p + 1e-12)
-      const factor_p = Ls / dist_p
-      newState.position[0] = tip.x + dx_p * factor_p
-      newState.position[1] = tip.y + dy_p * factor_p
+      // 2.2 Projectile Position Projection (Double Pendulum Hinge)
+      const cosS = Math.cos(newState.slingAngle)
+      const sinS = Math.sin(newState.slingAngle)
+      newState.position[0] = tip.x + Ls * cosS
+      newState.position[1] = tip.y + Ls * sinS
 
-      // 2.3 Velocity Projection (Ensure J * q_dot = 0)
-      const nx = dx_p / dist_p
-      const ny = dy_p / dist_p
+      // 2.3 Velocity Projection (Double Pendulum)
       const vxt =
         -L1 * Math.sin(newState.armAngle) * newState.armAngularVelocity
       const vyt = L1 * Math.cos(newState.armAngle) * newState.armAngularVelocity
-      const vrelx = newState.velocity[0] - vxt
-      const vrely = newState.velocity[1] - vyt
-      const vdotn = vrelx * nx + vrely * ny
-      newState.velocity[0] -= vdotn * nx
-      newState.velocity[1] -= vdotn * ny
+      newState.velocity[0] = vxt - Ls * sinS * newState.slingAngularVelocity
+      newState.velocity[1] = vyt + Ls * cosS * newState.slingAngularVelocity
 
       // Ground Collision (Hard floor)
       if (newState.position[1] < this.config.projectile.radius) {
@@ -133,7 +126,7 @@ export class CatapultSimulation {
           newState.position[0],
           newState.position[1],
         ]),
-        slingBagAngle: Math.atan2(dy_p, dx_p) - Math.PI / 2,
+        slingBagAngle: newState.slingAngle - Math.PI / 2,
       }
 
       // 4. State Transitions (Kinematic Release)

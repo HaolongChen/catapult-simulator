@@ -56,6 +56,8 @@ describe('Simulation Soak Test', () => {
       slingBagPosition: new Float64Array([14, 0]),
       slingBagVelocity: new Float64Array(2),
       windVelocity: new Float64Array([5, 0, 2]),
+      slingAngle: 0,
+      slingAngularVelocity: 0,
       time: 0,
       isReleased: false,
     }

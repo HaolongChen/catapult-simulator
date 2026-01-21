@@ -71,6 +71,8 @@ describe('NaN Reproduction', () => {
       slingBagPosition: new Float64Array([bagX, rp]),
       slingBagVelocity: new Float64Array([0, 0]),
       windVelocity: new Float64Array([0, 0, 0]),
+      slingAngle: 0,
+      slingAngularVelocity: 0,
       time: 0,
       isReleased: false,
     }

@@ -63,13 +63,17 @@ export function createInitialState(
   if (Ls > dy_max) {
     projY = projRadius
     const dx = Math.sqrt(Ls * Ls - dy_max * dy_max)
+    // Projectile starts BEHIND the tip in this model (CW rotation)
     projX = tipX - dx
   } else {
     projX = tipX
     projY = tipY - Ls
   }
 
-  const initialSlingBagAngle = Math.atan2(projX - tipX, tipY - projY)
+  const dx_sling = projX - tipX
+  const dy_sling = projY - tipY
+  const slingAngle = Math.atan2(dy_sling, dx_sling)
+  const initialSlingBagAngle = slingAngle - Math.PI / 2
 
   return {
     armAngle,
@@ -78,6 +82,8 @@ export function createInitialState(
     cwVelocity: new Float64Array([0, 0]),
     cwAngle: 0,
     cwAngularVelocity: 0,
+    slingAngle: slingAngle,
+    slingAngularVelocity: 0,
     slingBagPosition: new Float64Array([projX, projY]),
     slingBagVelocity: new Float64Array([0, 0]),
     slingBagAngle: initialSlingBagAngle,

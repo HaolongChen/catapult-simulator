@@ -36,6 +36,8 @@ describe('derivatives', () => {
       slingBagPosition: new Float64Array([8 + 3, 5 + 4]),
       slingBagVelocity: new Float64Array(2),
       windVelocity: new Float64Array([0, 0, 0]),
+      slingAngle: 0,
+      slingAngularVelocity: 0,
       time: 0,
       isReleased: false,
     }

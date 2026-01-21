@@ -74,6 +74,8 @@ function createTestState(): PhysicsState17DOF {
     armAngularVelocity: 0,
     cwAngle: 0,
     cwAngularVelocity: 0,
+    slingAngle: 0,
+    slingAngularVelocity: 0,
     cwPosition: new Float64Array(2),
     cwVelocity: new Float64Array(2),
     slingBagAngle: 0,

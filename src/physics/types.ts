@@ -38,6 +38,10 @@ export interface PhysicsState17DOF {
   readonly orientation: Float64Array // [q1, q2, q3, q4]
   readonly angularVelocity: Float64Array // [wx, wy, wz]
 
+  // Sling (Double Pendulum DOF)
+  readonly slingAngle: number
+  readonly slingAngularVelocity: number
+
   // Environment & Meta
   readonly windVelocity: Float64Array
   readonly time: number
@@ -55,6 +59,8 @@ export interface PhysicsDerivative17DOF {
   readonly slingBagVelocity: Float64Array
   readonly slingBagAngle: number
   readonly slingBagAngularVelocity: number
+  readonly slingAngle: number
+  readonly slingAngularVelocity: number
   readonly position: Float64Array
   readonly velocity: Float64Array
   readonly orientation: Float64Array

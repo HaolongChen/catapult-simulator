@@ -125,6 +125,8 @@ function createInitialState(
     slingBagPosition: new Float64Array([bagX, rp]),
     slingBagVelocity: new Float64Array(2),
     windVelocity: new Float64Array(3),
+    slingAngle: 0,
+    slingAngularVelocity: 0,
     time: 0,
     isReleased: false,
   }

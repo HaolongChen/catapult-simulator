@@ -139,6 +139,8 @@ function createInitialState(config: SimulationConfig): PhysicsState17DOF {
     slingBagPosition: new Float64Array([tip.x + 8, tip.y]),
     slingBagVelocity: new Float64Array(2),
     windVelocity: new Float64Array([0, 0, 0]),
+    slingAngle: 0,
+    slingAngularVelocity: 0,
     time: 0,
     isReleased: false,
   }
