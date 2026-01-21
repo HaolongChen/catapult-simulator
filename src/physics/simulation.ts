@@ -146,18 +146,21 @@ export class CatapultSimulation {
       const dot = armVec.x * slingVec.x + armVec.y * slingVec.y
       const currentRelAngle = Math.atan2(det, dot)
 
-      // Release triggers when the sling leads the arm by the specified releaseAngle.
-      // We gate this with the arm's firing arc (usually > 45 degrees) to prevent
-      // accidental release while the arm is still gaining momentum.
-      const armAngleDeg = (newState.armAngle * 180) / Math.PI
-      const inFiringArc = armAngleDeg > 45 && armAngleDeg < 160
+      // Normalize arm angle to [0, 360) for the firing arc check
+      const armAngleDeg =
+        ((((newState.armAngle * 180) / Math.PI) % 360) + 360) % 360
+      const inFiringArc = armAngleDeg > 20 && armAngleDeg < 160
 
-      if (inFiringArc && currentRelAngle > this.config.trebuchet.releaseAngle) {
+      if (
+        inFiringArc &&
+        Math.abs(currentRelAngle) > this.config.trebuchet.releaseAngle
+      ) {
         newState = {
           ...newState,
           isReleased: true,
         }
       }
+
       this.integrator.setState(newState)
     }
 
@@ -166,6 +169,13 @@ export class CatapultSimulation {
     if (newState.position[1] < this.config.projectile.radius) {
       newState.position[1] = this.config.projectile.radius
       if (newState.velocity[1] < 0) newState.velocity[1] = 0
+    }
+
+    // Counterweight Ground Collision
+    const cwRadius = this.config.trebuchet.counterweightRadius
+    if (newState.cwPosition[1] < cwRadius - 0.5) {
+      newState.cwPosition[1] = cwRadius - 0.5
+      if (newState.cwVelocity[1] < 0) newState.cwVelocity[1] = 0
     }
 
     // Quaternion Normalization (Numerical stability for orientation)

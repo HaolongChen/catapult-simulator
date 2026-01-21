@@ -118,6 +118,15 @@ export function computeDerivatives(
     M_diag = [Ia, Mcw, Mcw, Icw, Msb, Msb, Isb, Mp, Mp]
   const friction =
     -Math.tanh(dth * 100.0) * jointFriction * Math.abs(normalForce)
+
+  // Projectile Ground Friction (Regularized)
+  let projGndFric = 0
+  if (position[1] - Rp <= 0.05) {
+    // Normal force is approximately Mp * g when dragging
+    const mu = 0.4
+    projGndFric = -Math.tanh(velocity[0] * 10.0) * mu * Mp * g
+  }
+
   const Q = [
     -Ma * g * ((L1 - L2) / 2) * cosT + friction,
     0,
@@ -126,7 +135,7 @@ export function computeDerivatives(
     0,
     -Msb * g,
     0,
-    aero.total[0],
+    aero.total[0] + projGndFric,
     aero.total[1] - Mp * g,
   ]
 
@@ -219,7 +228,7 @@ export function computeDerivatives(
       cwAngularVelocity: sol[3],
       slingBagPosition: new Float64Array([vSB[0], vSB[1]]),
       slingBagVelocity: new Float64Array([sol[4], sol[5]]),
-      slingBagAngle: 0,
+      slingBagAngle: Math.atan2(dy, dx) - Math.PI / 2,
       slingBagAngularVelocity: 0,
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
       velocity: new Float64Array([sol[7], sol[8], 0]),

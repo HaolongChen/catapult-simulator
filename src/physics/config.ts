@@ -44,7 +44,7 @@ export function createInitialState(
     pivotHeight: H,
     slingLength: Ls,
   } = config.trebuchet
-  const armAngle = -Math.PI / 6
+  const armAngle = -Math.PI * (5 / 6) // -150 degrees (back and down)
   const tipX = L1 * Math.cos(armAngle)
   const tipY = H + L1 * Math.sin(armAngle)
 
