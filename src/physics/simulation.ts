@@ -138,9 +138,7 @@ export class CatapultSimulation {
         this.config.trebuchet.releaseAngle,
       )
 
-      // Calculate projectile velocity angle and magnitude
-      const velocityAngle = Math.atan2(newState.velocity[1], newState.velocity[0])
-      const velocityAngleDeg = (velocityAngle * 180) / Math.PI
+      // Calculate projectile velocity magnitude
       const velocityMag = Math.sqrt(
         newState.velocity[0] ** 2 + newState.velocity[1] ** 2
       )
