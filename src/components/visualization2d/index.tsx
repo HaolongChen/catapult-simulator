@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { TrebuchetVisualization2DProps } from './types'
 import { useCanvasTransform } from './hooks/useCanvasTransform'
 import { useCanvasInteraction } from './hooks/useCanvasInteraction'
@@ -23,6 +23,9 @@ export function TrebuchetVisualization2D({
   const requestRef = useRef<number | undefined>(undefined)
   const frameDataRef = useRef(frameData)
   const optionsRef = useRef({ showForces, showTrajectory, showVelocity })
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
+    null,
+  )
 
   const transformApi = useCanvasTransform(canvasRef, {
     defaultZoom: 25,
@@ -31,7 +34,11 @@ export function TrebuchetVisualization2D({
   })
   const { toCanvasX, toCanvasY, zoomRef } = transformApi
 
-  useCanvasInteraction(canvasRef, transformApi)
+  useCanvasInteraction(canvasRef, transformApi, {
+    onMouseMoveWorld: (x, y) => {
+      setMousePos({ x, y })
+    },
+  })
 
   const { triggerImpact, updateParticles, drawParticles, lastImpactYRef } =
     useParticleSystem()
@@ -161,10 +168,20 @@ export function TrebuchetVisualization2D({
   ])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full bg-[#050505]"
-      style={{ display: 'block', zIndex: 0 }}
-    />
+    <div className="absolute w-full h-full overflow">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full bg-[#050505]"
+        style={{ display: 'block', zIndex: 0 }}
+        onMouseLeave={() => setMousePos(null)}
+      />
+      {mousePos && (
+        <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 font-mono text-xs pointer-events-none select-none z-10">
+          <span className="text-blue-400">X:</span> {mousePos.x.toFixed(2)}m
+          <span className="mx-2 text-slate-600">|</span>
+          <span className="text-blue-400">Y:</span> {mousePos.y.toFixed(2)}m
+        </div>
+      )}
+    </div>
   )
 }

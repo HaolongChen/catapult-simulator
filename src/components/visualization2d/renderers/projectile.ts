@@ -1,35 +1,5 @@
 import type { FrameData } from '@/physics/types'
 
-/**
- * Calculates the visual attachment points for the dual-rope V-shape sling.
- * These points are on the left and right edges of the slingBag.
- */
-export function getSlingBagAttachmentPoints(
-  slingBagPos: [number, number, number],
-  angle: number,
-  slingBagWidth: number,
-) {
-  // SlingBag angle 0 is vertical down.
-  // The 'width' vector is perpendicular to the slingBag-to-tip vector.
-  // Vector from tip to slingBag is [sin(angle), -cos(angle)]
-  // Perpendicular vector is [cos(angle), sin(angle)]
-  const dx = (slingBagWidth / 2) * Math.cos(angle)
-  const dy = (slingBagWidth / 2) * Math.sin(angle)
-
-  return {
-    left: [slingBagPos[0] - dx, slingBagPos[1] - dy, 0] as [
-      number,
-      number,
-      number,
-    ],
-    right: [slingBagPos[0] + dx, slingBagPos[1] + dy, 0] as [
-      number,
-      number,
-      number,
-    ],
-  }
-}
-
 export function renderProjectile(
   ctx: CanvasRenderingContext2D,
   currentFrameData: FrameData,

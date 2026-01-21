@@ -1,6 +1,7 @@
 import { PHYSICS_CONSTANTS } from './constants'
 import { RK4Integrator } from './rk4-integrator'
 import { computeDerivatives } from './derivatives'
+import { computeTrebuchetKinematics } from './kinematics'
 import { physicsLogger } from './logging'
 import type {
   FrameData,
@@ -77,19 +78,24 @@ export class CatapultSimulation {
     // 2. Coordinate Projection (SHAKE-style)
     // Ensures that redundant world-space coordinates satisfy geometric constraints.
     if (!newState.isReleased) {
+      const kinematics = computeTrebuchetKinematics(
+        newState.armAngle,
+        newState.cwAngle,
+        newState.slingBagAngle,
+        this.config.trebuchet,
+      )
+      const { tip: tipPos, shortTip: shortTipPos } = kinematics
+      const tipX = tipPos.x
+      const tipY = tipPos.y
+
+      const shortTipX = shortTipPos.x
+      const shortTipY = shortTipPos.y
+
       const {
-        longArmLength: L1,
-        shortArmLength: L2,
-        pivotHeight: H,
         slingLength: Ls,
         slingBagWidth: W,
         counterweightRadius: Rcw,
       } = this.config.trebuchet
-      const tipX = L1 * Math.cos(newState.armAngle)
-      const tipY = H + L1 * Math.sin(newState.armAngle)
-
-      const shortTipX = -L2 * Math.cos(newState.armAngle)
-      const shortTipY = H - L2 * Math.sin(newState.armAngle)
 
       const R_p = this.config.projectile.radius * 1.5
 
@@ -169,13 +175,6 @@ export class CatapultSimulation {
 
   exportFrameData(): FrameData {
     const {
-      longArmLength: L1,
-      shortArmLength: L2,
-      pivotHeight: H,
-      counterweightRadius: Rcw,
-      slingLength: Ls,
-    } = this.config.trebuchet
-    const {
       armAngle,
       cwAngle,
       slingBagAngle,
@@ -189,15 +188,33 @@ export class CatapultSimulation {
       time,
     } = this.state
 
-    const pivot: [number, number, number] = [0, H, 0]
+    const kinematics = computeTrebuchetKinematics(
+      armAngle,
+      cwAngle,
+      slingBagAngle,
+      this.config.trebuchet,
+    )
+
+    const {
+      longArmLength: L1,
+      shortArmLength: L2,
+      counterweightRadius: Rcw,
+      slingLength: Ls,
+    } = this.config.trebuchet
+
+    const pivot: [number, number, number] = [
+      kinematics.pivot.x,
+      kinematics.pivot.y,
+      0,
+    ]
     const longArmTip: [number, number, number] = [
-      L1 * Math.cos(armAngle),
-      H + L1 * Math.sin(armAngle),
+      kinematics.tip.x,
+      kinematics.tip.y,
       0,
     ]
     const shortArmTip: [number, number, number] = [
-      -L2 * Math.cos(armAngle),
-      H - L2 * Math.sin(armAngle),
+      kinematics.shortTip.x,
+      kinematics.shortTip.y,
       0,
     ]
 
@@ -309,6 +326,7 @@ export class CatapultSimulation {
         position: [slingBagPosition[0], slingBagPosition[1], 0],
         angle: slingBagAngle,
         contactForce: this.lastForces.slingBagNormal,
+        width: this.config.trebuchet.slingBagWidth,
       },
       ground: {
         height: 0,

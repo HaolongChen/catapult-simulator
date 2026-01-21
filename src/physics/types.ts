@@ -191,6 +191,7 @@ export interface FrameData {
     position: [number, number, number]
     angle: number
     contactForce: number
+    width: number
   }
   ground: {
     height: number

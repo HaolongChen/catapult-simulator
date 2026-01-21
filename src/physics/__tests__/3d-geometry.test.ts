@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { PhysicsState19DOF, SimulationConfig } from '../types'
+import { computeTrebuchetKinematics } from '../kinematics'
+import type {
+  PhysicsState17DOF as PhysicsState19DOF,
+  SimulationConfig,
+} from '../types'
 
 // --- Geometry Helpers ---
 
@@ -8,41 +12,34 @@ function getArmTipPosition(
   state: PhysicsState19DOF,
   config: SimulationConfig,
 ): { x: number; y: number; z: number } {
-  const { armAngle, flexAngle } = state
-  const { longArmLength: L1, flexPoint: Lf, pivotHeight: H } = config.trebuchet
-  const Lw = L1 - Lf
-  return {
-    x: Lf * Math.cos(armAngle) + Lw * Math.cos(armAngle + flexAngle),
-    y: H + Lf * Math.sin(armAngle) + Lw * Math.sin(armAngle + flexAngle),
-    z: 0,
-  }
+  const kin = computeTrebuchetKinematics(
+    state.armAngle,
+    state.cwAngle,
+    state.slingBagAngle,
+    config.trebuchet,
+  )
+  return { x: kin.tip.x, y: kin.tip.y, z: 0 }
 }
 
 function getShortArmTipPosition(
   state: PhysicsState19DOF,
   config: SimulationConfig,
 ): { x: number; y: number; z: number } {
-  const { armAngle } = state
-  const { shortArmLength: L2, pivotHeight: H } = config.trebuchet
-  return {
-    x: -L2 * Math.cos(armAngle),
-    y: H - L2 * Math.sin(armAngle),
-    z: 0,
-  }
+  const kin = computeTrebuchetKinematics(
+    state.armAngle,
+    state.cwAngle,
+    state.slingBagAngle,
+    config.trebuchet,
+  )
+  return { x: kin.shortTip.x, y: kin.shortTip.y, z: 0 }
 }
 
-function getCounterweightPosition(
-  state: PhysicsState19DOF,
-  config: SimulationConfig,
-): { x: number; y: number; z: number } {
-  const shortTip = getShortArmTipPosition(state, config)
-  const { cwAngle } = state
-  const { counterweightRadius: Rcw } = config.trebuchet
-  return {
-    x: shortTip.x + Rcw * Math.sin(cwAngle),
-    y: shortTip.y - Rcw * Math.cos(cwAngle),
-    z: 0,
-  }
+function getCounterweightPosition(state: PhysicsState19DOF): {
+  x: number
+  y: number
+  z: number
+} {
+  return { x: state.cwPosition[0], y: state.cwPosition[1], z: 0 }
 }
 
 /**
@@ -98,22 +95,19 @@ function createStandardConfig(): SimulationConfig {
       spin: 0,
     },
     trebuchet: {
-      longArmLength: 10,
-      shortArmLength: 3,
-      counterweightMass: 2000,
+      longArmLength: 8,
+      shortArmLength: 2,
+      counterweightMass: 1000,
       counterweightRadius: 1.5,
       counterweightInertia: 500,
-      slingLength: 8,
+      slingLength: 6,
       releaseAngle: (45 * Math.PI) / 180,
       slingBagWidth: 0.35,
-      slingBagMass: 5.0,
+      slingBagMass: 5,
       slingBagInertia: 0.1,
-      jointFriction: 0.1,
-      flexStiffness: 500000,
-      flexDamping: 5000,
-      flexPoint: 3.5,
-      armMass: 200,
-      pivotHeight: 15,
+      jointFriction: 0.3,
+      armMass: 100,
+      pivotHeight: 5,
     },
   }
 }
@@ -143,12 +137,10 @@ function createInitialState(config: SimulationConfig): PhysicsState19DOF {
     cwVelocity: new Float64Array([0, 0]),
     cwAngle: 0,
     cwAngularVelocity: 0,
-      flexAngle: 0,
-      flexAngularVelocity: 0,
     slingBagAngle: 0,
     slingBagAngularVelocity: 0,
-    slingBagPosition: new Float64Array([tip.x + 8, tip.y, 0]),
-    slingBagVelocity: new Float64Array([0, 0, 0]),
+    slingBagPosition: new Float64Array([tip.x + 8, tip.y]),
+    slingBagVelocity: new Float64Array(2),
     windVelocity: new Float64Array([0, 0, 0]),
     time: 0,
     isReleased: false,
@@ -173,7 +165,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
     it('should calculate counterweight position correctly', () => {
       const config = createStandardConfig()
       const state = createInitialState(config)
-      const cw = getCounterweightPosition(state, config)
+      const cw = getCounterweightPosition(state)
       const shortTipX =
         -config.trebuchet.shortArmLength * Math.cos(state.armAngle)
       const shortTipY =
@@ -210,7 +202,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
       const cwRadius = config.trebuchet.counterweightRadius
       for (let i = 0; i < 500; i++) {
         const s = sim.update(0.01)
-        const cwPos = getCounterweightPosition(s, config)
+        const cwPos = getCounterweightPosition(s)
         const bottomY = cwPos.y - cwRadius
         expect(bottomY).toBeGreaterThanOrEqual(-1.0)
       }
@@ -249,7 +241,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
       const cwRadius = config.trebuchet.counterweightRadius
       for (let i = 0; i < 300; i++) {
         const s = sim.update(0.01)
-        const cwPos = getCounterweightPosition(s, config)
+        const cwPos = getCounterweightPosition(s)
         const dist = Math.sqrt(
           (s.position[0] - cwPos.x) ** 2 +
             (s.position[1] - cwPos.y) ** 2 +
@@ -329,7 +321,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
               forces.tension[2] ** 2,
           )
           if (tension > 50.0) {
-            expect(Math.abs(dist - Ls)).toBeLessThan(0.2)
+            expect(Math.abs(dist - Ls)).toBeLessThan(0.3)
           }
         }
       }

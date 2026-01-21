@@ -31,9 +31,9 @@ describe('Sling Bag High-Fidelity Physics', () => {
     slingBagMass: 5,
     slingBagInertia: 0.1,
     jointFriction: 0.1,
-      flexStiffness: 500000,
-      flexDamping: 5000,
-      flexPoint: 3.5,
+    flexStiffness: 500000,
+    flexDamping: 5000,
+    flexPoint: 3.5,
     armMass: 200.0,
     pivotHeight: 3.0,
   }

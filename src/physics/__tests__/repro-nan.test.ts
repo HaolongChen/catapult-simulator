@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { PhysicsState19DOF, SimulationConfig } from '../types'
+import type {
+  PhysicsState17DOF as PhysicsState19DOF,
+  SimulationConfig,
+} from '../types'
 
 describe('NaN Reproduction', () => {
   it('should reproduce NaN with massive Mcw', () => {
@@ -32,9 +35,6 @@ describe('NaN Reproduction', () => {
         slingBagMass: 5.0,
         slingBagInertia: 0.1,
         jointFriction: 0.1,
-        flexStiffness: 1e11,
-        flexDamping: 1e6,
-        flexPoint: 8.0,
         armMass: 200,
         pivotHeight: 15,
       },
@@ -42,7 +42,6 @@ describe('NaN Reproduction', () => {
 
     const armAngle = -Math.PI / 4,
       L1 = 10,
-      L2 = 3,
       H = 15,
       Ls = 8,
       Rcw = 2.0,
@@ -50,8 +49,8 @@ describe('NaN Reproduction', () => {
     const tipX = L1 * Math.cos(armAngle),
       tipY = H + L1 * Math.sin(armAngle)
     const shortTip = {
-      x: -L2 * Math.cos(armAngle),
-      y: H - L2 * Math.sin(armAngle),
+      x: -3 * Math.cos(armAngle),
+      y: H - 3 * Math.sin(armAngle),
     }
 
     const dy = tipY - rp
@@ -70,8 +69,6 @@ describe('NaN Reproduction', () => {
       cwVelocity: new Float64Array([0, 0]),
       cwAngle: 0,
       cwAngularVelocity: 0,
-      flexAngle: 0,
-      flexAngularVelocity: 0,
       slingBagAngle: angle,
       slingBagAngularVelocity: 0,
       slingBagPosition: new Float64Array([bagX, rp]),
@@ -84,16 +81,6 @@ describe('NaN Reproduction', () => {
     const sim = new CatapultSimulation(state, config)
     for (let i = 0; i < 200; i++) {
       const s = sim.update(0.01)
-      console.log(
-        'Step',
-        i,
-        'y',
-        s.position[1],
-        'th',
-        s.armAngle,
-        'v',
-        s.velocity[1],
-      )
       if (isNaN(s.armAngle)) {
         throw new Error('NaN detected at step ' + i)
       }

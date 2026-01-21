@@ -1,5 +1,6 @@
 import { PHYSICS_CONSTANTS } from './constants'
 import { aerodynamicForce } from './aerodynamics'
+import { computeTrebuchetKinematics } from './kinematics'
 import type {
   PhysicsDerivative17DOF,
   PhysicsForces,
@@ -131,7 +132,6 @@ export function computeDerivatives(
     counterweightRadius: Rcw,
     counterweightInertia: Icw_box,
     armMass: Ma,
-    pivotHeight: H,
     jointFriction,
     slingBagMass: Msb,
     slingBagInertia: Isb,
@@ -141,12 +141,11 @@ export function computeDerivatives(
   const g = PHYSICS_CONSTANTS.GRAVITY
 
   // Numerical Safety: Clamp velocity to prevent explosion
-  const MAX_SAFE_VELOCITY = 1000
   const vMag_val = Math.sqrt(
     velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2,
   )
-  if (vMag_val > MAX_SAFE_VELOCITY) {
-    const scale = MAX_SAFE_VELOCITY / vMag_val
+  if (vMag_val > PHYSICS_CONSTANTS.MAX_SAFE_VELOCITY) {
+    const scale = PHYSICS_CONSTANTS.MAX_SAFE_VELOCITY / vMag_val
     velocity[0] *= scale
     velocity[1] *= scale
     velocity[2] *= scale
@@ -171,9 +170,16 @@ export function computeDerivatives(
     return computeFreeFlight(state, projectile, trebuchetProps, aero)
   }
 
-  // Forward Kinematics for arm tip
-  const tipX = L1 * Math.cos(armAngle)
-  const tipY = H + L1 * Math.sin(armAngle)
+  // Forward Kinematics for arm tip and attachments
+  const kinematics = computeTrebuchetKinematics(
+    armAngle,
+    cwAngle,
+    slingBagAngle,
+    trebuchetProps,
+  )
+  const { tip: tipPos, bagAttachments } = kinematics
+  const tipX = tipPos.x
+  const tipY = tipPos.y
 
   // Rotational Inertia of the arm (uniform rod)
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
@@ -188,7 +194,8 @@ export function computeDerivatives(
   if (normAng > 160 && normAng < 180 && armAngularVelocity > 0) {
     // Soft-limit stop at vertical up
     t_ext -=
-      1000000 * (normAng - 160) * (Math.PI / 180) + 5000 * armAngularVelocity
+      PHYSICS_CONSTANTS.STOP_STIFFNESS * (normAng - 160) * (Math.PI / 180) +
+      PHYSICS_CONSTANTS.STOP_DAMPING * armAngularVelocity
   }
 
   // Generalized Force Vector Q
@@ -206,15 +213,13 @@ export function computeDerivatives(
   ]
 
   // Dual-Rope V-Shape Attachment Geometry
-  const cosB = Math.cos(slingBagAngle),
-    sinB = Math.sin(slingBagAngle)
   const PL = [
-    slingBagPosition[0] - (W / 2) * cosB,
-    slingBagPosition[1] - (W / 2) * sinB,
+    slingBagPosition[0] + bagAttachments.left.x,
+    slingBagPosition[1] + bagAttachments.left.y,
   ]
   const PR = [
-    slingBagPosition[0] + (W / 2) * cosB,
-    slingBagPosition[1] + (W / 2) * sinB,
+    slingBagPosition[0] + bagAttachments.right.x,
+    slingBagPosition[1] + bagAttachments.right.y,
   ]
   const DL = [PL[0] - tipX, PL[1] - tipY]
   const DR = [PR[0] - tipX, PR[1] - tipY]
@@ -242,6 +247,9 @@ export function computeDerivatives(
   J[1][0] = -L2 * -Math.cos(armAngle)
   J[1][2] = 1.0
   J[1][3] = -Rcw * Math.sin(cwAngle)
+  const cosB = Math.cos(slingBagAngle)
+  const sinB = Math.sin(slingBagAngle)
+
   // Left Rope
   J[2][0] =
     -2 *

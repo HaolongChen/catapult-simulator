@@ -4,6 +4,9 @@ import type { CanvasTransformApi } from './useCanvasTransform'
 export function useCanvasInteraction(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   transformApi: CanvasTransformApi,
+  callbacks?: {
+    onMouseMoveWorld?: (x: number, y: number) => void
+  },
 ) {
   const { zoomRef, offsetRef, toWorldX, toWorldY } = transformApi
   const isDraggingRef = useRef(false)
@@ -36,6 +39,10 @@ export function useCanvasInteraction(
 
       offsetRef.current.x += (e.clientX - newScreenX) / zoomRef.current
       offsetRef.current.y += (newScreenY - e.clientY) / zoomRef.current
+
+      if (callbacks?.onMouseMoveWorld) {
+        callbacks.onMouseMoveWorld(mouseWorldX, mouseWorldY)
+      }
     }
 
     const handleMouseDown = (e: MouseEvent) => {
@@ -46,6 +53,13 @@ export function useCanvasInteraction(
     }
 
     const handleMouseMove = (e: MouseEvent) => {
+      const worldX = toWorldX(e.clientX)
+      const worldY = toWorldY(e.clientY)
+
+      if (callbacks?.onMouseMoveWorld) {
+        callbacks.onMouseMoveWorld(worldX, worldY)
+      }
+
       if (isDraggingRef.current) {
         const dx = e.clientX - lastMousePosRef.current.x
         const dy = e.clientY - lastMousePosRef.current.y
@@ -72,5 +86,5 @@ export function useCanvasInteraction(
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [canvasRef, zoomRef, offsetRef, toWorldX, toWorldY])
+  }, [canvasRef, zoomRef, offsetRef, toWorldX, toWorldY, callbacks])
 }
