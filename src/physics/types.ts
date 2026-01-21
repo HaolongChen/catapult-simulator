@@ -115,6 +115,7 @@ export interface PhysicsForces {
   readonly total: Float64Array
   readonly groundNormal: number
   readonly slingBagNormal: number // Force N between bag and ball
+  readonly checkFunction: number // J * q_dot norm
   readonly lambda: Float64Array // Raw multipliers for debugging
 }
 

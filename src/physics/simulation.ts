@@ -20,6 +20,7 @@ const EMPTY_FORCES: PhysicsForces = {
   total: new Float64Array(3),
   groundNormal: 0,
   slingBagNormal: 0,
+  checkFunction: 0,
   lambda: new Float64Array(6),
 }
 

@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import type { FrameData } from '../src/physics/types'
+import { physicsLogger } from '../src/physics/logging'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -13,6 +14,8 @@ const initialState = createInitialState(config)
 const sim = new CatapultSimulation(initialState, config)
 const trajectory: FrameData[] = []
 
+physicsLogger.enable()
+
 trajectory.push(sim.exportFrameData())
 
 for (let i = 0; i < 1000; i++) {
@@ -20,12 +23,15 @@ for (let i = 0; i < 1000; i++) {
   trajectory.push(sim.exportFrameData())
 }
 
-const outputPath = path.join(__dirname, '..', 'public', 'trajectory.json')
-
-// Ensure public directory exists
-if (!fs.existsSync(path.dirname(outputPath))) {
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true })
+const publicDir = path.join(__dirname, '..', 'public')
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir, { recursive: true })
 }
 
-fs.writeFileSync(outputPath, JSON.stringify(trajectory, null, 2))
-console.log(`Exported ${trajectory.length} frames to ${outputPath}`)
+const jsonPath = path.join(publicDir, 'trajectory.json')
+fs.writeFileSync(jsonPath, JSON.stringify(trajectory, null, 2))
+console.log(`Exported ${trajectory.length} JSON frames to ${jsonPath}`)
+
+const csvPath = path.join(publicDir, 'simulation_log.csv')
+fs.writeFileSync(csvPath, physicsLogger.exportCSV())
+console.log(`Exported CSV simulation log to ${csvPath}`)

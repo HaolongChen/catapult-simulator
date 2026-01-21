@@ -135,7 +135,7 @@ export function computeDerivatives(
     yts_g = L2 * sinT * dth ** 2
 
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
-  const Is = Mp * Ls * Ls
+  const Is = 1e-6
   const M_diag = [Ia, Is, Mcw, Mcw, Icw, Msb, Msb, Isb, Mp, Mp]
 
   const friction =
@@ -217,7 +217,6 @@ export function computeDerivatives(
       A[i][i] = M_diag[i]
       B[i] = Q[i]
     }
-    // Add arm-sling coupling
     const coupling = Mp * L1 * Ls * Math.cos(th - phi_s)
     A[0][1] = coupling
     A[1][0] = coupling
@@ -237,6 +236,28 @@ export function computeDerivatives(
   let sol = solveKKT(onR)
   if (onR && sol[16] > 0) {
     sol = solveKKT(false)
+  }
+
+  const active = [true, true, true, true, true, true, onR && sol[16] <= 0]
+  let checkFunction = 0
+  const q_dot = [
+    dth,
+    dphi_s,
+    vCW[0],
+    vCW[1],
+    dphi_cw,
+    vSB[0],
+    vSB[1],
+    0,
+    velocity[0],
+    velocity[1],
+  ]
+  for (let i = 0; i < 7; i++) {
+    if (active[i]) {
+      let sum = 0
+      for (let j = 0; j < 10; j++) sum += J[i][j] * q_dot[j]
+      checkFunction = Math.max(checkFunction, Math.abs(sum))
+    }
   }
 
   return {
@@ -269,6 +290,7 @@ export function computeDerivatives(
       total: new Float64Array([sol[8] * Mp, sol[9] * Mp, 0]),
       groundNormal: sol[16] < 0 ? -sol[16] : 0,
       slingBagNormal: 0,
+      checkFunction,
       lambda: new Float64Array(sol.slice(10)),
     },
   }
@@ -326,11 +348,23 @@ function computeFreeFlight(
 
   return {
     derivative: {
-      ...state,
+      armAngle: state.armAngularVelocity,
       armAngularVelocity: th_ddot,
+      cwPosition: new Float64Array([state.cwVelocity[0], state.cwVelocity[1]]),
+      cwVelocity: new Float64Array([0, 0]),
+      cwAngle: state.cwAngularVelocity,
       cwAngularVelocity: phi_ddot,
+      slingAngle: state.slingAngularVelocity,
+      slingAngularVelocity: 0,
+      slingBagPosition: new Float64Array([0, 0]),
+      slingBagVelocity: new Float64Array([0, 0]),
+      slingBagAngle: 0,
+      slingBagAngularVelocity: 0,
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
       velocity: new Float64Array([aero.total[0] / Mp, ay, 0]),
+      orientation: new Float64Array(4),
+      angularVelocity: new Float64Array(3),
+      windVelocity: new Float64Array(3),
       time: 1,
       isReleased: true,
     },
@@ -342,6 +376,7 @@ function computeFreeFlight(
       total: new Float64Array([aero.total[0], ay * Mp, 0]),
       groundNormal: position[1] < projectile.radius ? 10.0 : 0,
       slingBagNormal: 0,
+      checkFunction: 0,
       lambda: new Float64Array(7),
     },
   }
