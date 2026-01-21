@@ -242,6 +242,27 @@ export function computeDerivatives(
     }
   }
 
+  // sol[5] and sol[6] are the projectile accelerations from the KKT solver
+  // These accelerations already account for ALL forces (external + constraints)
+  // So F_total = m * a by Newton's second law
+  const ax = sol[5]
+  const ay = sol[6]
+  const F_total_x = Mp * ax
+  const F_total_y = Mp * ay
+  
+  // Constraint forces from Lagrange multipliers
+  // The Jacobian for projectile equations (rows for C2, C3, C4):
+  // J[2] = [..., 0, 0, 0, 0, 0, 1.0, 0]  -> affects vx
+  // J[3] = [..., 0, 0, 0, 0, 0, 0, 1.0]  -> affects vy
+  // J[4] = [..., 0, 0, 0, 0, 0, 0, 1.0]  -> affects vy (ground)
+  const lambda_C2 = sol[9]   // Sling constraint X
+  const lambda_C3 = sol[10]  // Sling constraint Y
+  const lambda_C4 = sol[11]  // Ground constraint Y
+  
+  // Sling tension (from C2 and C3 constraints only)
+  const F_sling_x = lambda_C2
+  const F_sling_y = lambda_C3
+  
   return {
     derivative: {
       armAngle: dth,
@@ -264,9 +285,9 @@ export function computeDerivatives(
       drag: aero.drag,
       magnus: aero.magnus,
       gravity: new Float64Array([0, -Mp * g, 0]),
-      tension: new Float64Array([-sol[9], -sol[10], 0]),
-      total: new Float64Array([sol[5] * Mp, sol[6] * Mp, 0]),
-      groundNormal: sol[11] < 0 ? -sol[11] : 0,
+      tension: new Float64Array([F_sling_x, F_sling_y, 0]),
+      total: new Float64Array([F_total_x, F_total_y, 0]),
+      groundNormal: lambda_C4 > 0 ? 0 : -lambda_C4,
       checkFunction,
       lambda: new Float64Array(sol.slice(7)),
     },
