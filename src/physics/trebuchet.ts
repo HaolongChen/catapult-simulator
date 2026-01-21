@@ -6,8 +6,6 @@ import type { TrebuchetProperties } from './types'
  */
 export function getTrebuchetKinematics(
   armAngle: number,
-  _slingBagPosition: Float64Array | [number, number],
-  _slingBagAngle: number,
   props: TrebuchetProperties,
 ) {
   const { longArmLength: L1, shortArmLength: L2, pivotHeight: H } = props

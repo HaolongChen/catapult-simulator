@@ -60,7 +60,6 @@ export class PhysicsLogger {
     const L2 = config.trebuchet.shortArmLength
     const H = config.trebuchet.pivotHeight
 
-    // Calculate Initial PE on first log
     if (this.initialPE === 0 || this.records.length === 0) {
       const ycw0 = state.cwPosition[1]
       const yp0 = state.position[1]
@@ -68,38 +67,20 @@ export class PhysicsLogger {
       this.initialPE = Mcw * g * ycw0 + Ma * g * yarm0 + Mp * g * yp0
     }
 
-    // 1. Energy Efficiency: (KE_proj + PE_proj) / PE_total_initial
     const yp = state.position[1]
     const vp = Math.sqrt(state.velocity[0] ** 2 + state.velocity[1] ** 2)
-    const KE_p = 0.5 * Mp * vp ** 2
-    const PE_p = Mp * g * yp
+    const totalEnergyProj = 0.5 * Mp * vp ** 2 + Mp * g * yp
     const energyEfficiency =
-      this.initialPE > 0 ? (KE_p + PE_p) / this.initialPE : 0
+      this.initialPE > 0 ? totalEnergyProj / this.initialPE : 0
 
-    // 2. Range Efficiency: Actual_Range / Ideal_Range
     const theta = Math.atan2(state.velocity[1], state.velocity[0])
-    const v = vp
     const h = yp
-    // Actual range (vacuum ballistics from current height h)
     const R_actual =
-      ((v * Math.cos(theta)) / g) *
-      (v * Math.sin(theta) +
-        Math.sqrt(Math.max(0, (v * Math.sin(theta)) ** 2 + 2 * g * h)))
-    const R_ideal = (v * v) / g // Ideal range at 45 deg, sin(2*45)=1
+      ((vp * Math.cos(theta)) / g) *
+      (vp * Math.sin(theta) +
+        Math.sqrt(Math.max(0, (vp * Math.sin(theta)) ** 2 + 2 * g * h)))
+    const R_ideal = (vp * vp) / g
     const rangeEfficiency = R_ideal > 0 ? R_actual / R_ideal : 0
-
-    // 3. Check Function: Infinity norm of velocity constraint violations ||J*q_dot||_inf
-    // Sourced directly from the solver in derivatives.ts
-    const checkFunction = forces.checkFunction
-
-    // Map to Virtual Trebuchet Variables
-    const Aq = state.armAngle
-    const Wq = state.cwAngle - state.armAngle
-    const Sq = state.slingAngle - state.armAngle
-
-    const u1 = state.armAngularVelocity
-    const u2 = state.cwAngularVelocity - state.armAngularVelocity
-    const u3 = state.slingAngularVelocity - state.armAngularVelocity
 
     const record: LogRecord = {
       state: {
@@ -120,12 +101,12 @@ export class PhysicsLogger {
       },
       config: recordConfig,
       virtualTrebuchet: {
-        Aq,
-        Wq,
-        Sq,
-        u1,
-        u2,
-        u3,
+        Aq: state.armAngle,
+        Wq: state.cwAngle - state.armAngle,
+        Sq: state.slingAngle - state.armAngle,
+        u1: state.armAngularVelocity,
+        u2: state.cwAngularVelocity - state.armAngularVelocity,
+        u3: state.slingAngularVelocity - state.armAngularVelocity,
         Px: state.position[0],
         Py: state.position[1],
         Pvx: state.velocity[0],
@@ -133,7 +114,7 @@ export class PhysicsLogger {
         Fy: forces.groundNormal,
         energyEfficiency,
         rangeEfficiency,
-        checkFunction,
+        checkFunction: forces.checkFunction,
       },
     }
 
@@ -151,7 +132,6 @@ export class PhysicsLogger {
       `[LOG] t=${state.time.toFixed(3)}s | ` +
         `Aq=${(vt.Aq * toDeg).toFixed(1)}° | ` +
         `Eff_E=${(vt.energyEfficiency * 100).toFixed(1)}% | ` +
-        `Eff_R=${vt.rangeEfficiency.toFixed(3)} | ` +
         `Check=${vt.checkFunction.toExponential(2)}`,
     )
   }

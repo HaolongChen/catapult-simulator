@@ -20,17 +20,14 @@ export function createConfig(): SimulationConfig {
     trebuchet: {
       longArmLength: 4.4,
       shortArmLength: 0.8,
-      counterweightMass: 2000,
+      counterweightMass: 1750,
       counterweightRadius: 0.8,
       counterweightInertia: 500,
       slingLength: 3.5,
-      releaseAngle: (120 * Math.PI) / 180,
-      slingBagWidth: 0.35,
-      slingBagMass: 5.0,
-      slingBagInertia: 0.1,
+      releaseAngle: (60 * Math.PI) / 180,
       jointFriction: 0.1,
-      armMass: 200,
-      pivotHeight: 3,
+      armMass: 200.0,
+      pivotHeight: 3.0,
     },
   }
 }
@@ -73,7 +70,6 @@ export function createInitialState(
   const dx_sling = projX - tipX
   const dy_sling = projY - tipY
   const slingAngle = Math.atan2(dy_sling, dx_sling)
-  const initialSlingBagAngle = slingAngle - Math.PI / 2
 
   return {
     armAngle,
@@ -84,10 +80,6 @@ export function createInitialState(
     cwAngularVelocity: 0,
     slingAngle: slingAngle,
     slingAngularVelocity: 0,
-    slingBagPosition: new Float64Array([projX, projY]),
-    slingBagVelocity: new Float64Array([0, 0]),
-    slingBagAngle: initialSlingBagAngle,
-    slingBagAngularVelocity: 0,
     position: new Float64Array([projX, projY, 0]),
     velocity: new Float64Array([0, 0, 0]),
     orientation: new Float64Array([1, 0, 0, 0]),

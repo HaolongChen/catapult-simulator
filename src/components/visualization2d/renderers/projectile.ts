@@ -8,63 +8,13 @@ export function renderProjectile(
   zoomRef: React.MutableRefObject<number>,
   rotationAngleRef: React.MutableRefObject<number>,
 ) {
-  const { projectile, slingBag } = currentFrameData
+  const { projectile } = currentFrameData
   const projX = toCanvasX(projectile.position[0])
   const projY = toCanvasY(projectile.position[1])
 
-  // Bag centered on projectile
-  const slingBagX = projX
-  const slingBagY = projY
-
   const projRadius = projectile.radius * zoomRef.current
-  const slingBagWidth = slingBag.width * zoomRef.current
-  const slingBagDepth = projRadius * 1.2
 
-  // 1. Draw SlingBag (Pure fabric, no slingBag)
-  ctx.save()
-  ctx.translate(slingBagX, slingBagY)
-  ctx.rotate(slingBag.angle)
-
-  // Create fabric gradient
-  const grad = ctx.createLinearGradient(0, -slingBagDepth / 2, 0, slingBagDepth)
-  grad.addColorStop(0.0, '#475569') // Slate 600
-  grad.addColorStop(0.5, '#1e293b') // Slate 900
-  grad.addColorStop(1.0, '#0f172a') // Slate 950
-
-  ctx.beginPath()
-  // Bottom curve (the 'belly' of the slingBag)
-  ctx.moveTo(-slingBagWidth / 2, 0)
-  ctx.bezierCurveTo(
-    -slingBagWidth / 4,
-    slingBagDepth,
-    slingBagWidth / 4,
-    slingBagDepth,
-    slingBagWidth / 2,
-    0,
-  )
-  // Top edge (slightly curved inwards)
-  ctx.bezierCurveTo(
-    slingBagWidth / 4,
-    slingBagDepth * 0.2,
-    -slingBagWidth / 4,
-    slingBagDepth * 0.2,
-    -slingBagWidth / 2,
-    0,
-  )
-
-  ctx.fillStyle = grad
-  ctx.shadowColor = 'rgba(0,0,0,0.4)'
-  ctx.shadowBlur = 6
-  ctx.fill()
-
-  // Highlight edge
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)'
-  ctx.lineWidth = 1.5
-  ctx.stroke()
-
-  ctx.restore()
-
-  // 2. Projectile itself
+  // 1. Projectile itself
   const vx = projectile.velocity[0]
   const vy = projectile.velocity[1]
   const vMag = Math.sqrt(vx * vx + vy * vy)

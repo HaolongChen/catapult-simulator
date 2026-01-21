@@ -28,9 +28,6 @@ describe('NaN Reproduction', () => {
         counterweightInertia: 500,
         slingLength: 8,
         releaseAngle: (45 * Math.PI) / 180,
-        slingBagWidth: 0.35,
-        slingBagMass: 5.0,
-        slingBagInertia: 0.1,
         jointFriction: 0.1,
         armMass: 200,
         pivotHeight: 15,
@@ -52,11 +49,11 @@ describe('NaN Reproduction', () => {
 
     const dy = tipY - rp
     const dx = Math.sqrt(Math.max(Ls * Ls - dy * dy, 0))
-    const bagX = tipX + dx
+    const projX = tipX + dx
     const angle = Math.atan2(rp - tipY, dx)
 
     const state: PhysicsState17DOF = {
-      position: new Float64Array([bagX, rp, 0]),
+      position: new Float64Array([projX, rp, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),
       angularVelocity: new Float64Array([0, 0, 0]),
@@ -66,12 +63,8 @@ describe('NaN Reproduction', () => {
       cwVelocity: new Float64Array([0, 0]),
       cwAngle: 0,
       cwAngularVelocity: 0,
-      slingBagAngle: angle,
-      slingBagAngularVelocity: 0,
-      slingBagPosition: new Float64Array([bagX, rp]),
-      slingBagVelocity: new Float64Array([0, 0]),
       windVelocity: new Float64Array([0, 0, 0]),
-      slingAngle: 0,
+      slingAngle: angle,
       slingAngularVelocity: 0,
       time: 0,
       isReleased: false,

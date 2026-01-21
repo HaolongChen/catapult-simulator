@@ -26,12 +26,6 @@ export interface PhysicsState17DOF {
   readonly cwAngle: number
   readonly cwAngularVelocity: number
 
-  // Sling Bag (Dual Attachment)
-  readonly slingBagPosition: Float64Array // [x, y]
-  readonly slingBagVelocity: Float64Array // [vx, vy]
-  readonly slingBagAngle: number
-  readonly slingBagAngularVelocity: number
-
   // Projectile
   readonly position: Float64Array // [x, y, z]
   readonly velocity: Float64Array // [vx, vy, vz]
@@ -55,10 +49,6 @@ export interface PhysicsDerivative17DOF {
   readonly cwVelocity: Float64Array
   readonly cwAngle: number
   readonly cwAngularVelocity: number
-  readonly slingBagPosition: Float64Array
-  readonly slingBagVelocity: Float64Array
-  readonly slingBagAngle: number
-  readonly slingBagAngularVelocity: number
   readonly slingAngle: number
   readonly slingAngularVelocity: number
   readonly position: Float64Array
@@ -88,9 +78,6 @@ export interface TrebuchetProperties {
   counterweightInertia: number // Inertia of CW container
   slingLength: number
   releaseAngle: number
-  slingBagWidth: number // Width of the bag for dual ropes
-  slingBagMass: number
-  slingBagInertia: number
   jointFriction: number
   armMass: number
   pivotHeight: number
@@ -114,7 +101,6 @@ export interface PhysicsForces {
   readonly tension: Float64Array
   readonly total: Float64Array
   readonly groundNormal: number
-  readonly slingBagNormal: number // Force N between bag and ball
   readonly checkFunction: number // J * q_dot norm
   readonly lambda: Float64Array // Raw multipliers for debugging
 }
@@ -193,12 +179,6 @@ export interface FrameData {
     length: number
     tension: number
     tensionVector: [number, number, number]
-  }
-  slingBag: {
-    position: [number, number, number]
-    angle: number
-    width: number
-    contactForce: number
   }
   ground: {
     height: number

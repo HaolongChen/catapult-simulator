@@ -354,7 +354,7 @@ export const DebugOverlay: React.FC<{
           </TelemetrySection>
 
           <TelemetrySection
-            title="Sling & SlingBag"
+            title="Sling"
             icon={SECTION_META[4].icon}
             accent={SECTION_META[4].accent}
             defaultOpen={false}
@@ -386,18 +386,6 @@ export const DebugOverlay: React.FC<{
                   value: fmtVec(frameData.sling.startPoint),
                 },
                 { label: 'Sling End', value: fmtVec(frameData.sling.endPoint) },
-                {
-                  label: 'SlingBag Angle',
-                  value: `${fmt((frameData.slingBag.angle * 180) / Math.PI, 2)}°`,
-                },
-                {
-                  label: 'SlingBag N-Force',
-                  value: `${fmt(frameData.slingBag.contactForce, 2)} N`,
-                },
-                {
-                  label: 'SlingBag Pos',
-                  value: fmtVec(frameData.slingBag.position),
-                },
               ]}
             />
           </TelemetrySection>

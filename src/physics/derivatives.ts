@@ -73,7 +73,6 @@ export function computeDerivatives(
     cwAngularVelocity: dphi_cw,
     slingAngle: phi_s,
     slingAngularVelocity: dphi_s,
-    slingBagVelocity: vSB,
     angularVelocity,
     windVelocity,
     isReleased,
@@ -86,8 +85,6 @@ export function computeDerivatives(
     counterweightInertia: Icw,
     armMass: Ma,
     jointFriction,
-    slingBagMass: Msb,
-    slingBagInertia: Isb,
     slingLength: Ls,
     pivotHeight: H,
   } = trebuchetProps
@@ -112,6 +109,7 @@ export function computeDerivatives(
     return computeFreeFlight(state, projectile, trebuchetProps, aero)
   }
 
+  // --- 1. Kinematics ---
   const cosT = Math.cos(th),
     sinT = Math.sin(th)
   const cosP = Math.cos(phi_cw),
@@ -119,24 +117,29 @@ export function computeDerivatives(
   const cosS = Math.cos(phi_s),
     sinS = Math.sin(phi_s)
 
+  // Tip Positions
   const xtl = L1 * cosT,
     ytl = H + L1 * sinT
   const xts = -L2 * cosT,
     yts = H - L2 * sinT
 
+  // Tip Partial Derivatives w.r.t th
   const xtl_p = -L1 * sinT,
     ytl_p = L1 * cosT
   const xts_p = L2 * sinT,
     yts_p = -L2 * cosT
 
+  // Tip Acceleration Gamma Terms
   const xtl_g = -L1 * cosT * dth ** 2,
     ytl_g = -L1 * sinT * dth ** 2
   const xts_g = L2 * cosT * dth ** 2,
     yts_g = L2 * sinT * dth ** 2
 
+  // --- 2. System Matrices (7 DOF) ---
+  // q = [th, phi_s, xcw, ycw, phi_cw, xp, yp]
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
   const Is = 1e-6
-  const M_diag = [Ia, Is, Mcw, Mcw, Icw, Msb, Msb, Isb, Mp, Mp]
+  const M_diag = [Ia, Is, Mcw, Mcw, Icw, Mp, Mp]
 
   const friction =
     -Math.tanh(dth * 100.0) * jointFriction * Math.abs(normalForce)
@@ -152,18 +155,17 @@ export function computeDerivatives(
     0,
     -Mcw * g,
     0,
-    0,
-    -Msb * g,
-    0,
     aero.total[0] + projGndFric,
     aero.total[1] - Mp * g,
   ]
 
-  const J = Array.from({ length: 7 }, () => new Array(10).fill(0))
-  const gamma = new Array(7).fill(0)
+  // --- 3. Constraints (5 total) ---
+  const J = Array.from({ length: 5 }, () => new Array(7).fill(0))
+  const gamma = new Array(5).fill(0)
   const alpha = 10.0,
     beta = 100.0
 
+  // C0, C1: CW Hinge (xcw = xts + Rcw*sinP, ycw = yts - Rcw*cosP)
   const C0 = state.cwPosition[0] - (xts + Rcw * sinP)
   const dC0 = vCW[0] - (xts_p * dth + Rcw * cosP * dphi_cw)
   J[0][0] = -xts_p
@@ -178,84 +180,64 @@ export function computeDerivatives(
   J[1][4] = -Rcw * sinP
   gamma[1] = yts_g + Rcw * cosP * dphi_cw ** 2 - alpha * dC1 - beta * C1
 
+  // C2, C3: Sling Hinge (xp = xtl + Ls*cosS, yp = ytl + Ls*sinS)
   const C2 = position[0] - (xtl + Ls * cosS)
   const dC2 = velocity[0] - (xtl_p * dth - Ls * sinS * dphi_s)
   J[2][0] = -xtl_p
   J[2][1] = Ls * sinS
-  J[2][8] = 1.0
+  J[2][5] = 1.0
   gamma[2] = xtl_g - Ls * cosS * dphi_s ** 2 - alpha * dC2 - beta * C2
 
   const C3 = position[1] - (ytl + Ls * sinS)
   const dC3 = velocity[1] - (ytl_p * dth + Ls * cosS * dphi_s)
   J[3][0] = -ytl_p
   J[3][1] = -Ls * cosS
-  J[3][9] = 1.0
+  J[3][6] = 1.0
   gamma[3] = ytl_g - Ls * sinS * dphi_s ** 2 - alpha * dC3 - beta * C3
 
-  const C4 = state.slingBagPosition[0] - position[0]
-  const dC4 = vSB[0] - velocity[0]
-  J[4][5] = 1.0
-  J[4][8] = -1.0
-  gamma[4] = -20 * dC4 - 400 * C4
-
-  const C5 = state.slingBagPosition[1] - position[1]
-  const dC5 = vSB[1] - velocity[1]
-  J[5][6] = 1.0
-  J[5][9] = -1.0
-  gamma[5] = -20 * dC5 - 400 * C5
-
+  // C4: Ground Rail (yp = Rp)
   const onR = position[1] - Rp <= 0.05
-  const C6 = position[1] - Rp
-  J[6][9] = 1.0
-  gamma[6] = -100.0 * velocity[1] - 10000.0 * C6
+  const C4 = position[1] - Rp
+  J[4][6] = 1.0
+  gamma[4] = -100.0 * velocity[1] - 10000.0 * C4
 
   const solveKKT = (actR: boolean) => {
-    const dim = 17
+    const dim = 7 + 5
     const A = Array.from({ length: dim }, () => new Array(dim).fill(0))
     const B = new Array(dim).fill(0)
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 7; i++) {
       A[i][i] = M_diag[i]
       B[i] = Q[i]
     }
+    // Add arm-sling coupling
     const coupling = Mp * L1 * Ls * Math.cos(th - phi_s)
     A[0][1] = coupling
     A[1][0] = coupling
-    const active = [true, true, true, true, true, true, actR]
-    for (let i = 0; i < 7; i++) {
+    const active = [true, true, true, true, actR]
+    for (let i = 0; i < 5; i++) {
       if (active[i]) {
-        for (let j = 0; j < 10; j++) {
-          A[10 + i][j] = J[i][j]
-          A[j][10 + i] = J[i][j]
+        for (let j = 0; j < 7; j++) {
+          A[7 + i][j] = J[i][j]
+          A[j][7 + i] = J[i][j]
         }
-        B[10 + i] = gamma[i]
-      } else A[10 + i][10 + i] = 1.0
+        B[7 + i] = gamma[i]
+      } else A[7 + i][7 + i] = 1.0
     }
     return solveLinearSystem(A, B)
   }
 
   let sol = solveKKT(onR)
-  if (onR && sol[16] > 0) {
+  if (onR && sol[11] > 0) {
     sol = solveKKT(false)
   }
 
-  const active = [true, true, true, true, true, true, onR && sol[16] <= 0]
+  const active = [true, true, true, true, onR && sol[11] <= 0]
   let checkFunction = 0
-  const q_dot = [
-    dth,
-    dphi_s,
-    vCW[0],
-    vCW[1],
-    dphi_cw,
-    vSB[0],
-    vSB[1],
-    0,
-    velocity[0],
-    velocity[1],
-  ]
-  for (let i = 0; i < 7; i++) {
+  const q_dot = [dth, dphi_s, vCW[0], vCW[1], dphi_cw, velocity[0], velocity[1]]
+  for (let i = 0; i < 5; i++) {
     if (active[i]) {
       let sum = 0
-      for (let j = 0; j < 10; j++) sum += J[i][j] * q_dot[j]
+      for (let j = 0; j < 7; j++) sum += J[i][j] * q_dot[j]
       checkFunction = Math.max(checkFunction, Math.abs(sum))
     }
   }
@@ -270,12 +252,8 @@ export function computeDerivatives(
       cwAngularVelocity: sol[4],
       slingAngle: dphi_s,
       slingAngularVelocity: sol[1],
-      slingBagPosition: new Float64Array([vSB[0], vSB[1]]),
-      slingBagVelocity: new Float64Array([sol[5], sol[6]]),
-      slingBagAngle: dphi_s,
-      slingBagAngularVelocity: sol[1],
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
-      velocity: new Float64Array([sol[8], sol[9], 0]),
+      velocity: new Float64Array([sol[5], sol[6], 0]),
       orientation: new Float64Array(4),
       angularVelocity: new Float64Array(3),
       windVelocity: new Float64Array(3),
@@ -286,12 +264,11 @@ export function computeDerivatives(
       drag: aero.drag,
       magnus: aero.magnus,
       gravity: new Float64Array([0, -Mp * g, 0]),
-      tension: new Float64Array([-sol[12], -sol[13], 0]),
-      total: new Float64Array([sol[8] * Mp, sol[9] * Mp, 0]),
-      groundNormal: sol[16] < 0 ? -sol[16] : 0,
-      slingBagNormal: 0,
+      tension: new Float64Array([-sol[9], -sol[10], 0]),
+      total: new Float64Array([sol[5] * Mp, sol[6] * Mp, 0]),
+      groundNormal: sol[11] < 0 ? -sol[11] : 0,
       checkFunction,
-      lambda: new Float64Array(sol.slice(10)),
+      lambda: new Float64Array(sol.slice(7)),
     },
   }
 }
@@ -356,10 +333,6 @@ function computeFreeFlight(
       cwAngularVelocity: phi_ddot,
       slingAngle: state.slingAngularVelocity,
       slingAngularVelocity: 0,
-      slingBagPosition: new Float64Array([0, 0]),
-      slingBagVelocity: new Float64Array([0, 0]),
-      slingBagAngle: 0,
-      slingBagAngularVelocity: 0,
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
       velocity: new Float64Array([aero.total[0] / Mp, ay, 0]),
       orientation: new Float64Array(4),
@@ -375,9 +348,8 @@ function computeFreeFlight(
       tension: new Float64Array(3),
       total: new Float64Array([aero.total[0], ay * Mp, 0]),
       groundNormal: position[1] < projectile.radius ? 10.0 : 0,
-      slingBagNormal: 0,
       checkFunction: 0,
-      lambda: new Float64Array(7),
+      lambda: new Float64Array(5),
     },
   }
 }

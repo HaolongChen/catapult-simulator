@@ -9,12 +9,7 @@ function getArmTipPosition(
   state: PhysicsState17DOF,
   config: SimulationConfig,
 ): { x: number; y: number; z: number } {
-  const kin = getTrebuchetKinematics(
-    state.armAngle,
-    state.slingBagPosition,
-    state.slingBagAngle,
-    config.trebuchet,
-  )
+  const kin = getTrebuchetKinematics(state.armAngle, config.trebuchet)
   return { x: kin.longArmTip.x, y: kin.longArmTip.y, z: 0 }
 }
 
@@ -22,12 +17,7 @@ function getShortArmTipPosition(
   state: PhysicsState17DOF,
   config: SimulationConfig,
 ): { x: number; y: number; z: number } {
-  const kin = getTrebuchetKinematics(
-    state.armAngle,
-    state.slingBagPosition,
-    state.slingBagAngle,
-    config.trebuchet,
-  )
+  const kin = getTrebuchetKinematics(state.armAngle, config.trebuchet)
   return { x: kin.shortArmTip.x, y: kin.shortArmTip.y, z: 0 }
 }
 
@@ -99,9 +89,6 @@ function createStandardConfig(): SimulationConfig {
       counterweightInertia: 500,
       slingLength: 6,
       releaseAngle: (45 * Math.PI) / 180,
-      slingBagWidth: 0.35,
-      slingBagMass: 5,
-      slingBagInertia: 0.1,
       jointFriction: 0.3,
       armMass: 100,
       pivotHeight: 5,
@@ -134,10 +121,6 @@ function createInitialState(config: SimulationConfig): PhysicsState17DOF {
     cwVelocity: new Float64Array([0, 0]),
     cwAngle: 0,
     cwAngularVelocity: 0,
-    slingBagAngle: 0,
-    slingBagAngularVelocity: 0,
-    slingBagPosition: new Float64Array([tip.x + 8, tip.y]),
-    slingBagVelocity: new Float64Array(2),
     windVelocity: new Float64Array([0, 0, 0]),
     slingAngle: 0,
     slingAngularVelocity: 0,

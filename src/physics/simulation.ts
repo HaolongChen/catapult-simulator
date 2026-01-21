@@ -19,7 +19,6 @@ const EMPTY_FORCES: PhysicsForces = {
   tension: new Float64Array(3),
   total: new Float64Array(3),
   groundNormal: 0,
-  slingBagNormal: 0,
   checkFunction: 0,
   lambda: new Float64Array(6),
 }
@@ -71,7 +70,6 @@ export class CatapultSimulation {
     const result = this.integrator.update(deltaTime, derivativeFunction)
     let newState = result.newState
 
-    // 1. Angle Normalization (Fix wrapping)
     const normalizeAngle = (a: number) => {
       const TWO_PI = 2 * Math.PI
       let res = a % TWO_PI
@@ -84,7 +82,6 @@ export class CatapultSimulation {
       armAngle: normalizeAngle(newState.armAngle),
       cwAngle: normalizeAngle(newState.cwAngle),
       slingAngle: normalizeAngle(newState.slingAngle),
-      slingBagAngle: normalizeAngle(newState.slingBagAngle),
     }
 
     if (!newState.isReleased) {
@@ -96,13 +93,10 @@ export class CatapultSimulation {
 
       const kinematics = getTrebuchetKinematics(
         newState.armAngle,
-        newState.slingBagPosition,
-        newState.slingBagAngle,
         this.config.trebuchet,
       )
       const { longArmTip: tip, shortArmTip: shortTip } = kinematics
 
-      // 2. Coordinate Projection (SHAKE)
       const dx_cw = newState.cwPosition[0] - shortTip.x
       const dy_cw = newState.cwPosition[1] - shortTip.y
       const dist_cw = Math.sqrt(dx_cw * dx_cw + dy_cw * dy_cw + 1e-12)
@@ -121,21 +115,11 @@ export class CatapultSimulation {
       newState.velocity[0] = vxt - Ls * sinS * newState.slingAngularVelocity
       newState.velocity[1] = vyt + Ls * cosS * newState.slingAngularVelocity
 
-      if (newState.position[1] < this.config.projectile.radius) {
-        newState.position[1] = this.config.projectile.radius
-      }
-
       newState = {
         ...newState,
-        cwAngle: Math.atan2(dx_cw, -dy_cw),
-        slingBagPosition: new Float64Array([
-          newState.position[0],
-          newState.position[1],
-        ]),
-        slingBagAngle: newState.slingAngle - Math.PI / 2,
+        cwAngle: Math.atan2(dy_cw, dx_cw) + Math.PI / 2, // Normalize to hinge downward
       }
 
-      // 3. State Transitions (Kinematic Release)
       const armVec = {
         x: Math.cos(newState.armAngle),
         y: Math.sin(newState.armAngle),
@@ -148,17 +132,12 @@ export class CatapultSimulation {
       const dot = armVec.x * slingVec.x + armVec.y * slingVec.y
       const currentRelAngle = Math.atan2(det, dot)
 
-      // Normalize arm angle for firing window
       const armAngleDeg =
         ((((newState.armAngle * 180) / Math.PI) % 360) + 360) % 360
       const releaseThresholdMagnitude = Math.abs(
         this.config.trebuchet.releaseAngle,
       )
 
-      // Release condition:
-      // - Arm is in the forward-throwing arc (0 to 120 degrees)
-      // - Projectile is moving forward (vx > 0)
-      // - Relative angle magnitude has crossed below the threshold (whip finish)
       if (
         armAngleDeg < 120 &&
         newState.velocity[0] > 0 &&
@@ -173,7 +152,6 @@ export class CatapultSimulation {
       this.integrator.setState(newState)
     }
 
-    // Post-step ground checks
     if (newState.position[1] < this.config.projectile.radius) {
       newState.position[1] = this.config.projectile.radius
       if (newState.velocity[1] < 0) newState.velocity[1] = 0
@@ -185,7 +163,6 @@ export class CatapultSimulation {
       if (newState.cwVelocity[1] < 0) newState.cwVelocity[1] = 0
     }
 
-    // Numerical stability
     const q = newState.orientation
     const qMag = Math.sqrt(
       q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3],
@@ -213,8 +190,6 @@ export class CatapultSimulation {
     const {
       armAngle,
       cwAngle,
-      slingBagAngle,
-      slingBagPosition,
       cwPosition,
       position,
       orientation,
@@ -224,12 +199,7 @@ export class CatapultSimulation {
       time,
     } = this.state
 
-    const kinematics = getTrebuchetKinematics(
-      armAngle,
-      slingBagPosition,
-      slingBagAngle,
-      this.config.trebuchet,
-    )
+    const kinematics = getTrebuchetKinematics(armAngle, this.config.trebuchet)
     const { longArmTip, shortArmTip, pivot } = kinematics
 
     const projectileBB = {
@@ -321,9 +291,7 @@ export class CatapultSimulation {
       sling: {
         isAttached: !isReleased,
         startPoint: [longArmTip.x, longArmTip.y, 0],
-        endPoint: isReleased
-          ? [slingBagPosition[0], slingBagPosition[1], 0]
-          : [position[0], position[1], position[2]],
+        endPoint: [position[0], position[1], position[2]],
         length: Ls,
         tension: Math.abs(this.lastForces.lambda[2] * Ls),
         tensionVector: [
@@ -331,12 +299,6 @@ export class CatapultSimulation {
           this.lastForces.tension[1],
           this.lastForces.tension[2],
         ],
-      },
-      slingBag: {
-        position: [slingBagPosition[0], slingBagPosition[1], 0],
-        angle: slingBagAngle,
-        width: this.config.trebuchet.slingBagWidth,
-        contactForce: this.lastForces.slingBagNormal,
       },
       ground: {
         height: 0,
