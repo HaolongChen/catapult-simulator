@@ -1,4 +1,4 @@
-import type { PhysicsState19DOF, SimulationConfig } from './types'
+import type { PhysicsState17DOF, SimulationConfig } from './types'
 
 export function createConfig(): SimulationConfig {
   return {
@@ -37,7 +37,7 @@ export function createConfig(): SimulationConfig {
 
 export function createInitialState(
   config: SimulationConfig,
-): PhysicsState19DOF {
+): PhysicsState17DOF {
   const {
     longArmLength: L1,
     shortArmLength: L2,
@@ -67,7 +67,7 @@ export function createInitialState(
   const R_p = projRadius * 1.5
   const dx_sling = projX - tipX
   const dy_sling = targetY - tipY
-  const dist_sling = Math.sqrt(dx_sling * dx_sling + dy_sling * dy_sling + 1e-9)
+  const dist_sling = Math.sqrt(dx_sling * dx_sling + dy_sling * dy_sling)
   const ux = dx_sling / dist_sling
   const uy = dy_sling / dist_sling
 

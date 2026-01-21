@@ -1,12 +1,12 @@
 import { PHYSICS_CONSTANTS } from './constants'
 import { RK4Integrator } from './rk4-integrator'
 import { computeDerivatives } from './derivatives'
-import { computeTrebuchetKinematics } from './kinematics'
 import { physicsLogger } from './logging'
+import { getTrebuchetKinematics } from './trebuchet.ts'
 import type {
   FrameData,
   PhysicsForces,
-  PhysicsState19DOF,
+  PhysicsState17DOF,
   SimulationConfig,
 } from './types'
 
@@ -25,12 +25,12 @@ const EMPTY_FORCES: PhysicsForces = {
 
 export class CatapultSimulation {
   private integrator: RK4Integrator
-  private state: PhysicsState19DOF
+  private state: PhysicsState17DOF
   private config: SimulationConfig
   private normalForce: number
   private lastForces: PhysicsForces = EMPTY_FORCES
 
-  constructor(initialState: PhysicsState19DOF, config: SimulationConfig) {
+  constructor(initialState: PhysicsState17DOF, config: SimulationConfig) {
     this.state = initialState
     this.config = config
     this.normalForce =
@@ -59,9 +59,9 @@ export class CatapultSimulation {
    * Advances the simulation by deltaTime.
    * Performs integration, coordinate projection, and state transition checks.
    */
-  update(deltaTime: number): PhysicsState19DOF {
+  update(deltaTime: number): PhysicsState17DOF {
     // 1. Integration Step (using Adaptive RK4)
-    const derivativeFunction = (_t: number, state: PhysicsState19DOF) => {
+    const derivativeFunction = (_t: number, state: PhysicsState17DOF) => {
       const res = computeDerivatives(
         state,
         this.config.projectile,
@@ -78,45 +78,40 @@ export class CatapultSimulation {
     // 2. Coordinate Projection (SHAKE-style)
     // Ensures that redundant world-space coordinates satisfy geometric constraints.
     if (!newState.isReleased) {
-      const kinematics = computeTrebuchetKinematics(
-        newState.armAngle,
-        newState.cwAngle,
-        newState.slingBagAngle,
-        this.config.trebuchet,
-      )
-      const { tip: tipPos, shortTip: shortTipPos } = kinematics
-      const tipX = tipPos.x
-      const tipY = tipPos.y
-
-      const shortTipX = shortTipPos.x
-      const shortTipY = shortTipPos.y
-
       const {
         slingLength: Ls,
         slingBagWidth: W,
         counterweightRadius: Rcw,
       } = this.config.trebuchet
 
+      const kinematics = getTrebuchetKinematics(
+        newState.armAngle,
+        newState.slingBagPosition,
+        newState.slingBagAngle,
+        this.config.trebuchet,
+      )
+      const { longArmTip: tip, shortArmTip: shortTip } = kinematics
+
       const R_p = this.config.projectile.radius * 1.5
 
       // 2.1 Counterweight Position Projection (Hinge)
       // Constrains CW center to be exactly Rcw from the short arm tip.
-      const dx_cw = newState.cwPosition[0] - shortTipX
-      const dy_cw = newState.cwPosition[1] - shortTipY
+      const dx_cw = newState.cwPosition[0] - shortTip.x
+      const dy_cw = newState.cwPosition[1] - shortTip.y
       const dist_cw = Math.sqrt(dx_cw * dx_cw + dy_cw * dy_cw + 1e-12)
       const factor_cw = Rcw / dist_cw
-      newState.cwPosition[0] = shortTipX + dx_cw * factor_cw
-      newState.cwPosition[1] = shortTipY + dy_cw * factor_cw
+      newState.cwPosition[0] = shortTip.x + dx_cw * factor_cw
+      newState.cwPosition[1] = shortTip.y + dy_cw * factor_cw
 
       // 2.2 Sling Bag Position Projection (V-shape center distance)
       // Constrains bag center to be at the target geometric distance from arm tip.
       const targetCenterDist = Math.sqrt(Math.max(0, Ls * Ls - (W / 2) ** 2))
-      const dx_sb = newState.slingBagPosition[0] - tipX
-      const dy_sb = newState.slingBagPosition[1] - tipY
+      const dx_sb = newState.slingBagPosition[0] - tip.x
+      const dy_sb = newState.slingBagPosition[1] - tip.y
       const dist_sb = Math.sqrt(dx_sb * dx_sb + dy_sb * dy_sb + 1e-12)
       const factor_sb = targetCenterDist / dist_sb
-      newState.slingBagPosition[0] = tipX + dx_sb * factor_sb
-      newState.slingBagPosition[1] = tipY + dy_sb * factor_sb
+      newState.slingBagPosition[0] = tip.x + dx_sb * factor_sb
+      newState.slingBagPosition[1] = tip.y + dy_sb * factor_sb
 
       // 2.3 Projectile-Bag Contact Projection
       // Prevents penetration between the projectile and the sling bag.
@@ -175,6 +170,12 @@ export class CatapultSimulation {
 
   exportFrameData(): FrameData {
     const {
+      longArmLength: L1,
+      shortArmLength: L2,
+      counterweightRadius: Rcw,
+      slingLength: Ls,
+    } = this.config.trebuchet
+    const {
       armAngle,
       cwAngle,
       slingBagAngle,
@@ -188,35 +189,13 @@ export class CatapultSimulation {
       time,
     } = this.state
 
-    const kinematics = computeTrebuchetKinematics(
+    const kinematics = getTrebuchetKinematics(
       armAngle,
-      cwAngle,
+      slingBagPosition,
       slingBagAngle,
       this.config.trebuchet,
     )
-
-    const {
-      longArmLength: L1,
-      shortArmLength: L2,
-      counterweightRadius: Rcw,
-      slingLength: Ls,
-    } = this.config.trebuchet
-
-    const pivot: [number, number, number] = [
-      kinematics.pivot.x,
-      kinematics.pivot.y,
-      0,
-    ]
-    const longArmTip: [number, number, number] = [
-      kinematics.tip.x,
-      kinematics.tip.y,
-      0,
-    ]
-    const shortArmTip: [number, number, number] = [
-      kinematics.shortTip.x,
-      kinematics.shortTip.y,
-      0,
-    ]
+    const { longArmTip, shortArmTip, pivot } = kinematics
 
     const projectileBB = {
       min: [
@@ -232,13 +211,13 @@ export class CatapultSimulation {
     }
     const armBB = {
       min: [
-        Math.min(shortArmTip[0], longArmTip[0]),
-        Math.min(shortArmTip[1], longArmTip[1]),
+        Math.min(shortArmTip.x, longArmTip.x),
+        Math.min(shortArmTip.y, longArmTip.y),
         -0.1,
       ] as [number, number, number],
       max: [
-        Math.max(shortArmTip[0], longArmTip[0]),
-        Math.max(shortArmTip[1], longArmTip[1]),
+        Math.max(shortArmTip.x, longArmTip.x),
+        Math.max(shortArmTip.y, longArmTip.y),
         0.1,
       ] as [number, number, number],
     }
@@ -256,9 +235,9 @@ export class CatapultSimulation {
     }
 
     const currentSlingLength = Math.sqrt(
-      (position[0] - longArmTip[0]) ** 2 +
-        (position[1] - longArmTip[1]) ** 2 +
-        (position[2] - longArmTip[2]) ** 2,
+      (position[0] - longArmTip.x) ** 2 +
+        (position[1] - longArmTip.y) ** 2 +
+        (position[2] - 0) ** 2,
     )
 
     let phase = isReleased ? 'released' : 'swinging'
@@ -289,9 +268,9 @@ export class CatapultSimulation {
       arm: {
         angle: armAngle,
         angularVelocity: this.state.armAngularVelocity,
-        pivot,
-        longArmTip,
-        shortArmTip,
+        pivot: [pivot.x, pivot.y, 0],
+        longArmTip: [longArmTip.x, longArmTip.y, 0],
+        shortArmTip: [shortArmTip.x, shortArmTip.y, 0],
         longArmLength: L1,
         shortArmLength: L2,
         boundingBox: armBB,
@@ -301,12 +280,12 @@ export class CatapultSimulation {
         angularVelocity: this.state.cwAngularVelocity,
         position: [cwPosition[0], cwPosition[1], 0],
         radius: Rcw,
-        attachmentPoint: shortArmTip,
+        attachmentPoint: [shortArmTip.x, shortArmTip.y, 0],
         boundingBox: cwBB,
       },
       sling: {
         isAttached: !isReleased,
-        startPoint: longArmTip,
+        startPoint: [longArmTip.x, longArmTip.y, 0],
         endPoint: isReleased
           ? [slingBagPosition[0], slingBagPosition[1], 0]
           : [position[0], position[1], position[2]],
@@ -325,8 +304,8 @@ export class CatapultSimulation {
       slingBag: {
         position: [slingBagPosition[0], slingBagPosition[1], 0],
         angle: slingBagAngle,
-        contactForce: this.lastForces.slingBagNormal,
         width: this.config.trebuchet.slingBagWidth,
+        contactForce: this.lastForces.slingBagNormal,
       },
       ground: {
         height: 0,
@@ -382,7 +361,7 @@ export class CatapultSimulation {
     }
   }
 
-  getRenderState(): PhysicsState19DOF {
+  getRenderState(): PhysicsState17DOF {
     return this.integrator.getRenderState()
   }
 
@@ -390,11 +369,11 @@ export class CatapultSimulation {
     return this.integrator.getInterpolationAlpha()
   }
 
-  getState(): PhysicsState19DOF {
+  getState(): PhysicsState17DOF {
     return this.state
   }
 
-  setState(state: PhysicsState19DOF): void {
+  setState(state: PhysicsState17DOF): void {
     this.state = state
     this.integrator.setState(state)
   }

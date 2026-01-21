@@ -113,54 +113,6 @@ export function magnusForce(
   return result
 }
 
-export function aerodynamicTorque(
-  velocity: Float64Array,
-  spinVector: Float64Array,
-  projectile: ProjectileProperties,
-  density: number,
-): Float64Array {
-  const vSq = velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2
-  const vMag = Math.sqrt(vSq)
-  const result = new Float64Array(3)
-
-  if (vMag > 1e-6) {
-    // 1. Roll Damping (Spin decay)
-    // T_damping = -0.5 * rho * v * Area * Radius^2 * C_md * omega
-    const radius = projectile.radius
-    const area = projectile.area
-    const spinDecayConst = 0.01 // Simplified spin decay coefficient
-
-    result[0] =
-      -0.5 *
-      density *
-      vMag *
-      area *
-      radius *
-      radius *
-      spinDecayConst *
-      spinVector[0]
-    result[1] =
-      -0.5 *
-      density *
-      vMag *
-      area *
-      radius *
-      radius *
-      spinDecayConst *
-      spinVector[1]
-    result[2] =
-      -0.5 *
-      density *
-      vMag *
-      area *
-      radius *
-      radius *
-      spinDecayConst *
-      spinVector[2]
-  }
-  return result
-}
-
 export function aerodynamicForce(
   velocity: Float64Array,
   spinVector: Float64Array,

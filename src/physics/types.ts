@@ -15,7 +15,7 @@ export interface AtmosphericConstants {
  * 19-DOF High Fidelity Physics State
  * Uses redundant world-space coordinates for numerical stability.
  */
-export interface PhysicsState19DOF {
+export interface PhysicsState17DOF {
   // Arm
   readonly armAngle: number
   readonly armAngularVelocity: number
@@ -44,7 +44,7 @@ export interface PhysicsState19DOF {
   readonly isReleased: boolean
 }
 
-export interface PhysicsDerivative19DOF {
+export interface PhysicsDerivative17DOF {
   readonly armAngle: number
   readonly armAngularVelocity: number
   readonly cwPosition: Float64Array
@@ -114,9 +114,9 @@ export interface PhysicsForces {
 
 export type DerivativeFunction = (
   t: number,
-  state: PhysicsState19DOF,
+  state: PhysicsState17DOF,
 ) => {
-  derivative: PhysicsDerivative19DOF
+  derivative: PhysicsDerivative17DOF
   forces: PhysicsForces
 }
 
@@ -130,7 +130,7 @@ export interface RK4Config {
 }
 
 export interface RK4Result {
-  newState: PhysicsState19DOF
+  newState: PhysicsState17DOF
   stepsTaken: number
   interpolationAlpha: number
 }
@@ -190,8 +190,8 @@ export interface FrameData {
   slingBag: {
     position: [number, number, number]
     angle: number
-    contactForce: number
     width: number
+    contactForce: number
   }
   ground: {
     height: number

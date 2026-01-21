@@ -1,37 +1,37 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import { computeTrebuchetKinematics } from '../kinematics'
-import type { PhysicsState19DOF, SimulationConfig } from '../types'
+import { getTrebuchetKinematics } from '../trebuchet'
+import type { PhysicsState17DOF, SimulationConfig } from '../types'
 
 // --- Geometry Helpers ---
 
 function getArmTipPosition(
-  state: PhysicsState19DOF,
+  state: PhysicsState17DOF,
   config: SimulationConfig,
 ): { x: number; y: number; z: number } {
-  const kin = computeTrebuchetKinematics(
+  const kin = getTrebuchetKinematics(
     state.armAngle,
-    state.cwAngle,
+    state.slingBagPosition,
     state.slingBagAngle,
     config.trebuchet,
   )
-  return { x: kin.tip.x, y: kin.tip.y, z: 0 }
+  return { x: kin.longArmTip.x, y: kin.longArmTip.y, z: 0 }
 }
 
 function getShortArmTipPosition(
-  state: PhysicsState19DOF,
+  state: PhysicsState17DOF,
   config: SimulationConfig,
 ): { x: number; y: number; z: number } {
-  const kin = computeTrebuchetKinematics(
+  const kin = getTrebuchetKinematics(
     state.armAngle,
-    state.cwAngle,
+    state.slingBagPosition,
     state.slingBagAngle,
     config.trebuchet,
   )
-  return { x: kin.shortTip.x, y: kin.shortTip.y, z: 0 }
+  return { x: kin.shortArmTip.x, y: kin.shortArmTip.y, z: 0 }
 }
 
-function getCounterweightPosition(state: PhysicsState19DOF): {
+function getCounterweightPosition(state: PhysicsState17DOF): {
   x: number
   y: number
   z: number
@@ -109,7 +109,7 @@ function createStandardConfig(): SimulationConfig {
   }
 }
 
-function createInitialState(config: SimulationConfig): PhysicsState19DOF {
+function createInitialState(config: SimulationConfig): PhysicsState17DOF {
   const {
     longArmLength: L1,
     shortArmLength: L2,
@@ -253,7 +253,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
     it('should correctly calculate arm bounding box', () => {
       const config = createStandardConfig()
       const baseState = createInitialState(config)
-      const state: PhysicsState19DOF = { ...baseState, armAngle: Math.PI / 4 }
+      const state: PhysicsState17DOF = { ...baseState, armAngle: Math.PI / 4 }
       const longTip = getArmTipPosition(state, config)
       const shortTip = getShortArmTipPosition(state, config)
       const minX = Math.min(longTip.x, shortTip.x, 0)

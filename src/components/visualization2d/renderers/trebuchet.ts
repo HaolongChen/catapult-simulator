@@ -1,5 +1,5 @@
 import type { FrameData } from '@/physics/types'
-import { getSlingBagAttachmentPoints } from '@/physics/kinematics'
+import { getSlingBagAttachmentPoints } from '@/physics/trebuchet'
 
 export function renderTrebuchet(
   ctx: CanvasRenderingContext2D,
