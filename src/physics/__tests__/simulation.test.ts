@@ -15,9 +15,6 @@ const MOCK_TREBUCHET = {
   slingBagMass: 5,
   slingBagInertia: 0.1,
   jointFriction: 0.3,
-  flexStiffness: 500000,
-  flexDamping: 5000,
-  flexPoint: 3.5,
   armMass: 100,
   pivotHeight: 5,
 }
@@ -77,8 +74,6 @@ function createTestState(): PhysicsState19DOF {
     armAngularVelocity: 0,
     cwAngle: 0,
     cwAngularVelocity: 0,
-    flexAngle: 0,
-    flexAngularVelocity: 0,
     cwPosition: new Float64Array(2),
     cwVelocity: new Float64Array(2),
     slingBagAngle: 0,

@@ -94,13 +94,16 @@ export class RK4Integrator {
     checkArray(s1.cwVelocity, s2.cwVelocity)
     checkArray(s1.slingBagPosition, s2.slingBagPosition)
     checkArray(s1.slingBagVelocity, s2.slingBagVelocity)
-    const diffs = [
-      Math.abs(s1.armAngle - s2.armAngle),
-      Math.abs(s1.flexAngle - s2.flexAngle),
-      Math.abs(s1.cwAngle - s2.cwAngle),
-      Math.abs(s1.slingBagAngle - s2.slingBagAngle),
-    ]
-    for (const d of diffs) if (d > maxError) maxError = d
+
+    const armAngleDiff = Math.abs(s1.armAngle - s2.armAngle)
+    if (armAngleDiff > maxError) maxError = armAngleDiff
+
+    const cwAngleDiff = Math.abs(s1.cwAngle - s2.cwAngle)
+    if (cwAngleDiff > maxError) maxError = cwAngleDiff
+
+    const sbAngleDiff = Math.abs(s1.slingBagAngle - s2.slingBagAngle)
+    if (sbAngleDiff > maxError) maxError = sbAngleDiff
+
     return maxError
   }
 
@@ -161,9 +164,6 @@ export class RK4Integrator {
       armAngle: state.armAngle + derivative.armAngle * scale,
       armAngularVelocity:
         state.armAngularVelocity + derivative.armAngularVelocity * scale,
-      flexAngle: state.flexAngle + derivative.flexAngle * scale,
-      flexAngularVelocity:
-        state.flexAngularVelocity + derivative.flexAngularVelocity * scale,
       cwAngle: state.cwAngle + derivative.cwAngle * scale,
       cwAngularVelocity:
         state.cwAngularVelocity + derivative.cwAngularVelocity * scale,
@@ -277,20 +277,6 @@ export class RK4Integrator {
         d3.armAngularVelocity,
         d4.armAngularVelocity,
       ),
-      flexAngle: combVal(
-        state.flexAngle,
-        d1.flexAngle,
-        d2.flexAngle,
-        d3.flexAngle,
-        d4.flexAngle,
-      ),
-      flexAngularVelocity: combVal(
-        state.flexAngularVelocity,
-        d1.flexAngularVelocity,
-        d2.flexAngularVelocity,
-        d3.flexAngularVelocity,
-        d4.flexAngularVelocity,
-      ),
       cwAngle: combVal(
         state.cwAngle,
         d1.cwAngle,
@@ -349,8 +335,6 @@ export class RK4Integrator {
       windVelocity: new Float64Array(state.windVelocity),
       armAngle: state.armAngle,
       armAngularVelocity: state.armAngularVelocity,
-      flexAngle: state.flexAngle,
-      flexAngularVelocity: state.flexAngularVelocity,
       cwAngle: state.cwAngle,
       cwAngularVelocity: state.cwAngularVelocity,
       slingBagAngle: state.slingBagAngle,
@@ -391,11 +375,6 @@ export class RK4Integrator {
       windVelocity: lerpArr(s1.windVelocity, s2.windVelocity),
       armAngle: lerpVal(s1.armAngle, s2.armAngle),
       armAngularVelocity: lerpVal(s1.armAngularVelocity, s2.armAngularVelocity),
-      flexAngle: lerpVal(s1.flexAngle, s2.flexAngle),
-      flexAngularVelocity: lerpVal(
-        s1.flexAngularVelocity,
-        s2.flexAngularVelocity,
-      ),
       cwAngle: lerpVal(s1.cwAngle, s2.cwAngle),
       cwAngularVelocity: lerpVal(s1.cwAngularVelocity, s2.cwAngularVelocity),
       slingBagAngle: lerpVal(s1.slingBagAngle, s2.slingBagAngle),

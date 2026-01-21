@@ -31,9 +31,6 @@ export function createConfig(): SimulationConfig {
       jointFriction: 0.1,
       armMass: 200,
       pivotHeight: 3,
-      flexStiffness: 500000,
-      flexDamping: 5000,
-      flexPoint: 3.5,
     },
   }
 }
@@ -82,8 +79,6 @@ export function createInitialState(
   return {
     armAngle,
     armAngularVelocity: 0,
-    flexAngle: 0,
-    flexAngularVelocity: 0,
     cwPosition: new Float64Array([cwX, cwY]),
     cwVelocity: new Float64Array([0, 0]),
     cwAngle: 0,

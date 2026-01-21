@@ -190,12 +190,11 @@ export function aerodynamicForce(
 
   const drag = dragForce(velocity, density, cd, area)
   const magnus = magnusForce(velocity, spinVector, density, cl, area)
-  const torque = aerodynamicTorque(velocity, spinVector, projectile, density)
 
   const total = new Float64Array(3)
   total[0] = drag[0] + magnus[0]
   total[1] = drag[1] + magnus[1]
   total[2] = drag[2] + magnus[2]
 
-  return { drag, magnus, total, torque }
+  return { drag, magnus, total }
 }

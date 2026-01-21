@@ -14,36 +14,36 @@ function calculateTotalEnergy(
   trebuchet: TrebuchetProperties,
   projectile: ProjectileProperties,
 ): number {
-  const { armAngle, armAngularVelocity, position, velocity, flexAngle } = state
+  const { armAngle, armAngularVelocity, position, velocity } = state
   const {
     longArmLength: L1,
     shortArmLength: L2,
     counterweightMass: Mcw,
     armMass: Ma,
     pivotHeight: H,
-    flexPoint: Lf,
   } = trebuchet
-  const Mp = projectile.mass,
-    Lw = L1 - Lf
-  const rho = Ma / (L1 + L2),
-    m1 = rho * (Lf + L2),
-    m2 = rho * Lw
+  const Mp = projectile.mass
 
-  const peProj = Mp * G * position[1]
-  const peMainArm = m1 * G * (H + ((Lf - L2) / 2) * Math.sin(armAngle))
-  const peWhip =
-    m2 *
-    G *
-    (H + Lf * Math.sin(armAngle) + (Lw / 2) * Math.sin(armAngle + flexAngle))
-  const peCW = Mcw * G * state.cwPosition[1]
-  const peSlingBag = trebuchet.slingBagMass * G * state.slingBagPosition[1]
+  const L_total = L1 + L2
+  const L_cg = (L1 - L2) / 2
+  const Ia = (1 / 12) * Ma * L_total * L_total
 
-  const keProj =
-    0.5 * Mp * (velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2)
-  const keArm =
-    0.5 * ((1 / 3) * m1 * (Lf ** 2 + L2 ** 2)) * armAngularVelocity ** 2
+  const cosTh = Math.cos(armAngle)
+  const sinTh = Math.sin(armAngle)
 
-  return peProj + peMainArm + peWhip + peCW + peSlingBag + keProj + keArm
+  const yArmCG = H + L_cg * sinTh
+  const yCW = H - L2 * sinTh
+  const yProj = position[1]
+  const V = Mp * G * yProj + Mcw * G * yCW + Ma * G * yArmCG
+
+  const Tp = 0.5 * Mp * (velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2)
+  const keCW = 0.5 * Mcw * (L2 * cosTh * armAngularVelocity) ** 2
+  const vAx = -(L2 + L_cg) * sinTh * armAngularVelocity
+  const vAy = L_cg * cosTh * armAngularVelocity
+  const Ta =
+    0.5 * Ma * (vAx ** 2 + vAy ** 2) + 0.5 * Ia * armAngularVelocity ** 2
+
+  return Tp + Ta + keCW + V
 }
 
 function createDefaultConfig(): SimulationConfig {
@@ -75,9 +75,6 @@ function createDefaultConfig(): SimulationConfig {
       slingBagMass: 5,
       slingBagInertia: 0.1,
       jointFriction: 0.1,
-      flexStiffness: 1e7,
-      flexDamping: 1e4,
-      flexPoint: 8.0,
       armMass: 200,
       pivotHeight: 15,
     },
@@ -116,8 +113,6 @@ function createInitialState(
     angularVelocity: new Float64Array(3),
     armAngle,
     armAngularVelocity: 0,
-    flexAngle: 0,
-    flexAngularVelocity: 0,
     cwAngle: 0,
     cwAngularVelocity: 0,
     cwPosition: new Float64Array([
@@ -165,7 +160,6 @@ describe('Comprehensive Evaluation Suite', () => {
   it('should handle moderate mass ratios', () => {
     const config = createDefaultConfig()
     config.trebuchet.counterweightMass = 100000
-    config.trebuchet.flexStiffness = 1e11 // High stiffness for stability
     config.initialTimestep = 0.001 // Smaller step for high mass ratios
     const state = createInitialState(config.trebuchet)
     const sim = new CatapultSimulation(state, config)

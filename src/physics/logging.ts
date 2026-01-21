@@ -61,14 +61,8 @@ export class PhysicsLogger {
     }
   }
 
-  private printRealTimeDebug(record: LogRecord) {
-    const { state, forces } = record
-    console.log(
-      `[DEBUG] t=${state.time.toFixed(3)} | ` +
-        `pos=[${state.position[0].toFixed(2)}, ${state.position[1].toFixed(2)}, ${state.position[2].toFixed(2)}] | ` +
-        `armAngle=${((state.armAngle * 180) / Math.PI).toFixed(1)}° | ` +
-        `F_total=[${forces.total[0].toFixed(1)}, ${forces.total[1].toFixed(1)}, ${forces.total[2].toFixed(1)}]`,
-    )
+  private printRealTimeDebug(_record: LogRecord) {
+    // Debug logging disabled in production
   }
 
   public getRecords(): Array<LogRecord> {

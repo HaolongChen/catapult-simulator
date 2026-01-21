@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { computeTrebuchetKinematics } from '../kinematics'
-import type {
-  PhysicsState17DOF as PhysicsState19DOF,
-  SimulationConfig,
-} from '../types'
+import type { PhysicsState19DOF, SimulationConfig } from '../types'
 
 // --- Geometry Helpers ---
 

@@ -2,9 +2,9 @@ import { PHYSICS_CONSTANTS } from './constants'
 import { aerodynamicForce } from './aerodynamics'
 import { computeTrebuchetKinematics } from './kinematics'
 import type {
-  PhysicsDerivative17DOF,
+  PhysicsDerivative19DOF,
   PhysicsForces,
-  PhysicsState17DOF,
+  PhysicsState19DOF,
   ProjectileProperties,
   TrebuchetProperties,
 } from './types'
@@ -104,11 +104,11 @@ function solveLinearSystem(
  * - x_p, y_p: Projectile Cartesian position (2D)
  */
 export function computeDerivatives(
-  state: PhysicsState17DOF,
+  state: PhysicsState19DOF,
   projectile: ProjectileProperties,
   trebuchetProps: TrebuchetProperties,
   normalForce: number,
-): { derivative: PhysicsDerivative17DOF; forces: PhysicsForces } {
+): { derivative: PhysicsDerivative19DOF; forces: PhysicsForces } {
   const {
     position,
     velocity,
@@ -373,11 +373,11 @@ export function computeDerivatives(
  * Projectile motion is decoupled from the trebuchet.
  */
 function computeFreeFlight(
-  state: PhysicsState17DOF,
+  state: PhysicsState19DOF,
   projectile: ProjectileProperties,
   trebuchetProps: TrebuchetProperties,
   aero: { drag: Float64Array; magnus: Float64Array; total: Float64Array },
-): { derivative: PhysicsDerivative17DOF; forces: PhysicsForces } {
+): { derivative: PhysicsDerivative19DOF; forces: PhysicsForces } {
   const Mp = projectile.mass,
     g = 9.81
   const {

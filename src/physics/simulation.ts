@@ -6,7 +6,7 @@ import { physicsLogger } from './logging'
 import type {
   FrameData,
   PhysicsForces,
-  PhysicsState17DOF,
+  PhysicsState19DOF,
   SimulationConfig,
 } from './types'
 
@@ -25,12 +25,12 @@ const EMPTY_FORCES: PhysicsForces = {
 
 export class CatapultSimulation {
   private integrator: RK4Integrator
-  private state: PhysicsState17DOF
+  private state: PhysicsState19DOF
   private config: SimulationConfig
   private normalForce: number
   private lastForces: PhysicsForces = EMPTY_FORCES
 
-  constructor(initialState: PhysicsState17DOF, config: SimulationConfig) {
+  constructor(initialState: PhysicsState19DOF, config: SimulationConfig) {
     this.state = initialState
     this.config = config
     this.normalForce =
@@ -59,9 +59,9 @@ export class CatapultSimulation {
    * Advances the simulation by deltaTime.
    * Performs integration, coordinate projection, and state transition checks.
    */
-  update(deltaTime: number): PhysicsState17DOF {
+  update(deltaTime: number): PhysicsState19DOF {
     // 1. Integration Step (using Adaptive RK4)
-    const derivativeFunction = (_t: number, state: PhysicsState17DOF) => {
+    const derivativeFunction = (_t: number, state: PhysicsState19DOF) => {
       const res = computeDerivatives(
         state,
         this.config.projectile,
@@ -382,7 +382,7 @@ export class CatapultSimulation {
     }
   }
 
-  getRenderState(): PhysicsState17DOF {
+  getRenderState(): PhysicsState19DOF {
     return this.integrator.getRenderState()
   }
 
@@ -390,11 +390,11 @@ export class CatapultSimulation {
     return this.integrator.getInterpolationAlpha()
   }
 
-  getState(): PhysicsState17DOF {
+  getState(): PhysicsState19DOF {
     return this.state
   }
 
-  setState(state: PhysicsState17DOF): void {
+  setState(state: PhysicsState19DOF): void {
     this.state = state
     this.integrator.setState(state)
   }

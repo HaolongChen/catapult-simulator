@@ -1,9 +1,6 @@
 import { describe, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type {
-  PhysicsState17DOF as PhysicsState19DOF,
-  SimulationConfig,
-} from '../types'
+import type { PhysicsState19DOF, SimulationConfig } from '../types'
 
 describe('NaN Reproduction', () => {
   it('should reproduce NaN with massive Mcw', () => {

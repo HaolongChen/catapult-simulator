@@ -31,9 +31,6 @@ describe('Physics DAE Stability Evaluation', () => {
       slingBagMass: 5,
       slingBagInertia: 0.1,
       jointFriction: 0.1,
-      flexStiffness: 500000,
-      flexDamping: 5000,
-      flexPoint: 3.5,
       armMass: 200,
       pivotHeight: 15,
     },
@@ -53,8 +50,6 @@ describe('Physics DAE Stability Evaluation', () => {
       angularVelocity: new Float64Array([0, 0, 0]),
       armAngle,
       armAngularVelocity: 0,
-      flexAngle: 0,
-      flexAngularVelocity: 0,
       cwAngle: 0,
       cwAngularVelocity: 0,
       cwPosition: new Float64Array(2),
@@ -100,13 +95,6 @@ describe('Physics DAE Stability Evaluation', () => {
         }
       }
     }
-
-    console.log(
-      `Max Position Constraint Error: ${maxConstraintError.toExponential(4)}m`,
-    )
-    console.log(
-      `Max Velocity Constraint Error: ${maxVelocityConstraintError.toExponential(4)}m/s`,
-    )
 
     expect(maxConstraintError).toBeLessThan(1.0)
     expect(maxVelocityConstraintError).toBeLessThan(100.0)
