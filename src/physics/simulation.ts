@@ -55,12 +55,7 @@ export class CatapultSimulation {
     physicsLogger.log(this.state, this.lastForces, this.config)
   }
 
-  /**
-   * Advances the simulation by deltaTime.
-   * Performs integration, coordinate projection, and state transition checks.
-   */
   update(deltaTime: number): PhysicsState17DOF {
-    // 1. Integration Step (using Adaptive RK4)
     const derivativeFunction = (_t: number, state: PhysicsState17DOF) => {
       const res = computeDerivatives(
         state,
@@ -75,8 +70,22 @@ export class CatapultSimulation {
     const result = this.integrator.update(deltaTime, derivativeFunction)
     let newState = result.newState
 
-    // 2. Coordinate Projection (SHAKE-style)
-    // Ensures that redundant world-space coordinates satisfy geometric constraints.
+    // 1. Angle Normalization (Fix wrapping)
+    const normalizeAngle = (a: number) => {
+      const TWO_PI = 2 * Math.PI
+      let res = a % TWO_PI
+      if (res > Math.PI) res -= TWO_PI
+      if (res < -Math.PI) res += TWO_PI
+      return res
+    }
+    newState = {
+      ...newState,
+      armAngle: normalizeAngle(newState.armAngle),
+      cwAngle: normalizeAngle(newState.cwAngle),
+      slingAngle: normalizeAngle(newState.slingAngle),
+      slingBagAngle: normalizeAngle(newState.slingBagAngle),
+    }
+
     if (!newState.isReleased) {
       const {
         slingLength: Ls,
@@ -92,7 +101,7 @@ export class CatapultSimulation {
       )
       const { longArmTip: tip, shortArmTip: shortTip } = kinematics
 
-      // 2.1 Counterweight Position Projection (Hinge)
+      // 2. Coordinate Projection (SHAKE)
       const dx_cw = newState.cwPosition[0] - shortTip.x
       const dy_cw = newState.cwPosition[1] - shortTip.y
       const dist_cw = Math.sqrt(dx_cw * dx_cw + dy_cw * dy_cw + 1e-12)
@@ -100,25 +109,21 @@ export class CatapultSimulation {
       newState.cwPosition[0] = shortTip.x + dx_cw * factor_cw
       newState.cwPosition[1] = shortTip.y + dy_cw * factor_cw
 
-      // 2.2 Projectile Position Projection (Double Pendulum Hinge)
       const cosS = Math.cos(newState.slingAngle)
       const sinS = Math.sin(newState.slingAngle)
       newState.position[0] = tip.x + Ls * cosS
       newState.position[1] = tip.y + Ls * sinS
 
-      // 2.3 Velocity Projection (Double Pendulum)
       const vxt =
         -L1 * Math.sin(newState.armAngle) * newState.armAngularVelocity
       const vyt = L1 * Math.cos(newState.armAngle) * newState.armAngularVelocity
       newState.velocity[0] = vxt - Ls * sinS * newState.slingAngularVelocity
       newState.velocity[1] = vyt + Ls * cosS * newState.slingAngularVelocity
 
-      // Ground Collision (Hard floor)
       if (newState.position[1] < this.config.projectile.radius) {
         newState.position[1] = this.config.projectile.radius
       }
 
-      // 3. Update Visual Orientation Angles
       newState = {
         ...newState,
         cwAngle: Math.atan2(dx_cw, -dy_cw),
@@ -129,21 +134,34 @@ export class CatapultSimulation {
         slingBagAngle: newState.slingAngle - Math.PI / 2,
       }
 
-      // 4. State Transitions (Kinematic Release)
-      // Release when sling reaches target angle (measured from horizontal)
-      // Sling angle: 0° = right, 90° = up, 180° = left
-      const targetSlingAngle = (90 - this.config.trebuchet.releaseAngle * 180 / Math.PI)  // e.g., 45° release = 45° from horizontal
-      const slingAngleDeg = (newState.slingAngle * 180 / Math.PI)
+      // 3. State Transitions (Kinematic Release)
+      const armVec = {
+        x: Math.cos(newState.armAngle),
+        y: Math.sin(newState.armAngle),
+      }
+      const slingVec = {
+        x: Math.cos(newState.slingAngle),
+        y: Math.sin(newState.slingAngle),
+      }
+      const det = armVec.x * slingVec.y - armVec.y * slingVec.x
+      const dot = armVec.x * slingVec.x + armVec.y * slingVec.y
+      const currentRelAngle = Math.atan2(det, dot)
 
-      // Normalize arm angle to [0, 360) for the firing arc check
+      // Normalize arm angle for firing window
       const armAngleDeg =
         ((((newState.armAngle * 180) / Math.PI) % 360) + 360) % 360
-      // Release when arm is moving forward (0-90°) and sling reaches target angle
-      const inFiringArc = armAngleDeg > 0 && armAngleDeg < 90
+      const releaseThresholdMagnitude = Math.abs(
+        this.config.trebuchet.releaseAngle,
+      )
 
+      // Release condition:
+      // - Arm is in the forward-throwing arc (0 to 120 degrees)
+      // - Projectile is moving forward (vx > 0)
+      // - Relative angle magnitude has crossed below the threshold (whip finish)
       if (
-        inFiringArc &&
-        slingAngleDeg >= targetSlingAngle
+        armAngleDeg < 120 &&
+        newState.velocity[0] > 0 &&
+        Math.abs(currentRelAngle) < releaseThresholdMagnitude
       ) {
         newState = {
           ...newState,
@@ -154,21 +172,19 @@ export class CatapultSimulation {
       this.integrator.setState(newState)
     }
 
-    // Ground Collision (Hard floor) - enforced even in free flight phase
-    // to prevent significant penetration.
+    // Post-step ground checks
     if (newState.position[1] < this.config.projectile.radius) {
       newState.position[1] = this.config.projectile.radius
       if (newState.velocity[1] < 0) newState.velocity[1] = 0
     }
 
-    // Counterweight Ground Collision
     const cwRadius = this.config.trebuchet.counterweightRadius
     if (newState.cwPosition[1] < cwRadius - 0.5) {
       newState.cwPosition[1] = cwRadius - 0.5
       if (newState.cwVelocity[1] < 0) newState.cwVelocity[1] = 0
     }
 
-    // Quaternion Normalization (Numerical stability for orientation)
+    // Numerical stability
     const q = newState.orientation
     const qMag = Math.sqrt(
       q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3],

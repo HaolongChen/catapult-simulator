@@ -117,7 +117,7 @@ describe('Ghost Constraint Sling Physics', () => {
   it('should separate projectile from tip when angular condition met (kinematic release)', () => {
     const configHighPower = {
       ...config,
-      trebuchet: { ...trebuchet, counterweightMass: 100000, releaseAngle: 0.1 },
+      trebuchet: { ...trebuchet, counterweightMass: 100000, releaseAngle: 2.0 },
     }
     const sim = new CatapultSimulation(
       createInitialState(configHighPower),

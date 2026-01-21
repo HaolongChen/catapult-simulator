@@ -24,7 +24,7 @@ export function createConfig(): SimulationConfig {
       counterweightRadius: 0.8,
       counterweightInertia: 500,
       slingLength: 3.5,
-      releaseAngle: (-30 * Math.PI) / 180,
+      releaseAngle: (120 * Math.PI) / 180,
       slingBagWidth: 0.35,
       slingBagMass: 5.0,
       slingBagInertia: 0.1,
