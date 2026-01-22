@@ -391,14 +391,6 @@ export const DebugOverlay: React.FC<{
                   value: `${fmt(frameData.sling.length)}m`,
                 },
                 {
-                  label: 'Start Point',
-                  value: fmtVec(frameData.sling.startPoint),
-                },
-                {
-                  label: 'End Point',
-                  value: fmtVec(frameData.sling.endPoint),
-                },
-                {
                   label: 'Tension Vec',
                   value: fmtVec(frameData.sling.tensionVector, true),
                 },
