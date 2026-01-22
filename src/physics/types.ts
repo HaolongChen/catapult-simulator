@@ -32,9 +32,9 @@ export interface PhysicsState {
   readonly orientation: Float64Array // [q1, q2, q3, q4]
   readonly angularVelocity: Float64Array // [wx, wy, wz]
 
-  // Intermediate Sling Particles (excluding the projectile)
-  readonly slingParticles: Float64Array // [x1, y1, x2, y2, ..., xM, yM] where M = NUM_SLING_PARTICLES - 1
-  readonly slingVelocities: Float64Array // [vx1, vy1, ..., vxM, vyM]
+  // Intermediate Sling Particles (including terminal pouch particle)
+  readonly slingParticles: Float64Array // [x1, y1, x2, y2, ..., xN, yN] where N = NUM_SLING_PARTICLES
+  readonly slingVelocities: Float64Array // [vx1, vy1, ..., vxN, vyN]
 
   // Environment & Meta
   readonly windVelocity: Float64Array

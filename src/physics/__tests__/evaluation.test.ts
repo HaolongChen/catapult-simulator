@@ -36,10 +36,7 @@ function calculateTotalEnergy(
   } = trebuchet
   const Mp = projectile.mass
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-  const m_p = Math.max(
-    (Mp * 0.05) / (N - 1),
-    PHYSICS_CONSTANTS.MIN_PARTICLE_MASS,
-  )
+  const m_p = Math.max((Mp * 0.05) / N, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
 
   const L_cg = (L1 - L2) / 2
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
@@ -53,8 +50,7 @@ function calculateTotalEnergy(
   let V = Mp * G * yProj + Mcw * G * yCW + Ma * G * yArmCG
   let T_sling = 0
 
-  const M = N - 1
-  for (let i = 0; i < M; i++) {
+  for (let i = 0; i < N; i++) {
     const py = slingParticles[2 * i + 1]
     const vx = slingVelocities[2 * i]
     const vy = slingVelocities[2 * i + 1]
@@ -124,11 +120,10 @@ function createInitialState(
   }
 
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-  const M = N - 1
-  const slingParticles = new Float64Array(2 * M)
-  const slingVelocities = new Float64Array(2 * M)
+  const slingParticles = new Float64Array(2 * N)
+  const slingVelocities = new Float64Array(2 * N)
 
-  for (let i = 0; i < M; i++) {
+  for (let i = 0; i < N; i++) {
     const alpha = (i + 1) / N
     slingParticles[2 * i] = tipX * (1 - alpha) + projX * alpha
     slingParticles[2 * i + 1] = tipY * (1 - alpha) + rp * alpha

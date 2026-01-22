@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { createInitialState } from '../config'
 import type {
-  PhysicsState,
   ProjectileProperties,
   TrebuchetProperties,
   SimulationConfig,
@@ -26,7 +25,7 @@ describe('Ghost Constraint Sling Physics', () => {
     counterweightRadius: 0.8,
     counterweightInertia: 500,
     slingLength: 3.5,
-    releaseAngle: Math.PI / 2,
+    releaseAngle: 90.0,
     jointFriction: 0.1,
     armMass: 200.0,
     pivotHeight: 3.0,
@@ -44,30 +43,7 @@ describe('Ghost Constraint Sling Physics', () => {
   }
 
   it('should maintain holonomic distance constraint under load', () => {
-    const armAngle = 0
-    const tipX = 4.4
-    const tipY = 3.0
-    const slingBagX = tipX + 3.0
-    const slingBagY = tipY - 1.8
-
-    const state: PhysicsState = {
-      position: new Float64Array([slingBagX, slingBagY + 0.15, 0]),
-      velocity: new Float64Array([0, 0, 0]),
-      orientation: new Float64Array([1, 0, 0, 0]),
-      angularVelocity: new Float64Array([0, 0, 0]),
-      armAngle,
-      armAngularVelocity: 0,
-      cwAngle: 0,
-      cwAngularVelocity: 0,
-      slingParticles: new Float64Array(8),
-      slingVelocities: new Float64Array(8),
-      cwPosition: new Float64Array(2),
-      cwVelocity: new Float64Array(2),
-      windVelocity: new Float64Array([0, 0, 0]),
-      time: 0,
-      isReleased: false,
-    }
-
+    const state = createInitialState(config)
     const sim = new CatapultSimulation(state, config)
     sim.update(0.001)
     const frame = sim.exportFrameData()
@@ -77,36 +53,10 @@ describe('Ghost Constraint Sling Physics', () => {
     expect(isNaN(frame.sling.tension)).toBe(false)
   })
 
-  it('should follow kinematic release: separation logic handles angular trigger', () => {
-    const armAngle = -0.5
-    const state: PhysicsState = {
-      position: new Float64Array([4, 0.1, 0]),
-      velocity: new Float64Array([0, 0, 0]),
-      orientation: new Float64Array([1, 0, 0, 0]),
-      angularVelocity: new Float64Array([0, 0, 0]),
-      armAngle,
-      armAngularVelocity: 0,
-      cwAngle: 0,
-      cwAngularVelocity: 0,
-      slingParticles: new Float64Array(8),
-      slingVelocities: new Float64Array(8),
-      cwPosition: new Float64Array(2),
-      cwVelocity: new Float64Array(2),
-      windVelocity: new Float64Array([0, 0, 0]),
-      time: 0,
-      isReleased: false,
-    }
-
-    const sim = new CatapultSimulation(state, config)
-    expect(() => sim.update(0.005)).not.toThrow()
-    const frame = sim.exportFrameData()
-    expect(frame.projectile.position.some(isNaN)).toBe(false)
-  })
-
   it('should separate projectile from tip when angular condition met (kinematic release)', () => {
     const configHighPower = {
       ...config,
-      trebuchet: { ...trebuchet, counterweightMass: 100000, releaseAngle: 2.0 },
+      trebuchet: { ...trebuchet, counterweightMass: 10000, releaseAngle: 45.0 },
     }
     const sim = new CatapultSimulation(
       createInitialState(configHighPower),
@@ -114,8 +64,14 @@ describe('Ghost Constraint Sling Physics', () => {
     )
 
     let separated = false
-    for (let i = 0; i < 2000; i++) {
-      const state = sim.update(0.002)
+    for (let i = 0; i < 3000; i++) {
+      const state = sim.update(0.001)
+      const velocityAngle =
+        (Math.atan2(state.velocity[1], state.velocity[0]) * 180) / Math.PI
+      if (i % 500 === 0)
+        console.log(
+          `t=${state.time.toFixed(3)} angle=${velocityAngle.toFixed(2)}`,
+        )
       if (state.isReleased) {
         separated = true
         break

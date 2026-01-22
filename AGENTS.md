@@ -68,7 +68,7 @@ High-fidelity 7-DOF trebuchet simulator featuring a redundant coordinate DAE sys
 pnpm dev              # Start app
 pnpm test             # Run 75+ physics tests
 pnpm check            # lint + format + fix
-pnpm export-trajectory # Generate JSON trajectory and VT-compatible CSV log
+pnpm export-trajectory # Generate JSON trajectory and VT-compatible CSV log. Always double check the exported log. If there's anything abnormal in log, though all tests passed, you must still see it as bugs and fix them.
 ```
 
 ## NOTES

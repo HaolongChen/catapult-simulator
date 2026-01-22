@@ -103,7 +103,11 @@ export function computeDerivatives(
   const segmentK = (E * Area) / Lseg
 
   const Msling = Mp * 0.05
-  const m_p = Math.max(Msling / (N - 1), PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
+  const m_p = Math.max(Msling / N, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
+
+  const omega = Math.sqrt(segmentK / Math.max(m_p, 0.1))
+  const alphaSoft = 2 * PHYSICS_CONSTANTS.ROPE_DAMPING_RATIO * omega
+  const betaSoft = omega * omega
 
   const airVel = new Float64Array([
     velocity[0] - windVelocity[0],
@@ -140,20 +144,23 @@ export function computeDerivatives(
 
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
 
-  const M_inter = N - 1
-  const dimQ = 1 + 2 * M_inter + 2 + 2 + 1
+  // dimQ: [arm, P1..PN, Proj, CW, phi_cw]
+  const dimQ = 1 + 2 * N + 2 + 2 + 1
   const M_diag = new Float64Array(dimQ)
   const Minv = new Float64Array(dimQ)
   M_diag[0] = Ia
-  for (let i = 0; i < M_inter; i++) {
+  for (let i = 0; i < N; i++) {
     M_diag[1 + 2 * i] = m_p
     M_diag[2 + 2 * i] = m_p
   }
-  M_diag[1 + 2 * M_inter] = Mp
-  M_diag[2 + 2 * M_inter] = Mp
-  M_diag[1 + 2 * M_inter + 2] = Mcw
-  M_diag[2 + 2 * M_inter + 2] = Mcw
-  M_diag[1 + 2 * M_inter + 4] = Icw
+  const idxProj = 1 + 2 * N
+  M_diag[idxProj] = Mp
+  M_diag[idxProj + 1] = Mp
+  const idxCW = idxProj + 2
+  M_diag[idxCW] = Mcw
+  M_diag[idxCW + 1] = Mcw
+  const idxPhi = idxCW + 2
+  M_diag[idxPhi] = Icw
 
   for (let i = 0; i < dimQ; i++) Minv[i] = 1.0 / M_diag[i]
 
@@ -167,215 +174,194 @@ export function computeDerivatives(
 
   const Q = new Float64Array(dimQ)
   Q[0] = -Ma * g * ((L1 - L2) / 2) * cosT + friction
-  for (let i = 0; i < M_inter; i++) {
+  for (let i = 0; i < N; i++) {
     Q[1 + 2 * i] = 0
     Q[2 + 2 * i] = -m_p * g
   }
-  Q[1 + 2 * M_inter] = aero.total[0] + projGndFric
-  Q[2 + 2 * M_inter] = aero.total[1] - Mp * g
-  Q[1 + 2 * M_inter + 2] = 0
-  Q[2 + 2 * M_inter + 2] = -Mcw * g
-  Q[1 + 2 * M_inter + 4] = 0
+  Q[idxProj] = aero.total[0] + projGndFric
+  Q[idxProj + 1] = aero.total[1] - Mp * g
+  Q[idxCW] = 0
+  Q[idxCW + 1] = -Mcw * g
+  Q[idxPhi] = 0
 
-  const dimC = N + 2 + 1
+  // Air Resistance (Drag per segment)
+  const ropeCd = PHYSICS_CONSTANTS.ROPE_DRAG_COEFFICIENT
+  const ropeDiam = PHYSICS_CONSTANTS.ROPE_DIAMETER
+  const rho = 1.225
+  for (let i = 0; i < N; i++) {
+    const vx = slingVelocities[2 * i]
+    const vy = slingVelocities[2 * i + 1]
+    const vMag = Math.sqrt(vx * vx + vy * vy + 1e-12)
+    const fDrag = -0.5 * rho * vMag * ropeCd * ropeDiam * Lseg
+    Q[1 + 2 * i] += (fDrag * vx) / vMag
+    Q[2 + 2 * i] += (fDrag * vy) / vMag
+  }
+
+  // dimC: [N segments, 2 Lock, 2 CW, 1 Ground]
+  const dimC = N + 2 + 2 + 1
   const J = Array.from({ length: dimC }, () => new Array(dimQ).fill(0))
   const gamma = new Array(dimC).fill(0)
   const alphaHard = 40.0,
-    betaHard = 1000.0
+    betaHard = 1600.0
 
-  let dxN = 0,
-    dyN = 0
-  if (N === 1) {
-    const pN = { x: position[0], y: position[1] }
-    const vN = { x: velocity[0], y: velocity[1] }
-    dxN = pN.x - xtl
-    dyN = pN.y - ytl
-    const dN = Math.sqrt(dxN * dxN + dyN * dyN + 1e-12)
-    const CN = (dN * dN - Ls * Ls) / (2 * Ls)
-    const dCN = (dxN * (vN.x - xtl_p * dth) + dyN * (vN.y - ytl_p * dth)) / Ls
-    J[0][0] = -(dxN * xtl_p + dyN * ytl_p) / Ls
-    J[0][1 + 2 * M_inter] = dxN / Ls
-    J[0][2 + 2 * M_inter] = dyN / Ls
-    gamma[0] =
-      (dxN * xtl_g + dyN * ytl_g) / Ls -
-      ((vN.x - xtl_p * dth) ** 2 + (vN.y - ytl_p * dth) ** 2) / Ls -
-      alphaHard * dCN -
-      betaHard * CN
-  } else {
-    const p1 = { x: slingParticles[0], y: slingParticles[1] }
-    const v1 = { x: slingVelocities[0], y: slingVelocities[1] }
-    const dx1 = p1.x - xtl,
-      dy1 = p1.y - ytl
-    const d1 = Math.sqrt(dx1 * dx1 + dy1 * dy1 + 1e-12)
-    const C0 = (d1 * d1 - Lseg * Lseg) / (2 * Lseg)
-    const dC0 = (dx1 * (v1.x - xtl_p * dth) + dy1 * (v1.y - ytl_p * dth)) / Lseg
-    J[0][0] = -(dx1 * xtl_p + dy1 * ytl_p) / Lseg
-    J[0][1] = dx1 / Lseg
-    J[0][2] = dy1 / Lseg
-    gamma[0] =
-      (dx1 * xtl_g + dy1 * ytl_g) / Lseg -
-      ((v1.x - xtl_p * dth) ** 2 + (v1.y - ytl_p * dth) ** 2) / Lseg -
-      alphaHard * dC0 -
-      betaHard * C0
+  // Sling Distance Constraints
+  for (let i = 0; i < N; i++) {
+    let pa, va, pb, vb, idxA, idxB
+    const La = Lseg
 
-    for (let i = 0; i < M_inter - 1; i++) {
-      const pa = { x: slingParticles[2 * i], y: slingParticles[2 * i + 1] }
-      const va = { x: slingVelocities[2 * i], y: slingVelocities[2 * i + 1] }
-      const pb = {
-        x: slingParticles[2 * (i + 1)],
-        y: slingParticles[2 * (i + 1) + 1],
+    if (i === 0) {
+      pa = { x: xtl, y: ytl }
+      va = { x: xtl_p * dth, y: ytl_p * dth }
+      pb = { x: slingParticles[0], y: slingParticles[1] }
+      vb = { x: slingVelocities[0], y: slingVelocities[1] }
+      idxA = 0 // armAngle
+      idxB = 1 // P1
+    } else {
+      pa = {
+        x: slingParticles[2 * (i - 1)],
+        y: slingParticles[2 * (i - 1) + 1],
       }
-      const vb = {
-        x: slingVelocities[2 * (i + 1)],
-        y: slingVelocities[2 * (i + 1) + 1],
+      va = {
+        x: slingVelocities[2 * (i - 1)],
+        y: slingVelocities[2 * (i - 1) + 1],
       }
-      const dx = pb.x - pa.x,
-        dy = pb.y - pa.y
-      const d = Math.sqrt(dx * dx + dy * dy + 1e-12)
-      const C = (d * d - Lseg * Lseg) / (2 * Lseg)
-      const dC = (dx * (vb.x - va.x) + dy * (vb.y - va.y)) / Lseg
-      J[i + 1][1 + 2 * i] = -dx / Lseg
-      J[i + 1][2 + 2 * i] = -dy / Lseg
-      J[i + 1][1 + 2 * (i + 1)] = dx / Lseg
-      J[i + 1][2 + 2 * (i + 1)] = dy / Lseg
-      gamma[i + 1] =
-        -((vb.x - va.x) ** 2 + (vb.y - va.y) ** 2) / Lseg -
-        alphaHard * dC -
-        betaHard * C
+      pb = { x: slingParticles[2 * i], y: slingParticles[2 * i + 1] }
+      vb = { x: slingVelocities[2 * i], y: slingVelocities[2 * i + 1] }
+      idxA = 1 + 2 * (i - 1)
+      idxB = 1 + 2 * i
     }
 
-    const pM = {
-      x: slingParticles[2 * (M_inter - 1)],
-      y: slingParticles[2 * (M_inter - 1) + 1],
+    const dx = pb.x - pa.x,
+      dy = pb.y - pa.y
+    const d = Math.sqrt(dx * dx + dy * dy + 1e-12)
+    const C = (d * d - La * La) / (2 * La)
+    const relV = { x: vb.x - va.x, y: vb.y - va.y }
+    const dC = (dx * relV.x + dy * relV.y) / La
+
+    if (i === 0) {
+      J[i][0] = -(dx * xtl_p + dy * ytl_p) / La
+      J[i][1] = dx / La
+      J[i][2] = dy / La
+      gamma[i] =
+        (dx * xtl_g + dy * ytl_g) / La -
+        ((vb.x - va.x) ** 2 + (vb.y - va.y) ** 2) / La -
+        alphaSoft * dC -
+        betaSoft * C
+    } else {
+      J[i][idxA] = -dx / La
+      J[i][idxA + 1] = -dy / La
+      J[i][idxB] = dx / La
+      J[i][idxB + 1] = dy / La
+      gamma[i] =
+        -((vb.x - va.x) ** 2 + (vb.y - va.y) ** 2) / La -
+        alphaSoft * dC -
+        betaSoft * C
     }
-    const vM = {
-      x: slingVelocities[2 * (M_inter - 1)],
-      y: slingVelocities[2 * (M_inter - 1) + 1],
-    }
-    const pN = { x: position[0], y: position[1] }
-    const vN = { x: velocity[0], y: velocity[1] }
-    dxN = pN.x - pM.x
-    dyN = pN.y - pM.y
-    const dN = Math.sqrt(dxN * dxN + dyN * dyN + 1e-12)
-    const CN = (dN * dN - Lseg * Lseg) / (2 * Lseg)
-    const dCN = (dxN * (vN.x - vM.x) + dyN * (vN.y - vM.y)) / Lseg
-    J[N - 1][1 + 2 * (M_inter - 1)] = -dxN / Lseg
-    J[N - 1][2 + 2 * (M_inter - 1)] = -dyN / Lseg
-    J[N - 1][1 + 2 * M_inter] = dxN / Lseg
-    J[N - 1][2 + 2 * M_inter] = dyN / Lseg
-    gamma[N - 1] =
-      -((vN.x - vM.x) ** 2 + (vN.y - vM.y) ** 2) / Lseg -
-      alphaHard * dCN -
-      betaHard * CN
   }
 
-  const idxCW = 1 + 2 * M_inter + 2
-  const idxPhi = 1 + 2 * M_inter + 4
+  // Lock Constraints (PN to Proj)
+  const pN = {
+    x: slingParticles[2 * (N - 1)],
+    y: slingParticles[2 * (N - 1) + 1],
+  }
+  const vN = {
+    x: slingVelocities[2 * (N - 1)],
+    y: slingVelocities[2 * (N - 1) + 1],
+  }
+  const pProj = { x: position[0], y: position[1] }
+  const vProj = { x: velocity[0], y: velocity[1] }
+
+  const lockX = pN.x - pProj.x
+  const lockY = pN.y - pProj.y
+  const dLockX = vN.x - vProj.x
+  const dLockY = vN.y - vProj.y
+
+  J[N][1 + 2 * (N - 1)] = 1.0
+  J[N][idxProj] = -1.0
+  gamma[N] = -alphaHard * dLockX - betaHard * lockX
+
+  J[N + 1][1 + 2 * (N - 1) + 1] = 1.0
+  J[N + 1][idxProj + 1] = -1.0
+  gamma[N + 1] = -alphaHard * dLockY - betaHard * lockY
+
+  // CW hinge
   const C_cw0 = pCW[0] - (xts + Rcw * sinP)
   const dC_cw0 = vCW[0] - (xts_p * dth + Rcw * cosP * dphi_cw)
-  J[N][0] = -xts_p
-  J[N][idxCW] = 1.0
-  J[N][idxPhi] = -Rcw * cosP
-  gamma[N] =
+  J[N + 2][0] = -xts_p
+  J[N + 2][idxCW] = 1.0
+  J[N + 2][idxPhi] = -Rcw * cosP
+  gamma[N + 2] =
     xts_g - Rcw * sinP * dphi_cw ** 2 - alphaHard * dC_cw0 - betaHard * C_cw0
 
   const C_cw1 = pCW[1] - (yts - Rcw * cosP)
   const dC_cw1 = vCW[1] - (yts_p * dth + Rcw * sinP * dphi_cw)
-  J[N + 1][0] = -yts_p
-  J[N + 1][idxCW + 1] = 1.0
-  J[N + 1][idxPhi] = -Rcw * sinP
-  gamma[N + 1] =
+  J[N + 3][0] = -yts_p
+  J[N + 3][idxCW + 1] = 1.0
+  J[N + 3][idxPhi] = -Rcw * sinP
+  gamma[N + 3] =
     yts_g + Rcw * cosP * dphi_cw ** 2 - alphaHard * dC_cw1 - betaHard * C_cw1
 
+  // Ground rail
   const onR = position[1] - Rp <= 0.05
   const C_gnd = position[1] - Rp
-  J[N + 2][1 + 2 * M_inter + 1] = 1.0
-  gamma[N + 2] = -100.0 * velocity[1] - 10000.0 * C_gnd
+  J[N + 4][idxProj + 1] = 1.0
+  gamma[N + 4] = -100.0 * velocity[1] - 10000.0 * C_gnd
 
-  const solveSchur = (mask: boolean[]) => {
-    const activeIdx: number[] = []
-    for (let i = 0; i < dimC; i++) if (mask[i]) activeIdx.push(i)
-    const m = activeIdx.length
-
-    if (m === 0) {
-      const q_ddot = new Float64Array(dimQ)
-      for (let i = 0; i < dimQ; i++) q_ddot[i] = Q[i] * Minv[i]
-      return { q_ddot, lambda: new Float64Array(dimC) }
+  const solveKKT = (mask: boolean[]) => {
+    const totalDim = dimQ + dimC
+    const A = Array.from({ length: totalDim }, () =>
+      new Array(totalDim).fill(0),
+    )
+    const B = new Array(totalDim).fill(0)
+    for (let i = 0; i < dimQ; i++) {
+      A[i][i] = M_diag[i]
+      B[i] = Q[i]
     }
-
-    const S = Array.from({ length: m }, () => new Array(m).fill(0))
-    const rhs = new Float64Array(m)
-
-    const compliance = 1.0 / segmentK
-
-    for (let i = 0; i < m; i++) {
-      const idxA = activeIdx[i]
-      const Ji = J[idxA]
-      let jm_q = 0
-      for (let j = 0; j < dimQ; j++) jm_q += Ji[j] * Minv[j] * Q[j]
-      rhs[i] = jm_q - gamma[idxA]
-      for (let k = 0; k < m; k++) {
-        const Jk = J[activeIdx[k]]
-        let sum = 0
-        for (let j = 0; j < dimQ; j++) sum += Ji[j] * Minv[j] * Jk[j]
-        S[i][k] = sum
-      }
-
-      if (idxA < N) {
-        S[i][i] += compliance
-      }
-
-      S[i][i] += PHYSICS_CONSTANTS.KKT_REGULARIZATION
+    for (let i = 0; i < dimC; i++) {
+      if (mask[i]) {
+        for (let j = 0; j < dimQ; j++) {
+          A[dimQ + i][j] = J[i][j]
+          A[j][dimQ + i] = J[i][j]
+        }
+        B[dimQ + i] = gamma[i]
+        A[dimQ + i][dimQ + i] = PHYSICS_CONSTANTS.KKT_REGULARIZATION
+      } else A[dimQ + i][dimQ + i] = 1.0
     }
-
-    const lambdaActive = solveLinearSystem(S, Array.from(rhs))
-    const fullLambda = new Float64Array(dimC).fill(0)
-    for (let i = 0; i < m; i++) fullLambda[activeIdx[i]] = lambdaActive[i]
-
-    const q_ddot = new Float64Array(dimQ)
-    for (let j = 0; j < dimQ; j++) {
-      let jt_lambda = 0
-      for (let i = 0; i < dimC; i++) {
-        if (mask[i]) jt_lambda += J[i][j] * fullLambda[i]
-      }
-      q_ddot[j] = Minv[j] * (Q[j] - jt_lambda)
-    }
-    return { q_ddot, lambda: fullLambda }
+    return solveLinearSystem(A, B)
   }
 
   const mask = new Array(dimC).fill(true)
   if (isReleased) {
-    // Keep internal sling segments (0 to N-2) masked as true (attached to arm)
-    // Only unmask the last segment (N-1) which connects to the projectile
-    mask[N - 1] = false
+    mask[N] = false
+    mask[N + 1] = false
   }
-  mask[N + 2] = !isReleased && onR
+  mask[N + 4] = !isReleased && onR
 
-  let { q_ddot, lambda } = solveSchur(mask)
+  let sol = solveKKT(mask)
 
   for (let iter = 0; iter < 3; iter++) {
     let changed = false
-    if (!isReleased) {
-      for (let i = 0; i < N; i++) {
-        if (mask[i] && lambda[i] < -1e-3) {
-          mask[i] = false
-          changed = true
-        }
+    // Only sling segments (0..N-1) can go slack
+    for (let i = 0; i < N; i++) {
+      if (mask[i] && sol[dimQ + i] < -1e-3) {
+        mask[i] = false
+        changed = true
       }
     }
-    if (mask[N + 2] && lambda[N + 2] > 1e-3) {
-      mask[N + 2] = false
+    if (mask[N + 4] && sol[dimQ + N + 4] > 1e-3) {
+      mask[N + 4] = false
       changed = true
     }
     if (!changed) break
-    const res = solveSchur(mask)
-    q_ddot = res.q_ddot
-    lambda = res.lambda
+    sol = solveKKT(mask)
   }
 
-  const slingDeriv = new Float64Array(2 * M_inter)
-  const slingVDeriv = new Float64Array(2 * M_inter)
-  for (let i = 0; i < M_inter; i++) {
+  const q_ddot = sol.slice(0, dimQ)
+  const lambda = sol.slice(dimQ)
+
+  const slingDeriv = new Float64Array(2 * N)
+  const slingVDeriv = new Float64Array(2 * N)
+  for (let i = 0; i < N; i++) {
     slingDeriv[2 * i] = slingVelocities[2 * i]
     slingDeriv[2 * i + 1] = slingVelocities[2 * i + 1]
     slingVDeriv[2 * i] = q_ddot[1 + 2 * i]
@@ -393,11 +379,7 @@ export function computeDerivatives(
       slingParticles: slingDeriv,
       slingVelocities: slingVDeriv,
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
-      velocity: new Float64Array([
-        q_ddot[1 + 2 * M_inter],
-        q_ddot[2 + 2 * M_inter],
-        0,
-      ]),
+      velocity: new Float64Array([q_ddot[idxProj], q_ddot[idxProj + 1], 0]),
       orientation: new Float64Array(4),
       angularVelocity: new Float64Array(3),
       windVelocity: new Float64Array(3),
@@ -410,17 +392,17 @@ export function computeDerivatives(
       gravity: new Float64Array([0, -Mp * g, 0]),
       tension: !isReleased
         ? new Float64Array([
-            (-lambda[N - 1] * dxN) / (Lseg || Ls),
-            (-lambda[N - 1] * dyN) / (Lseg || Ls),
+            lambda[N] || 0, // Simplified visualization
+            lambda[N + 1] || 0,
             0,
           ])
         : new Float64Array(3),
       total: new Float64Array([
-        q_ddot[1 + 2 * M_inter] * Mp,
-        q_ddot[2 + 2 * M_inter] * Mp,
+        q_ddot[idxProj] * Mp,
+        q_ddot[idxProj + 1] * Mp,
         0,
       ]),
-      groundNormal: mask[N + 2] ? -lambda[N + 2] : 0,
+      groundNormal: mask[N + 4] ? -lambda[N + 4] : 0,
       checkFunction: 0,
       lambda: new Float64Array(lambda),
     },

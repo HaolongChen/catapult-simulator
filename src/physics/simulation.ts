@@ -85,10 +85,8 @@ export class CatapultSimulation {
     }
 
     // Post-Integration Constraint Enforcement (Projection)
-    if (!newState.isReleased) {
-      this.projectConstraints(newState)
-      this.projectVelocities(newState)
-    }
+    this.projectConstraints(newState)
+    this.projectVelocities(newState)
 
     if (newState.position[1] < this.config.projectile.radius) {
       newState.position[1] = this.config.projectile.radius
@@ -141,17 +139,14 @@ export class CatapultSimulation {
     let prevX = longArmTip.x
     let prevY = longArmTip.y
 
-    const M = N - 1
-    // Weaken projection to allow DAE compliance to show
     const projectionFactor = 0.5
-    for (let i = 0; i < M; i++) {
+    for (let i = 0; i < N; i++) {
       const px = state.slingParticles[2 * i]
       const py = state.slingParticles[2 * i + 1]
       const dx = px - prevX
       const dy = py - prevY
       const d = Math.sqrt(dx * dx + dy * dy + 1e-12)
 
-      // Only project if significantly violating (e.g. > 1% over nominal)
       const threshold = Lseg * 1.01
       if (d > threshold) {
         const corr = (d - threshold) * projectionFactor
@@ -162,17 +157,11 @@ export class CatapultSimulation {
       prevY = state.slingParticles[2 * i + 1]
     }
 
-    // Projectile (Only if attached)
+    // 3. Lock Projection (Before release)
     if (!state.isReleased) {
-      const dxp = state.position[0] - prevX
-      const dyp = state.position[1] - prevY
-      const dp = Math.sqrt(dxp * dxp + dyp * dyp + 1e-12)
-      const thresholdP = Lseg * 1.01
-      if (dp > thresholdP) {
-        const corr = (dp - thresholdP) * projectionFactor
-        state.position[0] = prevX + (dxp / dp) * (thresholdP + corr)
-        state.position[1] = prevY + (dyp / dp) * (thresholdP + corr)
-      }
+      // Force Proj and PN to be identical for stability
+      state.position[0] = state.slingParticles[2 * (N - 1)]
+      state.position[1] = state.slingParticles[2 * (N - 1) + 1]
     }
   }
 
@@ -198,8 +187,7 @@ export class CatapultSimulation {
     let prevVX = vtx
     let prevVY = vty
 
-    const M = N - 1
-    for (let i = 0; i < M; i++) {
+    for (let i = 0; i < N; i++) {
       const px = state.slingParticles[2 * i]
       const py = state.slingParticles[2 * i + 1]
       const pvx = state.slingVelocities[2 * i]
@@ -227,19 +215,9 @@ export class CatapultSimulation {
       prevVY = state.slingVelocities[2 * i + 1]
     }
 
-    const dxp = state.position[0] - prevX
-    const dyp = state.position[1] - prevY
-    const dp = Math.sqrt(dxp * dxp + dyp * dyp + 1e-12)
-    if (dp >= Lseg * 0.99) {
-      const nx = dxp / dp
-      const ny = dyp / dp
-      const relVX = state.velocity[0] - prevVX
-      const relVY = state.velocity[1] - prevVY
-      const vdotn = relVX * nx + relVY * ny
-      if (vdotn > 0) {
-        state.velocity[0] -= vdotn * nx
-        state.velocity[1] -= vdotn * ny
-      }
+    if (!state.isReleased) {
+      state.velocity[0] = state.slingVelocities[2 * (N - 1)]
+      state.velocity[1] = state.slingVelocities[2 * (N - 1) + 1]
     }
   }
 
@@ -282,11 +260,10 @@ export class CatapultSimulation {
     const slingPoints: [number, number, number][] = [
       [longArmTip.x, longArmTip.y, 0],
     ]
-    const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
-    for (let i = 0; i < M; i++) {
+    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+    for (let i = 0; i < N; i++) {
       slingPoints.push([slingParticles[2 * i], slingParticles[2 * i + 1], 0])
     }
-    slingPoints.push([position[0], position[1], position[2]])
 
     let phase = isReleased ? 'released' : 'swinging'
     if (!isReleased && this.lastForces.groundNormal > 0) {

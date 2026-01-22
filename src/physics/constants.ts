@@ -4,8 +4,8 @@ export const PHYSICS_CONSTANTS = {
   MIN_PARTICLE_MASS: 0.1, // Reasonable floor
   SEA_LEVEL_TEMPERATURE: 288.15,
   NUM_SLING_PARTICLES: 20, // Number of segments in the soft sling
-  ROPE_YOUNGS_MODULUS: 1e9, // 1 GPa for hemp
-  ROPE_DAMPING_RATIO: 0.05,
+  ROPE_YOUNGS_MODULUS: 1e7, // Reduced for stability in explicit solver
+  ROPE_DAMPING_RATIO: 0.1, // Increased damping for stability
   ROPE_DIAMETER: 0.02, // 2cm
   ROPE_DRAG_COEFFICIENT: 1.2, // Long cylinder
 }
