@@ -44,7 +44,7 @@ function createTestProjectile(): ProjectileProperties {
 }
 
 function createTestState(): PhysicsState {
-  const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
+  const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
   return {
     position: new Float64Array([10, 20, 0]),
     velocity: new Float64Array([0, 0, 0]),
@@ -57,8 +57,8 @@ function createTestState(): PhysicsState {
     cwPosition: new Float64Array(2),
     cwVelocity: new Float64Array(2),
     windVelocity: new Float64Array([0, 0, 0]),
-    slingParticles: new Float64Array(2 * M),
-    slingVelocities: new Float64Array(2 * M),
+    slingParticles: new Float64Array(2 * N),
+    slingVelocities: new Float64Array(2 * N),
     time: 0,
     isReleased: false,
   }

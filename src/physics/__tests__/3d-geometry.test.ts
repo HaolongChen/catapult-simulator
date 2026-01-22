@@ -112,14 +112,13 @@ function createInitialState(config: SimulationConfig): PhysicsState {
     y: H - L2 * Math.sin(armAngle),
   }
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-  const M = N - 1
-  const slingParticles = new Float64Array(2 * M)
-  const slingVelocities = new Float64Array(2 * M)
+  const slingParticles = new Float64Array(2 * N)
+  const slingVelocities = new Float64Array(2 * N)
 
   const projX = tip.x + Ls
   const projY = tip.y
 
-  for (let i = 0; i < M; i++) {
+  for (let i = 0; i < N; i++) {
     const alpha = (i + 1) / N
     slingParticles[2 * i] = tip.x * (1 - alpha) + projX * alpha
     slingParticles[2 * i + 1] = tip.y * (1 - alpha) + projY * alpha

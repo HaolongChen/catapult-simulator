@@ -5,6 +5,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import type { FrameData } from '../src/physics/types'
 import { physicsLogger } from '../src/physics/logging'
+import { UI_CONSTANTS } from '@/physics/constants'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -18,7 +19,7 @@ physicsLogger.enable()
 
 trajectory.push(sim.exportFrameData())
 
-for (let i = 0; i < 1000; i++) {
+for (let i = 0; i < UI_CONSTANTS.CONTROLS.FPS_CONVERSION; i++) {
   sim.update(0.01)
   trajectory.push(sim.exportFrameData())
 }

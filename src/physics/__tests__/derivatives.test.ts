@@ -18,7 +18,7 @@ describe('derivatives', () => {
       pivotHeight: 5,
     }
 
-    const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
+    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
     const state: PhysicsState = {
       position: new Float64Array([8 + 3, 5 + 4, 0]),
       velocity: new Float64Array([0, 0, 0]),
@@ -31,8 +31,8 @@ describe('derivatives', () => {
       cwPosition: new Float64Array([-2, 5 - 1.5]),
       cwVelocity: new Float64Array([0, 0]),
       windVelocity: new Float64Array([0, 0, 0]),
-      slingParticles: new Float64Array(2 * M),
-      slingVelocities: new Float64Array(2 * M),
+      slingParticles: new Float64Array(2 * N),
+      slingVelocities: new Float64Array(2 * N),
       time: 0,
       isReleased: false,
     }

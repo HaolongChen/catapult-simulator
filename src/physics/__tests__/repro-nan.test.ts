@@ -6,11 +6,11 @@ import type { PhysicsState, SimulationConfig } from '../types'
 describe('NaN Reproduction', () => {
   it('should reproduce NaN with massive Mcw', () => {
     const config: SimulationConfig = {
-      initialTimestep: 0.005,
-      maxSubsteps: 1,
+      initialTimestep: 0.0005, // Further reduced for extreme ratio
+      maxSubsteps: 20,
       maxAccumulator: 1.0,
-      tolerance: 1e-6,
-      minTimestep: 1e-7,
+      tolerance: 1e-7,
+      minTimestep: 1e-8,
       maxTimestep: 0.01,
       projectile: {
         mass: 1.0,
@@ -43,7 +43,7 @@ describe('NaN Reproduction', () => {
       x: -3 * Math.cos(armAngle),
       y: H - 3 * Math.sin(armAngle),
     }
-    const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
+    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
 
     const state: PhysicsState = {
       position: new Float64Array([10, rp, 0]),
@@ -57,8 +57,8 @@ describe('NaN Reproduction', () => {
       cwAngle: 0,
       cwAngularVelocity: 0,
       windVelocity: new Float64Array([0, 0, 0]),
-      slingParticles: new Float64Array(2 * M),
-      slingVelocities: new Float64Array(2 * M),
+      slingParticles: new Float64Array(2 * N),
+      slingVelocities: new Float64Array(2 * N),
       time: 0,
       isReleased: false,
     }

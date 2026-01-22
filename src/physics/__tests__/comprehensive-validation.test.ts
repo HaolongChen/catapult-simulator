@@ -38,18 +38,30 @@ function createStandardConfig(): SimulationConfig {
 function createInitialState(config: SimulationConfig): PhysicsState {
   const { longArmLength: L1, pivotHeight: H } = config.trebuchet
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-  const M = N - 1
+  const armAngle = -Math.PI / 4
+  const tipX = L1 * Math.cos(armAngle)
+  const tipY = H + L1 * Math.sin(armAngle)
+  const projX = tipX + 5
+  const projY = tipY
+
+  const slingParticles = new Float64Array(2 * N)
+  for (let i = 0; i < N; i++) {
+    const alpha = (i + 1) / N
+    slingParticles[2 * i] = tipX * (1 - alpha) + projX * alpha
+    slingParticles[2 * i + 1] = tipY * (1 - alpha) + projY * alpha
+  }
+
   return {
-    position: new Float64Array([L1 + 5, H, 0]),
+    position: new Float64Array([projX, projY, 0]),
     velocity: new Float64Array([0, 0, 0]),
     orientation: new Float64Array([1, 0, 0, 0]),
     angularVelocity: new Float64Array([0, 0, 0]),
-    armAngle: -Math.PI / 4,
+    armAngle,
     armAngularVelocity: 0,
     cwAngle: 0,
     cwAngularVelocity: 0,
-    slingParticles: new Float64Array(2 * M),
-    slingVelocities: new Float64Array(2 * M),
+    slingParticles,
+    slingVelocities: new Float64Array(2 * N),
     cwPosition: new Float64Array(2),
     cwVelocity: new Float64Array(2),
     windVelocity: new Float64Array([0, 0, 0]),

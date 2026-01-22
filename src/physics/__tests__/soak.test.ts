@@ -38,7 +38,7 @@ function createStandardConfig(): SimulationConfig {
 describe('Simulation Soak Test', () => {
   it('should maintain stability over a heavy swing', () => {
     const config = createStandardConfig()
-    const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
+    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
     const initialState: PhysicsState = {
       position: new Float64Array([14, 0, 0]),
       velocity: new Float64Array([0, 0, 0]),
@@ -51,8 +51,8 @@ describe('Simulation Soak Test', () => {
       cwPosition: new Float64Array(2),
       cwVelocity: new Float64Array(2),
       windVelocity: new Float64Array([5, 0, 2]),
-      slingParticles: new Float64Array(2 * M),
-      slingVelocities: new Float64Array(2 * M),
+      slingParticles: new Float64Array(2 * N),
+      slingVelocities: new Float64Array(2 * N),
       time: 0,
       isReleased: false,
     }

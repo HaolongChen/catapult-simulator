@@ -40,7 +40,7 @@ describe('Physics DAE Stability Evaluation', () => {
     const L1 = config.trebuchet.longArmLength
     const tipX = L1 * Math.cos(armAngle)
     const tipY = config.trebuchet.pivotHeight + L1 * Math.sin(armAngle)
-    const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
+    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
 
     const initialState: PhysicsState = {
       position: new Float64Array([tipX + 8, tipY, 0]), // Taut sling
@@ -54,8 +54,8 @@ describe('Physics DAE Stability Evaluation', () => {
       cwPosition: new Float64Array(2),
       cwVelocity: new Float64Array(2),
       windVelocity: new Float64Array([0, 0, 0]),
-      slingParticles: new Float64Array(2 * M),
-      slingVelocities: new Float64Array(2 * M),
+      slingParticles: new Float64Array(2 * N),
+      slingVelocities: new Float64Array(2 * N),
       time: 0,
       isReleased: false,
     }

@@ -1,13 +1,13 @@
 export const PHYSICS_CONSTANTS = {
   GRAVITY: 9.81,
-  KKT_REGULARIZATION: 1e-9, // Stable default
-  MIN_PARTICLE_MASS: 0.1, // Reasonable floor
+  KKT_REGULARIZATION: 1e-6, // Strengthened
+  MIN_PARTICLE_MASS: 0.1,
   SEA_LEVEL_TEMPERATURE: 288.15,
-  NUM_SLING_PARTICLES: 20, // Number of segments in the soft sling
-  ROPE_YOUNGS_MODULUS: 1e7, // Reduced for stability in explicit solver
-  ROPE_DAMPING_RATIO: 0.1, // Increased damping for stability
-  ROPE_DIAMETER: 0.02, // 2cm
-  ROPE_DRAG_COEFFICIENT: 1.2, // Long cylinder
+  NUM_SLING_PARTICLES: 5, // Reduced from 20 for stability
+  ROPE_YOUNGS_MODULUS: 1e6, // Softened further
+  ROPE_DAMPING_RATIO: 0.2,
+  ROPE_DIAMETER: 0.02,
+  ROPE_DRAG_COEFFICIENT: 1.2,
 }
 
 export const VISUAL_CONSTANTS = {
@@ -38,7 +38,7 @@ export const UI_CONSTANTS = {
     ICON_SIZE_LARGE: 24,
     ICON_SIZE_MEDIUM: 20,
     RESET_FRAME: 0,
-    FPS_CONVERSION: 1000,
+    FPS_CONVERSION: 2000,
     BUTTON_SIZE_MAIN: 12,
     BUTTON_SIZE_SECONDARY: 10,
     PROGRESS_HEIGHT: 2,

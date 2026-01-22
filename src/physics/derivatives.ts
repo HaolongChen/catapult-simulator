@@ -92,7 +92,7 @@ export function computeDerivatives(
     ropeStiffness,
   } = trebuchetProps
 
-  const Mp = projectile.mass
+  const Mp = Math.max(projectile.mass, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
   const Rp = projectile.radius
   const g = PHYSICS_CONSTANTS.GRAVITY
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
@@ -105,7 +105,8 @@ export function computeDerivatives(
   const Msling = Mp * 0.05
   const m_p = Math.max(Msling / N, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
 
-  const omega = Math.sqrt(segmentK / Math.max(m_p, 0.1))
+  const omegaLimit = 20.0
+  const omega = Math.min(omegaLimit, Math.sqrt(segmentK / m_p))
   const alphaSoft = 2 * PHYSICS_CONSTANTS.ROPE_DAMPING_RATIO * omega
   const betaSoft = omega * omega
 
@@ -144,7 +145,6 @@ export function computeDerivatives(
 
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
 
-  // dimQ: [arm, P1..PN, Proj, CW, phi_cw]
   const dimQ = 1 + 2 * N + 2 + 2 + 1
   const M_diag = new Float64Array(dimQ)
   const Minv = new Float64Array(dimQ)
@@ -184,7 +184,6 @@ export function computeDerivatives(
   Q[idxCW + 1] = -Mcw * g
   Q[idxPhi] = 0
 
-  // Air Resistance (Drag per segment)
   const ropeCd = PHYSICS_CONSTANTS.ROPE_DRAG_COEFFICIENT
   const ropeDiam = PHYSICS_CONSTANTS.ROPE_DIAMETER
   const rho = 1.225
@@ -197,14 +196,12 @@ export function computeDerivatives(
     Q[2 + 2 * i] += (fDrag * vy) / vMag
   }
 
-  // dimC: [N segments, 2 Lock, 2 CW, 1 Ground]
   const dimC = N + 2 + 2 + 1
   const J = Array.from({ length: dimC }, () => new Array(dimQ).fill(0))
   const gamma = new Array(dimC).fill(0)
-  const alphaHard = 40.0,
-    betaHard = 1600.0
+  const alphaHard = 10.0,
+    betaHard = 100.0
 
-  // Sling Distance Constraints
   for (let i = 0; i < N; i++) {
     let pa, va, pb, vb, idxA, idxB
     const La = Lseg
@@ -214,8 +211,8 @@ export function computeDerivatives(
       va = { x: xtl_p * dth, y: ytl_p * dth }
       pb = { x: slingParticles[0], y: slingParticles[1] }
       vb = { x: slingVelocities[0], y: slingVelocities[1] }
-      idxA = 0 // armAngle
-      idxB = 1 // P1
+      idxA = 0
+      idxB = 1
     } else {
       pa = {
         x: slingParticles[2 * (i - 1)],
@@ -259,7 +256,6 @@ export function computeDerivatives(
     }
   }
 
-  // Lock Constraints (PN to Proj)
   const pN = {
     x: slingParticles[2 * (N - 1)],
     y: slingParticles[2 * (N - 1) + 1],
@@ -284,7 +280,6 @@ export function computeDerivatives(
   J[N + 1][idxProj + 1] = -1.0
   gamma[N + 1] = -alphaHard * dLockY - betaHard * lockY
 
-  // CW hinge
   const C_cw0 = pCW[0] - (xts + Rcw * sinP)
   const dC_cw0 = vCW[0] - (xts_p * dth + Rcw * cosP * dphi_cw)
   J[N + 2][0] = -xts_p
@@ -301,33 +296,56 @@ export function computeDerivatives(
   gamma[N + 3] =
     yts_g + Rcw * cosP * dphi_cw ** 2 - alphaHard * dC_cw1 - betaHard * C_cw1
 
-  // Ground rail
   const onR = position[1] - Rp <= 0.05
   const C_gnd = position[1] - Rp
   J[N + 4][idxProj + 1] = 1.0
-  gamma[N + 4] = -100.0 * velocity[1] - 10000.0 * C_gnd
+  gamma[N + 4] = -10.0 * velocity[1] - 100.0 * C_gnd
 
-  const solveKKT = (mask: boolean[]) => {
-    const totalDim = dimQ + dimC
-    const A = Array.from({ length: totalDim }, () =>
-      new Array(totalDim).fill(0),
-    )
-    const B = new Array(totalDim).fill(0)
-    for (let i = 0; i < dimQ; i++) {
-      A[i][i] = M_diag[i]
-      B[i] = Q[i]
+  const solveSchur = (mask: boolean[]) => {
+    const activeIdx: number[] = []
+    for (let i = 0; i < dimC; i++) if (mask[i]) activeIdx.push(i)
+    const m = activeIdx.length
+
+    if (m === 0) {
+      const q_ddot = new Float64Array(dimQ)
+      for (let i = 0; i < dimQ; i++) q_ddot[i] = Q[i] * Minv[i]
+      return { q_ddot, lambda: new Float64Array(dimC) }
     }
-    for (let i = 0; i < dimC; i++) {
-      if (mask[i]) {
-        for (let j = 0; j < dimQ; j++) {
-          A[dimQ + i][j] = J[i][j]
-          A[j][dimQ + i] = J[i][j]
-        }
-        B[dimQ + i] = gamma[i]
-        A[dimQ + i][dimQ + i] = PHYSICS_CONSTANTS.KKT_REGULARIZATION
-      } else A[dimQ + i][dimQ + i] = 1.0
+
+    const S = Array.from({ length: m }, () => new Array(m).fill(0))
+    const rhs = new Float64Array(m)
+    const compliance = 1.0 / segmentK
+
+    for (let i = 0; i < m; i++) {
+      const idxA = activeIdx[i]
+      const Ji = J[idxA]
+      let jm_q = 0
+      for (let j = 0; j < dimQ; j++) jm_q += Ji[j] * Minv[j] * Q[j]
+      rhs[i] = jm_q - gamma[idxA]
+      for (let k = 0; k < m; k++) {
+        const Jk = J[activeIdx[k]]
+        let sum = 0
+        for (let j = 0; j < dimQ; j++) sum += Ji[j] * Minv[j] * Jk[j]
+        S[i][k] = sum
+      }
+
+      if (idxA < N) S[i][i] += compliance
+      S[i][i] += PHYSICS_CONSTANTS.KKT_REGULARIZATION
     }
-    return solveLinearSystem(A, B)
+
+    const lambdaActive = solveLinearSystem(S, Array.from(rhs))
+    const fullLambda = new Float64Array(dimC).fill(0)
+    for (let i = 0; i < m; i++) fullLambda[activeIdx[i]] = lambdaActive[i]
+
+    const q_ddot = new Float64Array(dimQ)
+    for (let j = 0; j < dimQ; j++) {
+      let jt_lambda = 0
+      for (let i = 0; i < dimC; i++) {
+        if (mask[i]) jt_lambda += J[i][j] * fullLambda[i]
+      }
+      q_ddot[j] = Minv[j] * (Q[j] - jt_lambda)
+    }
+    return { q_ddot, lambda: fullLambda }
   }
 
   const mask = new Array(dimC).fill(true)
@@ -337,27 +355,25 @@ export function computeDerivatives(
   }
   mask[N + 4] = !isReleased && onR
 
-  let sol = solveKKT(mask)
+  let { q_ddot, lambda } = solveSchur(mask)
 
   for (let iter = 0; iter < 3; iter++) {
     let changed = false
-    // Only sling segments (0..N-1) can go slack
     for (let i = 0; i < N; i++) {
-      if (mask[i] && sol[dimQ + i] < -1e-3) {
+      if (mask[i] && lambda[i] < -1e-3) {
         mask[i] = false
         changed = true
       }
     }
-    if (mask[N + 4] && sol[dimQ + N + 4] > 1e-3) {
+    if (mask[N + 4] && lambda[N + 4] > 1e-3) {
       mask[N + 4] = false
       changed = true
     }
     if (!changed) break
-    sol = solveKKT(mask)
+    const res = solveSchur(mask)
+    q_ddot = res.q_ddot
+    lambda = res.lambda
   }
-
-  const q_ddot = sol.slice(0, dimQ)
-  const lambda = sol.slice(dimQ)
 
   const slingDeriv = new Float64Array(2 * N)
   const slingVDeriv = new Float64Array(2 * N)
@@ -391,11 +407,7 @@ export function computeDerivatives(
       magnus: aero.magnus,
       gravity: new Float64Array([0, -Mp * g, 0]),
       tension: !isReleased
-        ? new Float64Array([
-            lambda[N] || 0, // Simplified visualization
-            lambda[N + 1] || 0,
-            0,
-          ])
+        ? new Float64Array([lambda[N] || 0, lambda[N + 1] || 0, 0])
         : new Float64Array(3),
       total: new Float64Array([
         q_ddot[idxProj] * Mp,
