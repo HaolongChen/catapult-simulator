@@ -133,7 +133,7 @@ const TelemetrySection: React.FC<{
         </span>
       </button>
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${open ? 'max-h-[2000px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${open ? 'max-h-500 opacity-100 mt-2' : 'max-h-0 opacity-0'}`}
       >
         {children}
       </div>
@@ -180,13 +180,13 @@ export const DebugOverlay: React.FC<{
       {/* Mobile Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden fixed top-4 right-4 z-[110] w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white flex items-center justify-center shadow-lg transition-all"
+        className="md:hidden fixed top-4 right-4 z-110 w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white flex items-center justify-center shadow-lg transition-all"
       >
         {isOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
       <aside
-        className={`fixed top-0 left-0 h-full w-[480px] z-[100] backdrop-blur-xl border-r border-white/10 shadow-[10px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto custom-scrollbar transition-transform duration-300 max-md:w-full ${isOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full'}`}
+        className={`fixed top-0 left-0 h-full w-120 z-100 backdrop-blur-xl border-r border-white/10 shadow-[10px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto custom-scrollbar transition-transform duration-300 max-md:w-full ${isOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full'}`}
         style={{
           background:
             'linear-gradient(165deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
@@ -527,7 +527,7 @@ export const DebugOverlay: React.FC<{
       {/* Mobile Overlay Background */}
       {isOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-[90]"
+          className="md:hidden fixed inset-0 bg-black/50 z-90"
           onClick={() => setIsOpen(false)}
         />
       )}
