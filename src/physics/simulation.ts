@@ -29,6 +29,7 @@ export class CatapultSimulation {
   private config: SimulationConfig
   private normalForce: number
   private lastForces: PhysicsForces = EMPTY_FORCES
+  private accumulator = 0
 
   constructor(initialState: PhysicsState, config: SimulationConfig) {
     this.state = initialState
@@ -56,65 +57,77 @@ export class CatapultSimulation {
   }
 
   update(deltaTime: number): PhysicsState {
-    const derivativeFunction = (_t: number, state: PhysicsState) => {
-      const res = computeDerivatives(
-        state,
-        this.config.projectile,
-        this.config.trebuchet,
-        this.normalForce,
-      )
-      this.lastForces = res.forces
-      return res
-    }
+    const dt = this.config.initialTimestep
+    this.accumulator += deltaTime
 
-    const result = this.integrator.update(deltaTime, derivativeFunction)
-    let newState = result.newState
+    while (this.accumulator >= dt) {
+      // 1. DISCRETE TRIGGER: Sample exactly once at step start (tn)
+      if (!this.state.isReleased) {
+        // Use radians for consistent internal physics
+        const velocityAngle = Math.atan2(
+          this.state.velocity[1],
+          this.state.velocity[0],
+        )
+        const releaseThreshold = this.config.trebuchet.releaseAngle
 
-    const normalizeAngle = (a: number) => {
-      const TWO_PI = 2 * Math.PI
-      let res = a % TWO_PI
-      if (res > Math.PI) res -= TWO_PI
-      if (res < -Math.PI) res += TWO_PI
-      return res
-    }
-
-    newState = {
-      ...newState,
-      armAngle: normalizeAngle(newState.armAngle),
-      cwAngle: normalizeAngle(newState.cwAngle),
-    }
-
-    // Post-Integration Constraint Enforcement (Projection)
-    this.projectConstraints(newState)
-    this.projectVelocities(newState)
-
-    if (newState.position[1] < this.config.projectile.radius) {
-      newState.position[1] = this.config.projectile.radius
-      if (!newState.isReleased) {
-        if (newState.velocity[1] < 0) newState.velocity[1] = 0
-      } else {
-        newState.velocity[0] = 0
-        newState.velocity[1] = 0
-        newState.velocity[2] = 0
-      }
-    }
-
-    // Release Check
-    if (!newState.isReleased) {
-      const velocityAngle =
-        (Math.atan2(newState.velocity[1], newState.velocity[0]) * 180) / Math.PI
-      const releaseThreshold = this.config.trebuchet.releaseAngle
-
-      if (velocityAngle >= releaseThreshold) {
-        newState = {
-          ...newState,
-          isReleased: true,
+        if (velocityAngle >= releaseThreshold) {
+          console.log(this.state.velocity[0])
+          console.log(this.state.velocity[1])
+          this.state = { ...this.state, isReleased: true }
         }
       }
+
+      // 2. INTEGRATION: Full step with locked topology
+      const derivativeFunction = (_t: number, state: PhysicsState) => {
+        const res = computeDerivatives(
+          state,
+          this.config.projectile,
+          this.config.trebuchet,
+          this.normalForce,
+        )
+        this.lastForces = res.forces
+        return res
+      }
+
+      // integrator.update would run its own loop, so we use rk4Step directly or similar.
+      // Actually, since we're already in a loop, we just need one step.
+      // We'll use the integrator's internal state management.
+      this.integrator.setState(this.state)
+      const result = this.integrator.update(dt, derivativeFunction)
+      let newState = result.newState
+
+      const normalizeAngle = (a: number) => {
+        const TWO_PI = 2 * Math.PI
+        let res = a % TWO_PI
+        if (res > Math.PI) res -= TWO_PI
+        if (res < -Math.PI) res += TWO_PI
+        return res
+      }
+
+      newState = {
+        ...newState,
+        armAngle: normalizeAngle(newState.armAngle),
+        cwAngle: normalizeAngle(newState.cwAngle),
+      }
+
+      // 3. ENFORCEMENT
+      this.projectConstraints(newState)
+      this.projectVelocities(newState)
+
+      if (newState.position[1] < this.config.projectile.radius) {
+        newState.position[1] = this.config.projectile.radius
+        if (!newState.isReleased) {
+          if (newState.velocity[1] < 0) newState.velocity[1] = 0
+        } else {
+          // Bounce off ground
+          if (newState.velocity[1] < 0) newState.velocity[1] *= -0.2
+        }
+      }
+
+      this.state = newState
+      this.accumulator -= dt
     }
 
-    this.state = newState
-    this.integrator.setState(newState)
     physicsLogger.log(this.state, this.lastForces, this.config)
     return this.state
   }
@@ -203,9 +216,10 @@ export class CatapultSimulation {
         const relVX = pvx - prevVX
         const relVY = pvy - prevVY
         const vdotn = relVX * nx + relVY * ny
-        if (vdotn > 0) {
-          state.slingVelocities[2 * i] -= vdotn * nx
-          state.slingVelocities[2 * i + 1] -= vdotn * ny
+        // Use a small elasticity/threshold to prevent excessive energy loss
+        if (vdotn > 0.01) {
+          state.slingVelocities[2 * i] -= vdotn * nx * 0.9
+          state.slingVelocities[2 * i + 1] -= vdotn * ny * 0.9
         }
       }
 

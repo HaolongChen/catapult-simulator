@@ -172,7 +172,7 @@ export class RK4Integrator {
         scale,
       ),
       time: newTime,
-      isReleased: state.isReleased || derivative.isReleased,
+      isReleased: state.isReleased, // TOPOLOGICAL LOCK: No mid-step flipping
     }
   }
 
@@ -283,12 +283,7 @@ export class RK4Integrator {
         d4.windVelocity,
       ),
       time: state.time + dt,
-      isReleased:
-        state.isReleased ||
-        d1.isReleased ||
-        d2.isReleased ||
-        d3.isReleased ||
-        d4.isReleased,
+      isReleased: state.isReleased, // TOPOLOGICAL LOCK
     }
   }
 

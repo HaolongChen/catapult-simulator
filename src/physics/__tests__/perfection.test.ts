@@ -43,21 +43,35 @@ function createTestProjectile(): ProjectileProperties {
   }
 }
 
-function createTestState(): PhysicsState {
+function createTestState(config: SimulationConfig): PhysicsState {
+  const { longArmLength: L1, pivotHeight: H } = config.trebuchet
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+  const armAngle = -0.5
+  const tipX = L1 * Math.cos(armAngle)
+  const tipY = H + L1 * Math.sin(armAngle)
+  const projX = 10,
+    projY = 20
+
+  const slingParticles = new Float64Array(2 * N)
+  for (let i = 0; i < N; i++) {
+    const alpha = (i + 1) / N
+    slingParticles[2 * i] = tipX * (1 - alpha) + projX * alpha
+    slingParticles[2 * i + 1] = tipY * (1 - alpha) + projY * alpha
+  }
+
   return {
-    position: new Float64Array([10, 20, 0]),
+    position: new Float64Array([projX, projY, 0]),
     velocity: new Float64Array([0, 0, 0]),
     orientation: new Float64Array([1, 0, 0, 0]),
     angularVelocity: new Float64Array([0, 0, 0]),
-    armAngle: -0.5,
+    armAngle,
     armAngularVelocity: 0,
     cwAngle: 0,
     cwAngularVelocity: 0,
     cwPosition: new Float64Array(2),
     cwVelocity: new Float64Array(2),
     windVelocity: new Float64Array([0, 0, 0]),
-    slingParticles: new Float64Array(2 * N),
+    slingParticles,
     slingVelocities: new Float64Array(2 * N),
     time: 0,
     isReleased: false,
@@ -71,7 +85,6 @@ describe('physics-perfection', () => {
   })
 
   it('should maintain state consistency', () => {
-    const state: PhysicsState = createTestState()
     const config: SimulationConfig = {
       ...BASE_CONFIG,
       projectile: createTestProjectile(),
@@ -80,6 +93,7 @@ describe('physics-perfection', () => {
         jointFriction: 0,
       },
     }
+    const state: PhysicsState = createTestState(config)
 
     const sim = new CatapultSimulation(state, config)
     const newState = sim.update(0.01)

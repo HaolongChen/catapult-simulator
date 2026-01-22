@@ -25,7 +25,7 @@ describe('Ghost Constraint Sling Physics', () => {
     counterweightRadius: 0.8,
     counterweightInertia: 500,
     slingLength: 3.5,
-    releaseAngle: 90.0,
+    releaseAngle: (90.0 * Math.PI) / 180,
     jointFriction: 0.1,
     armMass: 200.0,
     pivotHeight: 3.0,
@@ -56,7 +56,11 @@ describe('Ghost Constraint Sling Physics', () => {
   it('should separate projectile from tip when angular condition met (kinematic release)', () => {
     const configHighPower = {
       ...config,
-      trebuchet: { ...trebuchet, counterweightMass: 10000, releaseAngle: 45.0 },
+      trebuchet: {
+        ...trebuchet,
+        counterweightMass: 10000,
+        releaseAngle: (45.0 * Math.PI) / 180,
+      },
     }
     const sim = new CatapultSimulation(
       createInitialState(configHighPower),

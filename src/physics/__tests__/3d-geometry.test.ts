@@ -122,6 +122,8 @@ function createInitialState(config: SimulationConfig): PhysicsState {
     const alpha = (i + 1) / N
     slingParticles[2 * i] = tip.x * (1 - alpha) + projX * alpha
     slingParticles[2 * i + 1] = tip.y * (1 - alpha) + projY * alpha
+    slingVelocities[2 * i] = 0
+    slingVelocities[2 * i + 1] = 0
   }
 
   return {

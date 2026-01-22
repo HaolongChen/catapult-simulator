@@ -3,7 +3,7 @@ import type { PhysicsState, SimulationConfig } from './types'
 
 export function createConfig(): SimulationConfig {
   return {
-    initialTimestep: 0.005,
+    initialTimestep: 0.005, // Reverted for safe production default
     maxSubsteps: 10,
     maxAccumulator: 1.0,
     tolerance: 1e-6,
@@ -25,7 +25,7 @@ export function createConfig(): SimulationConfig {
       counterweightRadius: 0.8,
       counterweightInertia: 500,
       slingLength: 3.5,
-      releaseAngle: 135.0,
+      releaseAngle: (120.0 * Math.PI) / 180, // Standard launch angle in Radians
       jointFriction: 0.1,
       armMass: 200.0,
       pivotHeight: 3.0,

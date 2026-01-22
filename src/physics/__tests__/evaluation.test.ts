@@ -36,7 +36,10 @@ function calculateTotalEnergy(
   } = trebuchet
   const Mp = projectile.mass
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-  const m_p = Math.max((Mp * 0.05) / N, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
+  const m_p = Math.max(
+    (Mp * 0.05) / N,
+    PHYSICS_CONSTANTS.MIN_PARTICLE_MASS_BASE,
+  )
 
   const L_cg = (L1 - L2) / 2
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)

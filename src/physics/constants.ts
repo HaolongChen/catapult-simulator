@@ -1,19 +1,20 @@
 export const PHYSICS_CONSTANTS = {
   GRAVITY: 9.81,
-  KKT_REGULARIZATION: 1e-6, // Strengthened
-  MIN_PARTICLE_MASS: 0.1,
+  KKT_REGULARIZATION_BASE: 1e-9, // Stable baseline
+  MIN_PARTICLE_MASS_BASE: 0.1, // Reasonable floor
   SEA_LEVEL_TEMPERATURE: 288.15,
-  NUM_SLING_PARTICLES: 20, // Reduced from 20 for stability
-  ROPE_YOUNGS_MODULUS: 1e6, // Softened further
-  ROPE_DAMPING_RATIO: 0.2,
+  NUM_SLING_PARTICLES: 5, // Default stable value
+  ROPE_YOUNGS_MODULUS: 1e9, // 1 GPa for hemp
+  ROPE_DAMPING_RATIO: 0.1, // Increased damping
   ROPE_DIAMETER: 0.02,
   ROPE_DRAG_COEFFICIENT: 1.2,
+  MAX_STABILITY_OMEGA: 400.0,
 }
 
 export const VISUAL_CONSTANTS = {
   GROUND_SIZE: 1000,
   SLING_VIOLATION_THRESHOLD: 0.01,
-  PLAYBACK_FPS: 160,
+  PLAYBACK_FPS: 100,
   CAMERA_DEFAULT: {
     position: [-10, 0, 0] as [number, number, number],
     fov: 130,

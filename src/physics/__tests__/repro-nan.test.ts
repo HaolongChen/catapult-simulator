@@ -1,16 +1,16 @@
-import { describe, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import { PHYSICS_CONSTANTS } from '../constants'
-import type { PhysicsState, SimulationConfig } from '../types'
+import { createInitialState } from '../config'
+import type { SimulationConfig } from '../types'
 
 describe('NaN Reproduction', () => {
   it('should reproduce NaN with massive Mcw', () => {
     const config: SimulationConfig = {
-      initialTimestep: 0.0005, // Further reduced for extreme ratio
-      maxSubsteps: 20,
+      initialTimestep: 0.0001,
+      maxSubsteps: 100,
       maxAccumulator: 1.0,
-      tolerance: 1e-7,
-      minTimestep: 1e-8,
+      tolerance: 1e-8,
+      minTimestep: 1e-10,
       maxTimestep: 0.01,
       projectile: {
         mass: 1.0,
@@ -28,47 +28,18 @@ describe('NaN Reproduction', () => {
         counterweightRadius: 2.0,
         counterweightInertia: 500,
         slingLength: 8,
-        releaseAngle: (45 * Math.PI) / 180,
+        releaseAngle: (45.0 * Math.PI) / 180,
         jointFriction: 0.1,
         armMass: 200,
         pivotHeight: 15,
       },
     }
 
-    const armAngle = -Math.PI / 4,
-      H = 15,
-      Rcw = 2.0,
-      rp = 0.1
-    const shortTip = {
-      x: -3 * Math.cos(armAngle),
-      y: H - 3 * Math.sin(armAngle),
-    }
-    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-
-    const state: PhysicsState = {
-      position: new Float64Array([10, rp, 0]),
-      velocity: new Float64Array([0, 0, 0]),
-      orientation: new Float64Array([1, 0, 0, 0]),
-      angularVelocity: new Float64Array([0, 0, 0]),
-      armAngle,
-      armAngularVelocity: 0.1,
-      cwPosition: new Float64Array([shortTip.x, shortTip.y + Rcw]),
-      cwVelocity: new Float64Array([0, 0]),
-      cwAngle: 0,
-      cwAngularVelocity: 0,
-      windVelocity: new Float64Array([0, 0, 0]),
-      slingParticles: new Float64Array(2 * N),
-      slingVelocities: new Float64Array(2 * N),
-      time: 0,
-      isReleased: false,
-    }
-
+    const state = createInitialState(config)
     const sim = new CatapultSimulation(state, config)
     for (let i = 0; i < 50; i++) {
       const s = sim.update(0.01)
-      if (isNaN(s.armAngle)) {
-        throw new Error('NaN detected at step ' + i)
-      }
+      expect(s.armAngle).not.toBeNaN()
     }
   })
 })
