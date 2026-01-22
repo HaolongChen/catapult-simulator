@@ -3,7 +3,7 @@ export const PHYSICS_CONSTANTS = {
   KKT_REGULARIZATION: 1e-6, // Strengthened
   MIN_PARTICLE_MASS: 0.1,
   SEA_LEVEL_TEMPERATURE: 288.15,
-  NUM_SLING_PARTICLES: 5, // Reduced from 20 for stability
+  NUM_SLING_PARTICLES: 20, // Reduced from 20 for stability
   ROPE_YOUNGS_MODULUS: 1e6, // Softened further
   ROPE_DAMPING_RATIO: 0.2,
   ROPE_DIAMETER: 0.02,
@@ -11,7 +11,7 @@ export const PHYSICS_CONSTANTS = {
 }
 
 export const VISUAL_CONSTANTS = {
-  GROUND_SIZE: 100,
+  GROUND_SIZE: 1000,
   SLING_VIOLATION_THRESHOLD: 0.01,
   PLAYBACK_FPS: 160,
   CAMERA_DEFAULT: {
