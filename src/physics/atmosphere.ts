@@ -106,11 +106,12 @@ export function airTemperature(
 export function airViscosity(temperature: number): number {
   const { sutherlandT0, sutherlandMu0, sutherlandS } = ATMOSPHERIC_CONSTANTS
 
-  // Sutherland's formula
+  // Sutherland's formula with safety floor
+  const safeTemp = Math.max(1.0, temperature)
   const mu =
     sutherlandMu0 *
-    Math.pow(temperature / sutherlandT0, 1.5) *
-    ((sutherlandT0 + sutherlandS) / (temperature + sutherlandS))
+    Math.pow(safeTemp / sutherlandT0, 1.5) *
+    ((sutherlandT0 + sutherlandS) / (safeTemp + sutherlandS))
 
   return mu
 }

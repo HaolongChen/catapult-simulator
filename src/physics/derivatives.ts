@@ -97,7 +97,8 @@ export function computeDerivatives(
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
   const Lseg = Ls / N
 
-  const Msling = Mp * 0.5 // Higher mass for stability
+  // More realistic sling mass: 5% of projectile mass
+  const Msling = Mp * 0.05
   const m_p = Math.max(Msling / (N - 1), PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
 
   const Mp_eff = Mp
@@ -177,8 +178,8 @@ export function computeDerivatives(
   const dimC = N + 2 + 1
   const J = Array.from({ length: dimC }, () => new Array(dimQ).fill(0))
   const gamma = new Array(dimC).fill(0)
-  const alpha = 10.0,
-    beta = 100.0 // Softer Baumgarte to avoid energy spikes
+  const alpha = 20.0,
+    beta = 1000.0 // Stiffer constraints for better coupling propagation
 
   let dxN = 0,
     dyN = 0
