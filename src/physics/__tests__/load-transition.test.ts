@@ -26,6 +26,7 @@ function calculateTotalEnergy(
     cwPosition,
     cwVelocity,
     cwAngularVelocity,
+    angularVelocity,
   } = state
   const {
     longArmLength: L1,
@@ -68,7 +69,16 @@ function calculateTotalEnergy(
     0.5 * Icw * cwAngularVelocity ** 2
   const Ta = 0.5 * Ia * armAngularVelocity ** 2
 
-  return Tp + Ta + keCW + V + T_sling
+  // Rotational Kinetic Energy: 0.5 * I * omega^2
+  const I_proj = 0.4 * Mp * projectile.radius ** 2
+  const Tr =
+    0.5 *
+    I_proj *
+    (angularVelocity[0] ** 2 +
+      angularVelocity[1] ** 2 +
+      angularVelocity[2] ** 2)
+
+  return Tp + Ta + keCW + V + T_sling + Tr
 }
 
 describe('Load Transition (Lift-Off) Dynamics', () => {

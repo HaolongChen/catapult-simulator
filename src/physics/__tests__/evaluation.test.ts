@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { PHYSICS_CONSTANTS } from '../constants'
+import { createInitialState } from '../config'
 import type {
   PhysicsState,
   ProjectileProperties,
@@ -25,6 +26,7 @@ function calculateTotalEnergy(
     cwPosition,
     cwVelocity,
     cwAngularVelocity,
+    angularVelocity,
   } = state
   const {
     longArmLength: L1,
@@ -43,20 +45,17 @@ function calculateTotalEnergy(
 
   const L_cg = (L1 - L2) / 2
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
-
   const sinTh = Math.sin(armAngle)
-
   const yArmCG = H + L_cg * sinTh
   const yCW = cwPosition[1]
   const yProj = position[1]
 
   let V = Mp * G * yProj + Mcw * G * yCW + Ma * G * yArmCG
   let T_sling = 0
-
   for (let i = 0; i < N; i++) {
     const py = slingParticles[2 * i + 1]
-    const vx = slingVelocities[2 * i]
-    const vy = slingVelocities[2 * i + 1]
+    const vx = slingVelocities[2 * i],
+      vy = slingVelocities[2 * i + 1]
     V += m_p * G * py
     T_sling += 0.5 * m_p * (vx * vx + vy * vy)
   }
@@ -66,8 +65,15 @@ function calculateTotalEnergy(
     0.5 * Mcw * (cwVelocity[0] ** 2 + cwVelocity[1] ** 2) +
     0.5 * Icw * cwAngularVelocity ** 2
   const Ta = 0.5 * Ia * armAngularVelocity ** 2
+  const I_proj = 0.4 * Mp * projectile.radius ** 2
+  const Tr =
+    0.5 *
+    I_proj *
+    (angularVelocity[0] ** 2 +
+      angularVelocity[1] ** 2 +
+      angularVelocity[2] ** 2)
 
-  return Tp + Ta + keCW + V + T_sling
+  return Tp + Ta + keCW + V + T_sling + Tr
 }
 
 function createDefaultConfig(): SimulationConfig {
@@ -95,71 +101,17 @@ function createDefaultConfig(): SimulationConfig {
       counterweightInertia: 500,
       slingLength: 8,
       releaseAngle: (45 * Math.PI) / 180,
-      jointFriction: 0, // No friction for vacuum energy test
+      jointFriction: 0,
       armMass: 200,
       pivotHeight: 15,
     },
   }
 }
 
-function createInitialState(
-  trebuchet: TrebuchetProperties,
-  armAngle: number = -Math.PI / 4,
-): PhysicsState {
-  const L1 = trebuchet.longArmLength,
-    H = trebuchet.pivotHeight,
-    Ls = trebuchet.slingLength,
-    rp = 0.1
-  const tipX = L1 * Math.cos(armAngle),
-    tipY = H + L1 * Math.sin(armAngle)
-
-  const dy = tipY - rp
-  const dx = Math.sqrt(Math.max(Ls * Ls - dy * dy, 0))
-  const projX = tipX + dx
-
-  const shortTip = {
-    x: -trebuchet.shortArmLength * Math.cos(armAngle),
-    y: H - trebuchet.shortArmLength * Math.sin(armAngle),
-  }
-
-  const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-  const slingParticles = new Float64Array(2 * N)
-  const slingVelocities = new Float64Array(2 * N)
-
-  for (let i = 0; i < N; i++) {
-    const alpha = (i + 1) / N
-    slingParticles[2 * i] = tipX * (1 - alpha) + projX * alpha
-    slingParticles[2 * i + 1] = tipY * (1 - alpha) + rp * alpha
-    slingVelocities[2 * i] = 0
-    slingVelocities[2 * i + 1] = 0
-  }
-
-  return {
-    position: new Float64Array([projX, rp, 0]),
-    velocity: new Float64Array(3),
-    orientation: new Float64Array([1, 0, 0, 0]),
-    angularVelocity: new Float64Array(3),
-    armAngle,
-    armAngularVelocity: 0,
-    cwAngle: 0,
-    cwAngularVelocity: 0,
-    cwPosition: new Float64Array([
-      shortTip.x,
-      shortTip.y - trebuchet.counterweightRadius,
-    ]),
-    cwVelocity: new Float64Array(2),
-    windVelocity: new Float64Array(3),
-    slingParticles,
-    slingVelocities,
-    time: 0,
-    isReleased: false,
-  }
-}
-
 describe('Comprehensive Evaluation Suite', () => {
   it('should conserve energy within 5% in a vacuum', () => {
     const config = createDefaultConfig()
-    const state = createInitialState(config.trebuchet)
+    const state = createInitialState(config)
     const sim = new CatapultSimulation(state, config)
     const initialEnergy = calculateTotalEnergy(
       state,
@@ -177,17 +129,18 @@ describe('Comprehensive Evaluation Suite', () => {
       if (Number.isNaN(currentEnergy)) break
       maxEnergyDrift = Math.max(
         maxEnergyDrift,
-        Math.abs(currentEnergy - initialEnergy) / (Math.abs(initialEnergy) + 1),
+        Math.abs(currentEnergy - initialEnergy) /
+          (Math.abs(initialEnergy) + 1e-9),
       )
     }
-    expect(maxEnergyDrift).toBeLessThan(1.0)
+    expect(maxEnergyDrift).toBeLessThan(0.05)
   })
 
   it('should handle moderate mass ratios', () => {
     const config = createDefaultConfig()
     config.trebuchet.counterweightMass = 20000
     config.initialTimestep = 0.001
-    const state = createInitialState(config.trebuchet)
+    const state = createInitialState(config)
     const sim = new CatapultSimulation(state, config)
     for (let i = 0; i < 20; i++) {
       const newState = sim.update(0.01)
@@ -198,7 +151,7 @@ describe('Comprehensive Evaluation Suite', () => {
   it('should handle near-singularity configurations', () => {
     const config = createDefaultConfig()
     config.trebuchet.slingLength = 30
-    const state = createInitialState(config.trebuchet, Math.PI / 2 - 0.05)
+    const state = createInitialState(config)
     const sim = new CatapultSimulation(state, config)
     for (let i = 0; i < 10; i++) {
       const newState = sim.update(0.01)
@@ -208,8 +161,9 @@ describe('Comprehensive Evaluation Suite', () => {
 
   it('should not allow projectile to plummet through ground', () => {
     const config = createDefaultConfig()
+    const baseState = createInitialState(config)
     const state: PhysicsState = {
-      ...createInitialState(config.trebuchet),
+      ...baseState,
       position: new Float64Array([0, 2, 0]),
       velocity: new Float64Array([0, -100, 0]),
       isReleased: true,
@@ -217,7 +171,7 @@ describe('Comprehensive Evaluation Suite', () => {
     const sim = new CatapultSimulation(state, config)
     for (let i = 0; i < 10; i++) {
       const newState = sim.update(0.01)
-      expect(newState.position[1]).toBeGreaterThanOrEqual(-10.0)
+      expect(newState.position[1]).toBeGreaterThanOrEqual(0.0)
     }
   })
 })

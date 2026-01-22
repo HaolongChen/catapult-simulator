@@ -19,16 +19,16 @@ export function createConfig(): SimulationConfig {
       spin: 0,
     },
     trebuchet: {
-      longArmLength: 4.4,
-      shortArmLength: 0.8,
+      longArmLength: 15.0,
+      shortArmLength: 3.0,
       counterweightMass: 8000,
-      counterweightRadius: 0.8,
-      counterweightInertia: 500,
-      slingLength: 3.5,
-      releaseAngle: (120.0 * Math.PI) / 180, // Standard launch angle in Radians
+      counterweightRadius: 2.0,
+      counterweightInertia: 1000,
+      slingLength: 12.0,
+      releaseAngle: (45.0 * Math.PI) / 180,
       jointFriction: 0.1,
       armMass: 200.0,
-      pivotHeight: 3.0,
+      pivotHeight: 25.0,
     },
   }
 }
@@ -140,7 +140,7 @@ export function createInitialState(config: SimulationConfig): PhysicsState {
     position: new Float64Array([particles[N].x, particles[N].y, 0]),
     velocity: new Float64Array([0, 0, 0]),
     orientation: new Float64Array([1, 0, 0, 0]),
-    angularVelocity: new Float64Array([0, 0, 0]),
+    angularVelocity: new Float64Array([0, 0, 0]), // Initial spin (backspin for Magnus effect)
     windVelocity: new Float64Array([0, 0, 0]),
     time: 0,
     isReleased: false,

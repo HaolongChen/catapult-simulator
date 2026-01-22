@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import { PHYSICS_CONSTANTS } from '../constants'
-import type { SimulationConfig, PhysicsState } from '../types'
+import { getTrebuchetKinematics } from '../trebuchet'
+import { createConfig, createInitialState } from '../config'
+import type { SimulationConfig } from '../types'
 
 describe('Physics DAE Stability Evaluation', () => {
   const createConfig = (): SimulationConfig => ({
@@ -36,49 +37,33 @@ describe('Physics DAE Stability Evaluation', () => {
 
   it('should maintain constraint consistency throughout the swing', () => {
     const config = createConfig()
-    const armAngle = -Math.PI / 4
-    const L1 = config.trebuchet.longArmLength
-    const tipX = L1 * Math.cos(armAngle)
-    const tipY = config.trebuchet.pivotHeight + L1 * Math.sin(armAngle)
-    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+    config.trebuchet.counterweightMass = 2000
+    config.initialTimestep = 0.001
 
-    const initialState: PhysicsState = {
-      position: new Float64Array([tipX + 8, tipY, 0]), // Taut sling
-      velocity: new Float64Array([0, 0, 0]),
-      orientation: new Float64Array([1, 0, 0, 0]),
-      angularVelocity: new Float64Array([0, 0, 0]),
-      armAngle,
-      armAngularVelocity: 0,
-      cwAngle: 0,
-      cwAngularVelocity: 0,
-      cwPosition: new Float64Array(2),
-      cwVelocity: new Float64Array(2),
-      windVelocity: new Float64Array([0, 0, 0]),
-      slingParticles: new Float64Array(2 * N),
-      slingVelocities: new Float64Array(2 * N),
-      time: 0,
-      isReleased: false,
-    }
-
+    const initialState = createInitialState(config)
     const sim = new CatapultSimulation(initialState, config)
+    const Ls = config.trebuchet.slingLength
+    const L1 = config.trebuchet.longArmLength
 
     let maxConstraintError = 0
 
     for (let i = 0; i < 100; i++) {
-      const state = sim.update(0.005)
+      const state = sim.update(0.01)
       if (!state.isReleased) {
-        const tipX_curr = L1 * Math.cos(state.armAngle)
-        const tipY_curr =
-          config.trebuchet.pivotHeight + L1 * Math.sin(state.armAngle)
-        const dx = state.position[0] - tipX_curr
-        const dy = state.position[1] - tipY_curr
+        const kinematics = getTrebuchetKinematics(
+          state.armAngle,
+          config.trebuchet,
+        )
+        const tip = kinematics.longArmTip
+        const dx = state.position[0] - tip.x
+        const dy = state.position[1] - tip.y
         const dist = Math.sqrt(dx * dx + dy * dy)
 
-        const error = Math.max(0, dist - config.trebuchet.slingLength)
+        const error = Math.max(0, dist - Ls)
         maxConstraintError = Math.max(maxConstraintError, error)
       }
     }
 
-    expect(maxConstraintError).toBeLessThan(5.0) // Relaxed for multi-particle chain drift at large dt
+    expect(maxConstraintError).toBeLessThan(5.0)
   })
 })

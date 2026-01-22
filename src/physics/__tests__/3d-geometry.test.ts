@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { getTrebuchetKinematics } from '../trebuchet'
-import { PHYSICS_CONSTANTS } from '../constants'
+import { createInitialState } from '../config'
 import type { PhysicsState, SimulationConfig } from '../types'
 
 // --- Geometry Helpers ---
@@ -97,54 +97,6 @@ function createStandardConfig(): SimulationConfig {
   }
 }
 
-function createInitialState(config: SimulationConfig): PhysicsState {
-  const {
-    longArmLength: L1,
-    shortArmLength: L2,
-    pivotHeight: H,
-    counterweightRadius: Rcw,
-    slingLength: Ls,
-  } = config.trebuchet
-  const armAngle = -Math.PI / 4
-  const tip = { x: L1 * Math.cos(armAngle), y: H + L1 * Math.sin(armAngle) }
-  const shortTip = {
-    x: -L2 * Math.cos(armAngle),
-    y: H - L2 * Math.sin(armAngle),
-  }
-  const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-  const slingParticles = new Float64Array(2 * N)
-  const slingVelocities = new Float64Array(2 * N)
-
-  const projX = tip.x + Ls
-  const projY = tip.y
-
-  for (let i = 0; i < N; i++) {
-    const alpha = (i + 1) / N
-    slingParticles[2 * i] = tip.x * (1 - alpha) + projX * alpha
-    slingParticles[2 * i + 1] = tip.y * (1 - alpha) + projY * alpha
-    slingVelocities[2 * i] = 0
-    slingVelocities[2 * i + 1] = 0
-  }
-
-  return {
-    position: new Float64Array([projX, projY, 0]),
-    velocity: new Float64Array([0, 0, 0]),
-    orientation: new Float64Array([1, 0, 0, 0]),
-    angularVelocity: new Float64Array([0, 0, 0]),
-    armAngle,
-    armAngularVelocity: 0,
-    cwPosition: new Float64Array([shortTip.x, shortTip.y - Rcw]),
-    cwVelocity: new Float64Array([0, 0]),
-    cwAngle: 0,
-    cwAngularVelocity: 0,
-    windVelocity: new Float64Array([0, 0, 0]),
-    slingParticles,
-    slingVelocities,
-    time: 0,
-    isReleased: false,
-  }
-}
-
 describe('3D Geometry & Collision Validation Suite', () => {
   describe('1. Position Correctness', () => {
     it('should calculate arm tip position correctly', () => {
@@ -189,7 +141,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
       for (let i = 0; i < 100; i++) {
         const s = sim.update(0.01)
         const bottomY = s.position[1] - projRadius
-        expect(bottomY).toBeGreaterThanOrEqual(-0.05)
+        expect(bottomY).toBeGreaterThanOrEqual(-0.01)
       }
     })
 
@@ -202,7 +154,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
         const s = sim.update(0.01)
         const cwPos = getCounterweightPosition(s)
         const bottomY = cwPos.y - cwRadius
-        expect(bottomY).toBeGreaterThanOrEqual(-2.0)
+        expect(bottomY).toBeGreaterThanOrEqual(-0.5)
       }
     })
 
@@ -235,8 +187,7 @@ describe('3D Geometry & Collision Validation Suite', () => {
   describe('3. Bounding Volume', () => {
     it('should correctly calculate arm bounding box', () => {
       const config = createStandardConfig()
-      const baseState = createInitialState(config)
-      const state: PhysicsState = { ...baseState, armAngle: Math.PI / 4 }
+      const state = createInitialState(config)
       const longTip = getArmTipPosition(state, config)
       const shortTip = getShortArmTipPosition(state, config)
       const minX = Math.min(longTip.x, shortTip.x, 0)
@@ -253,8 +204,9 @@ describe('3D Geometry & Collision Validation Suite', () => {
   describe('4. Visual Continuity', () => {
     it('should have smooth projectile position transitions', () => {
       const config = createStandardConfig()
-      const sim = new CatapultSimulation(createInitialState(config), config)
-      const prevPos = new Float64Array(createInitialState(config).position)
+      const state = createInitialState(config)
+      const sim = new CatapultSimulation(state, config)
+      const prevPos = new Float64Array(state.position)
       for (let i = 0; i < 100; i++) {
         const s = sim.update(0.01)
         const dx = s.position[0] - prevPos[0]
@@ -270,7 +222,8 @@ describe('3D Geometry & Collision Validation Suite', () => {
   describe('5. Sling Behavior', () => {
     it('should keep sling length within physical bounds (dist <= Ls)', () => {
       const config = createStandardConfig()
-      const sim = new CatapultSimulation(createInitialState(config), config)
+      const state = createInitialState(config)
+      const sim = new CatapultSimulation(state, config)
       const Ls = config.trebuchet.slingLength
       for (let i = 0; i < 200; i++) {
         const s = sim.update(0.005)
@@ -289,10 +242,9 @@ describe('3D Geometry & Collision Validation Suite', () => {
 
   describe('6. Orientation', () => {
     it('should maintain normalized orientation quaternions', () => {
-      const sim = new CatapultSimulation(
-        createInitialState(createStandardConfig()),
-        createStandardConfig(),
-      )
+      const config = createStandardConfig()
+      const state = createInitialState(config)
+      const sim = new CatapultSimulation(state, config)
       for (let i = 0; i < 100; i++) {
         const q = sim.update(0.01).orientation
         const mag = Math.sqrt(q[0] ** 2 + q[1] ** 2 + q[2] ** 2 + q[3] ** 2)
@@ -304,7 +256,8 @@ describe('3D Geometry & Collision Validation Suite', () => {
   describe('7. Trajectory Export', () => {
     it('should export valid trajectory data', () => {
       const config = createStandardConfig()
-      const sim = new CatapultSimulation(createInitialState(config), config)
+      const state = createInitialState(config)
+      const sim = new CatapultSimulation(state, config)
       const trajectory = []
       for (let i = 0; i < 20; i++) {
         const s = sim.update(0.01)
@@ -321,7 +274,8 @@ describe('3D Geometry & Collision Validation Suite', () => {
   describe('exportFrameData', () => {
     it('should export complete and valid frame data', () => {
       const config = createStandardConfig()
-      const sim = new CatapultSimulation(createInitialState(config), config)
+      const state = createInitialState(config)
+      const sim = new CatapultSimulation(state, config)
       sim.update(0.1)
       const frame = sim.exportFrameData()
 

@@ -21,24 +21,44 @@ describe('Trajectory Energy Conservation Test', () => {
     const G = 9.81
 
     const calculateEnergy = (f: FrameData) => {
-      const Mp = f.projectile.radius > 0 ? 1.0 : 1.0 // Mass from config
-      const Mcw = 2000
+      const Mp = 1.0
+      const Mcw = 8000
+      const Ma = 200
+      const G = 9.81
 
-      // Projectile
+      // 1. Projectile
       const vSq =
         f.projectile.velocity[0] ** 2 +
         f.projectile.velocity[1] ** 2 +
         f.projectile.velocity[2] ** 2
-      const keProj = 0.5 * Mp * vSq
+      const wSq =
+        f.projectile.angularVelocity[0] ** 2 +
+        f.projectile.angularVelocity[1] ** 2 +
+        f.projectile.angularVelocity[2] ** 2
+      const Ip = 0.4 * Mp * f.projectile.radius ** 2
+      const keProj = 0.5 * Mp * vSq + 0.5 * Ip * wSq
       const peProj = Mp * G * f.projectile.position[1]
 
-      // Counterweight (Simplified for validation)
+      // 2. Counterweight
       const vCwSq =
-        f.counterweight.angularVelocity ** 2 * f.arm.shortArmLength ** 2 // Approximation
+        f.counterweight.angularVelocity ** 2 * f.arm.shortArmLength ** 2
       const keCw = 0.5 * Mcw * vCwSq
       const peCw = Mcw * G * f.counterweight.position[1]
 
-      return keProj + peProj + keCw + peCw
+      // 3. Arm
+      const L_total = f.arm.longArmLength + f.arm.shortArmLength
+      const Ia =
+        (1 / 3) *
+        (Ma / L_total) *
+        (f.arm.longArmLength ** 3 + f.arm.shortArmLength ** 3)
+      const keArm = 0.5 * Ia * f.arm.angularVelocity ** 2
+      const yArmCG =
+        3.0 +
+        ((f.arm.longArmLength - f.arm.shortArmLength) / 2) *
+          Math.sin(f.arm.angle)
+      const peArm = Ma * G * yArmCG
+
+      return keProj + peProj + keCw + peCw + keArm + peArm
     }
 
     const initialEnergy = calculateEnergy(data[0])

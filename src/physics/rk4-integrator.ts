@@ -127,38 +127,28 @@ export class RK4Integrator {
     scale: number,
     newTime: number,
   ): PhysicsState {
+    const addArrays = (a: Float64Array, b: Float64Array) => {
+      const res = new Float64Array(a.length)
+      for (let i = 0; i < a.length; i++) res[i] = a[i] + b[i] * scale
+      return res
+    }
     return {
-      position: this.addArrays(state.position, derivative.position, scale),
-      velocity: this.addArrays(state.velocity, derivative.velocity, scale),
-      orientation: this.addArrays(
-        state.orientation,
-        derivative.orientation,
-        scale,
-      ),
-      angularVelocity: this.addArrays(
+      position: addArrays(state.position, derivative.position),
+      velocity: addArrays(state.velocity, derivative.velocity),
+      orientation: addArrays(state.orientation, derivative.orientation),
+      angularVelocity: addArrays(
         state.angularVelocity,
         derivative.angularVelocity,
-        scale,
       ),
-      cwPosition: this.addArrays(
-        state.cwPosition,
-        derivative.cwPosition,
-        scale,
-      ),
-      cwVelocity: this.addArrays(
-        state.cwVelocity,
-        derivative.cwVelocity,
-        scale,
-      ),
-      slingParticles: this.addArrays(
+      cwPosition: addArrays(state.cwPosition, derivative.cwPosition),
+      cwVelocity: addArrays(state.cwVelocity, derivative.cwVelocity),
+      slingParticles: addArrays(
         state.slingParticles,
         derivative.slingParticles,
-        scale,
       ),
-      slingVelocities: this.addArrays(
+      slingVelocities: addArrays(
         state.slingVelocities,
         derivative.slingVelocities,
-        scale,
       ),
       armAngle: state.armAngle + derivative.armAngle * scale,
       armAngularVelocity:
@@ -166,13 +156,9 @@ export class RK4Integrator {
       cwAngle: state.cwAngle + derivative.cwAngle * scale,
       cwAngularVelocity:
         state.cwAngularVelocity + derivative.cwAngularVelocity * scale,
-      windVelocity: this.addArrays(
-        state.windVelocity,
-        derivative.windVelocity,
-        scale,
-      ),
+      windVelocity: addArrays(state.windVelocity, derivative.windVelocity),
       time: newTime,
-      isReleased: state.isReleased, // TOPOLOGICAL LOCK: No mid-step flipping
+      isReleased: state.isReleased, // Topological lock
     }
   }
 
@@ -283,22 +269,13 @@ export class RK4Integrator {
         d4.windVelocity,
       ),
       time: state.time + dt,
-      isReleased: state.isReleased, // TOPOLOGICAL LOCK
+      isReleased: state.isReleased, // Topological lock
     }
-  }
-
-  private addArrays(
-    a: Float64Array,
-    b: Float64Array,
-    scale: number,
-  ): Float64Array {
-    const res = new Float64Array(a.length)
-    for (let i = 0; i < a.length; i++) res[i] = a[i] + b[i] * scale
-    return res
   }
 
   private cloneState(state: PhysicsState): PhysicsState {
     return {
+      ...state,
       position: new Float64Array(state.position),
       velocity: new Float64Array(state.velocity),
       orientation: new Float64Array(state.orientation),
@@ -308,12 +285,6 @@ export class RK4Integrator {
       slingParticles: new Float64Array(state.slingParticles),
       slingVelocities: new Float64Array(state.slingVelocities),
       windVelocity: new Float64Array(state.windVelocity),
-      armAngle: state.armAngle,
-      armAngularVelocity: state.armAngularVelocity,
-      cwAngle: state.cwAngle,
-      cwAngularVelocity: state.cwAngularVelocity,
-      time: state.time,
-      isReleased: state.isReleased,
     }
   }
 
@@ -340,6 +311,7 @@ export class RK4Integrator {
       return res
     }
     return {
+      ...s2,
       position: lerp(s1.position, s2.position),
       velocity: lerp(s1.velocity, s2.velocity),
       orientation: lerp(s1.orientation, s2.orientation),
@@ -356,7 +328,6 @@ export class RK4Integrator {
       cwAngularVelocity:
         s1.cwAngularVelocity * (1 - alpha) + s2.cwAngularVelocity * alpha,
       time: s1.time * (1 - alpha) + s2.time * alpha,
-      isReleased: s2.isReleased,
     }
   }
 

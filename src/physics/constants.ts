@@ -1,14 +1,14 @@
 export const PHYSICS_CONSTANTS = {
   GRAVITY: 9.81,
-  KKT_REGULARIZATION_BASE: 1e-9, // Stable baseline
-  MIN_PARTICLE_MASS_BASE: 0.1, // Reasonable floor
+  KKT_REGULARIZATION_BASE: 1e-9, // Robust regularization for ill-conditioned mass ratios
+  MIN_PARTICLE_MASS_BASE: 0.05,
   SEA_LEVEL_TEMPERATURE: 288.15,
-  NUM_SLING_PARTICLES: 5, // Default stable value
-  ROPE_YOUNGS_MODULUS: 1e9, // 1 GPa for hemp
-  ROPE_DAMPING_RATIO: 0.1, // Increased damping
+  NUM_SLING_PARTICLES: 5,
+  ROPE_YOUNGS_MODULUS: 1e8,
+  ROPE_DAMPING_RATIO: 0.1,
   ROPE_DIAMETER: 0.02,
   ROPE_DRAG_COEFFICIENT: 1.2,
-  MAX_STABILITY_OMEGA: 400.0,
+  MAX_STABILITY_OMEGA: 200.0,
 }
 
 export const VISUAL_CONSTANTS = {

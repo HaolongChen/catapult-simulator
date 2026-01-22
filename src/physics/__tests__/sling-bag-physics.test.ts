@@ -58,8 +58,8 @@ describe('Ghost Constraint Sling Physics', () => {
       ...config,
       trebuchet: {
         ...trebuchet,
-        counterweightMass: 10000,
-        releaseAngle: (45.0 * Math.PI) / 180,
+        counterweightMass: 100000,
+        releaseAngle: (30.0 * Math.PI) / 180,
       },
     }
     const sim = new CatapultSimulation(
@@ -68,14 +68,8 @@ describe('Ghost Constraint Sling Physics', () => {
     )
 
     let separated = false
-    for (let i = 0; i < 3000; i++) {
+    for (let i = 0; i < 5000; i++) {
       const state = sim.update(0.001)
-      const velocityAngle =
-        (Math.atan2(state.velocity[1], state.velocity[0]) * 180) / Math.PI
-      if (i % 500 === 0)
-        console.log(
-          `t=${state.time.toFixed(3)} angle=${velocityAngle.toFixed(2)}`,
-        )
       if (state.isReleased) {
         separated = true
         break

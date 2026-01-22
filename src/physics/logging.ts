@@ -1,4 +1,5 @@
 import { PHYSICS_CONSTANTS } from './constants'
+import { getTrebuchetKinematics } from './trebuchet'
 import type { PhysicsForces, PhysicsState, SimulationConfig } from './types'
 
 export interface LogRecord {
@@ -86,6 +87,12 @@ export class PhysicsLogger {
     const R_ideal = (vp * vp) / g
     const rangeEfficiency = R_ideal > 0 ? R_actual / R_ideal : 0
 
+    const kinematics = getTrebuchetKinematics(state.armAngle, config.trebuchet)
+    const slingAngle = Math.atan2(
+      state.position[1] - kinematics.longArmTip.y,
+      state.position[0] - kinematics.longArmTip.x,
+    )
+
     const record: LogRecord = {
       state: {
         ...state,
@@ -109,7 +116,7 @@ export class PhysicsLogger {
       virtualTrebuchet: {
         Aq: state.armAngle,
         Wq: state.cwAngle - state.armAngle,
-        Sq: 0, // Legacy field
+        Sq: slingAngle - state.armAngle,
         u1: state.armAngularVelocity,
         u2: state.cwAngularVelocity - state.armAngularVelocity,
         u3: 0, // Legacy field
@@ -145,7 +152,7 @@ export class PhysicsLogger {
   public exportCSV(): string {
     const toDeg = 180 / Math.PI
     const header =
-      'Time (s),Arm Angle (deg),Weight Rel Angle (deg),Arm Omega (deg/s),Weight Rel Omega (deg/s),Proj X (m),Proj Y (m),Proj VX (m/s),Proj VY (m/s),Normal Force (N),Energy Eff,Range Eff,Check Function\n'
+      'Time (s),Arm Angle (deg),Weight Rel Angle (deg),Sling Rel Angle (deg),Arm Omega (deg/s),Weight Rel Omega (deg/s),Proj X (m),Proj Y (m),Proj VX (m/s),Proj VY (m/s),Normal Force (N),Energy Eff,Range Eff,Check Function\n'
     const rows = this.records
       .map((r) => {
         const vt = r.virtualTrebuchet
@@ -153,6 +160,7 @@ export class PhysicsLogger {
           r.state.time.toFixed(4),
           (vt.Aq * toDeg).toFixed(4),
           (vt.Wq * toDeg).toFixed(4),
+          (vt.Sq * toDeg).toFixed(4),
           (vt.u1 * toDeg).toFixed(4),
           (vt.u2 * toDeg).toFixed(4),
           vt.Px.toFixed(4),
