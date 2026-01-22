@@ -1,48 +1,42 @@
-# AGENTS.md
+# AGENTS.md for `src/components/visualization2d`
 
 ## OVERVIEW
 
-Modular 2D canvas visualization system for trebuchet state, built on a stateless, declarative renderer pattern with robust world/screen transforms and orchestration via hooks.
-
----
+Canvas-based modular 2D renderer for trebuchet simulation, enforcing stateless drawing and strict separation between geometry and visualization logic.
 
 ## STRUCTURE
 
-```
+```text
 src/components/visualization2d/
-├── index.tsx                   # Main TrebuchetVisualization2D component (entry point)
+├── index.tsx                   # Main component (composes all renderers)
 ├── hooks/
-│   ├── useCanvasTransform.ts   # World <-> Canvas coordinate conversions (toCanvasX/Y)
-│   ├── useCanvasInteraction.ts # Handles panning, zooming, pointer transforms
-│   └── useParticleSystem.ts    # Stateless visual effect system (e.g. impacts)
-├── renderers/
-│   ├── grid.ts                 # Grid, axes, and ground rail renderer
-│   ├── trebuchet.ts            # Trebuchet arm, pivot, & counterweight renderer
-│   ├── projectile.ts           # Sling, projectile & velocity/force vectors
-│   └── telemetry.ts            # Trajectory line & state badges
-└── types.ts                    # Visualization prop and shape types
+│   ├── useCanvasTransform.ts   # World <-> canvas coordinate conversions
+│   ├── useCanvasInteraction.ts # Zoom/pan interaction handlers
+│   └── useParticleSystem.ts    # Visual effects (impacts, alpha-fade)
+└── renderers/
+    ├── grid.ts                 # Metric grid and axes
+    ├── trebuchet.ts            # Arm and counterweight display
+    ├── projectile.ts           # Projectile + velocity/force vectors
+    └── telemetry.ts            # Trajectory trail, indicators
 ```
 
----
+## WHERE TO LOOK
 
-## RENDERER PATTERN
+| Task             | Location                      | Notes                                                     |
+| ---------------- | ----------------------------- | --------------------------------------------------------- |
+| Main Composition | `index.tsx`                   | Order: grid → ground → trebuchet → projectile → overlays. |
+| World Transforms | `hooks/useCanvasTransform.ts` | Source for `toCanvasX`/`toCanvasY`. Never bypass.         |
+| Alpha Smoothing  | `index.tsx` / Renderers       | Interpolates between simulation steps for smooth 60fps.   |
 
-- **Stateless, Pure Renderers:**  
-  Each `renderX` function accepts canvas context, current physics/data, and coordinate transform methods. No UI state is modified in renderers—side effects and animation state live exclusively at the hook/component level.
-- **Hook Orchestration:**
-  - `useCanvasTransform`: Manages zoom, pan, and all coordinate math. Always use `toCanvasX`/`toCanvasY` to convert simulation/world units to screen pixel coordinates.
-  - `useCanvasInteraction`: Adds world-aware pointer/scroll interactions (scroll-to-zoom, drag-to-pan), mapping events to simulation coordinates.
-- **Main Flow:**
-  - On every draw: compose stateless renderers in the correct order: grid → rails → trebuchet → projectile → overlays.
-  - All drawing operates with real-world meters, only transformed at render time.
+## CONVENTIONS
 
----
+- **Stateless Renderers**: `renderX` functions are referentially transparent—no internal state or side effects.
+- **World-Driven Geometry**: All geometry (arm, sling, pivots) is sourced strictly from `src/physics/trebuchet.ts`.
+- **Alpha Interpolation**: Smooth dynamic movement via `alpha` (0…1) between simulation states.
+- **No Pixel Units**: All renderer logic is world-based (meters); pixel math happens only at render-call time.
 
-## CONVENTIONS (Visual)
+## ANTI-PATTERNS
 
-- **World Units:** All geometry and physics use meters; no pixel offsets in renderers.
-- **Coordinate System:** +X = right, +Y = up (world); mapping toCanvasX/Y for all drawing.
-- **Layering:** Grid/axes at bottom, then static structures, then projectiles and vectors, overlays last.
-- **Visual Style:** Slate/dark backgrounds, gold for highlights (trajectory), muted force/velocity vectors.
-- **No DOM/State:** All rendering is via imperative canvas APIs—never mutate React state inside renderers.
-- **Extensibility:** Add new visualizations as pure functions under `renderers/`, never coupled to hooks.
+- **Manual Geometry Math**: Never compute endpoints or angles in renderers; use frame data results.
+- **React State in Renderers**: Never interact with state, refs, or DOM inside renderer functions.
+- **Mixing Transforms**: Keep world <-> screen conversions centralized in transforms logic.
