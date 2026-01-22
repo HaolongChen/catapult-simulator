@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { PhysicsState17DOF, SimulationConfig } from '../types'
+import { PHYSICS_CONSTANTS } from '../constants'
+import type { PhysicsState, SimulationConfig } from '../types'
 
 function createStandardConfig(): SimulationConfig {
   return {
@@ -34,8 +35,10 @@ function createStandardConfig(): SimulationConfig {
   }
 }
 
-function createInitialState(config: SimulationConfig): PhysicsState17DOF {
+function createInitialState(config: SimulationConfig): PhysicsState {
   const { longArmLength: L1, pivotHeight: H } = config.trebuchet
+  const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+  const M = N - 1
   return {
     position: new Float64Array([L1 + 5, H, 0]),
     velocity: new Float64Array([0, 0, 0]),
@@ -45,8 +48,8 @@ function createInitialState(config: SimulationConfig): PhysicsState17DOF {
     armAngularVelocity: 0,
     cwAngle: 0,
     cwAngularVelocity: 0,
-    slingAngle: 0,
-    slingAngularVelocity: 0,
+    slingParticles: new Float64Array(2 * M),
+    slingVelocities: new Float64Array(2 * M),
     cwPosition: new Float64Array(2),
     cwVelocity: new Float64Array(2),
     windVelocity: new Float64Array([0, 0, 0]),

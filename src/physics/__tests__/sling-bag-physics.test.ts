@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
 import { createInitialState } from '../config'
 import type {
-  PhysicsState17DOF,
+  PhysicsState,
   ProjectileProperties,
   TrebuchetProperties,
   SimulationConfig,
@@ -50,7 +50,7 @@ describe('Ghost Constraint Sling Physics', () => {
     const slingBagX = tipX + 3.0
     const slingBagY = tipY - 1.8
 
-    const state: PhysicsState17DOF = {
+    const state: PhysicsState = {
       position: new Float64Array([slingBagX, slingBagY + 0.15, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),
@@ -59,8 +59,8 @@ describe('Ghost Constraint Sling Physics', () => {
       armAngularVelocity: 0,
       cwAngle: 0,
       cwAngularVelocity: 0,
-      slingAngle: 0,
-      slingAngularVelocity: 0,
+      slingParticles: new Float64Array(8),
+      slingVelocities: new Float64Array(8),
       cwPosition: new Float64Array(2),
       cwVelocity: new Float64Array(2),
       windVelocity: new Float64Array([0, 0, 0]),
@@ -79,7 +79,7 @@ describe('Ghost Constraint Sling Physics', () => {
 
   it('should follow kinematic release: separation logic handles angular trigger', () => {
     const armAngle = -0.5
-    const state: PhysicsState17DOF = {
+    const state: PhysicsState = {
       position: new Float64Array([4, 0.1, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),
@@ -88,8 +88,8 @@ describe('Ghost Constraint Sling Physics', () => {
       armAngularVelocity: 0,
       cwAngle: 0,
       cwAngularVelocity: 0,
-      slingAngle: 0,
-      slingAngularVelocity: 0,
+      slingParticles: new Float64Array(8),
+      slingVelocities: new Float64Array(8),
       cwPosition: new Float64Array(2),
       cwVelocity: new Float64Array(2),
       windVelocity: new Float64Array([0, 0, 0]),

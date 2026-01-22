@@ -7,7 +7,7 @@ export function renderTrebuchet(
   toCanvasY: (y: number) => number,
   zoomRef: React.MutableRefObject<number>,
 ) {
-  const { arm, counterweight, projectile } = currentFrameData
+  const { arm, counterweight, sling } = currentFrameData
 
   const pivotX = toCanvasX(arm.pivot[0])
   const pivotY = toCanvasY(arm.pivot[1])
@@ -55,17 +55,20 @@ export function renderTrebuchet(
   ctx.lineWidth = 2
   ctx.stroke()
 
-  // 5. Draw Single Sling
-  if (currentFrameData.sling.isAttached) {
-    const slingEndX = toCanvasX(projectile.position[0])
-    const slingEndY = toCanvasY(projectile.position[1])
-
+  // 5. Draw Soft Sling (Multi-particle)
+  if (sling.isAttached && sling.points.length > 0) {
     ctx.beginPath()
-    ctx.moveTo(longTipX, longTipY)
-    ctx.lineTo(slingEndX, slingEndY)
+    const startPt = sling.points[0]
+    ctx.moveTo(toCanvasX(startPt[0]), toCanvasY(startPt[1]))
+
+    for (let i = 1; i < sling.points.length; i++) {
+      const pt = sling.points[i]
+      ctx.lineTo(toCanvasX(pt[0]), toCanvasY(pt[1]))
+    }
 
     ctx.strokeStyle = '#8b4513'
     ctx.lineWidth = 1.2
+    ctx.lineJoin = 'round'
     ctx.globalAlpha = 0.8
     ctx.stroke()
     ctx.globalAlpha = 1.0

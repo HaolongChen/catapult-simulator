@@ -144,7 +144,7 @@ export function atmosphericModel(
   const pressure = (density * universalGasConstant * temperature) / airMolarMass
 
   // Speed of sound in air (simplified)
-  const speedOfSound = 331.3 * Math.sqrt(temperature / 273.15)
+  const speedOfSound = 331.3 * Math.sqrt(Math.max(1.0, temperature) / 273.15)
 
   return {
     density,

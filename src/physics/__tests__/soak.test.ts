@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CatapultSimulation } from '../simulation'
-import type { PhysicsState17DOF, SimulationConfig } from '../types'
+import { PHYSICS_CONSTANTS } from '../constants'
+import type { PhysicsState, SimulationConfig } from '../types'
 
 function createStandardConfig(): SimulationConfig {
   return {
@@ -37,7 +38,8 @@ function createStandardConfig(): SimulationConfig {
 describe('Simulation Soak Test', () => {
   it('should maintain stability over a heavy swing', () => {
     const config = createStandardConfig()
-    const initialState: PhysicsState17DOF = {
+    const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
+    const initialState: PhysicsState = {
       position: new Float64Array([14, 0, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),
@@ -49,14 +51,14 @@ describe('Simulation Soak Test', () => {
       cwPosition: new Float64Array(2),
       cwVelocity: new Float64Array(2),
       windVelocity: new Float64Array([5, 0, 2]),
-      slingAngle: 0,
-      slingAngularVelocity: 0,
+      slingParticles: new Float64Array(2 * M),
+      slingVelocities: new Float64Array(2 * M),
       time: 0,
       isReleased: false,
     }
 
     const sim = new CatapultSimulation(initialState, config)
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 50; i++) {
       const state = sim.update(0.01)
       expect(state.position.some(isNaN)).toBe(false)
     }

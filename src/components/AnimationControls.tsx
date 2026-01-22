@@ -25,7 +25,9 @@ export function AnimationControls({
   return (
     <div
       className={`fixed bottom-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} left-1/2 -translate-x-1/2 bg-[#1e293b]/80 backdrop-blur-md p-${UI_CONSTANTS.LAYOUT.GAP_MEDIUM} rounded-2xl shadow-2xl border border-white/10 flex items-center gap-${UI_CONSTANTS.LAYOUT.GAP_LARGE} z-50 ring-1 ring-white/5 max-md:bottom-4 max-md:left-4 max-md:right-4 max-md:translate-x-0 max-md:p-3 max-md:gap-2 max-md:flex-wrap`}
-      style={{ width: window.innerWidth >= 768 ? UI_CONSTANTS.CONTROLS.WIDTH : 'auto' }}
+      style={{
+        width: window.innerWidth >= 768 ? UI_CONSTANTS.CONTROLS.WIDTH : 'auto',
+      }}
     >
       <button
         onClick={onPlayPause}

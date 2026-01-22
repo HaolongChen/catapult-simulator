@@ -1,4 +1,5 @@
-import type { PhysicsState17DOF, SimulationConfig } from './types'
+import { PHYSICS_CONSTANTS } from './constants'
+import type { PhysicsState, SimulationConfig } from './types'
 
 export function createConfig(): SimulationConfig {
   return {
@@ -32,9 +33,7 @@ export function createConfig(): SimulationConfig {
   }
 }
 
-export function createInitialState(
-  config: SimulationConfig,
-): PhysicsState17DOF {
+export function createInitialState(config: SimulationConfig): PhysicsState {
   const {
     longArmLength: L1,
     shortArmLength: L2,
@@ -66,9 +65,18 @@ export function createInitialState(
     projY = tipY - Ls
   }
 
-  const dx_sling = projX - tipX
-  const dy_sling = projY - tipY
-  const slingAngle = Math.atan2(dy_sling, dx_sling)
+  const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+  const M = N - 1
+  const slingParticles = new Float64Array(2 * M)
+  const slingVelocities = new Float64Array(2 * M)
+
+  for (let i = 0; i < M; i++) {
+    const alpha = (i + 1) / N
+    slingParticles[2 * i] = tipX * (1 - alpha) + projX * alpha
+    slingParticles[2 * i + 1] = tipY * (1 - alpha) + projY * alpha
+    slingVelocities[2 * i] = 0
+    slingVelocities[2 * i + 1] = 0
+  }
 
   return {
     armAngle,
@@ -77,8 +85,8 @@ export function createInitialState(
     cwVelocity: new Float64Array([0, 0]),
     cwAngle: 0,
     cwAngularVelocity: 0,
-    slingAngle: slingAngle,
-    slingAngularVelocity: 0,
+    slingParticles,
+    slingVelocities,
     position: new Float64Array([projX, projY, 0]),
     velocity: new Float64Array([0, 0, 0]),
     orientation: new Float64Array([1, 0, 0, 0]),

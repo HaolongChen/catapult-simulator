@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { computeDerivatives } from '../derivatives'
-import type { PhysicsState17DOF } from '../types'
+import { PHYSICS_CONSTANTS } from '../constants'
+import type { PhysicsState } from '../types'
 
 describe('derivatives', () => {
   it('should compute gravitational force', () => {
@@ -17,7 +18,8 @@ describe('derivatives', () => {
       pivotHeight: 5,
     }
 
-    const state: PhysicsState17DOF = {
+    const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
+    const state: PhysicsState = {
       position: new Float64Array([8 + 3, 5 + 4, 0]),
       velocity: new Float64Array([0, 0, 0]),
       orientation: new Float64Array([1, 0, 0, 0]),
@@ -29,8 +31,8 @@ describe('derivatives', () => {
       cwPosition: new Float64Array([-2, 5 - 1.5]),
       cwVelocity: new Float64Array([0, 0]),
       windVelocity: new Float64Array([0, 0, 0]),
-      slingAngle: 0,
-      slingAngularVelocity: 0,
+      slingParticles: new Float64Array(2 * M),
+      slingVelocities: new Float64Array(2 * M),
       time: 0,
       isReleased: false,
     }
@@ -54,8 +56,6 @@ describe('derivatives', () => {
     )
 
     expect(deriv.position).toEqual(state.velocity)
-    // Coupling in the DAE system means the vertical acceleration of the projectile
-    // is no longer just -g when attached to the arm.
     expect(deriv.velocity[1]).not.toBeNaN()
   })
 })

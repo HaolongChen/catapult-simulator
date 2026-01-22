@@ -1,12 +1,8 @@
 import { PHYSICS_CONSTANTS } from './constants'
-import type {
-  PhysicsForces,
-  PhysicsState17DOF,
-  SimulationConfig,
-} from './types'
+import type { PhysicsForces, PhysicsState, SimulationConfig } from './types'
 
 export interface LogRecord {
-  state: PhysicsState17DOF
+  state: PhysicsState
   forces: PhysicsForces
   config: SimulationConfig
   virtualTrebuchet: {
@@ -42,7 +38,7 @@ export class PhysicsLogger {
   }
 
   public log(
-    state: PhysicsState17DOF,
+    state: PhysicsState,
     forces: PhysicsForces,
     config: SimulationConfig,
   ) {
@@ -62,8 +58,13 @@ export class PhysicsLogger {
     const H = config.trebuchet.pivotHeight
 
     const currentYArm = H + ((L1 - L2) / 2) * Math.sin(state.armAngle)
-    const currentPETotal = Mcw * g * state.cwPosition[1] + Ma * g * currentYArm + Mp * g * state.position[1]
-    const currentEProj = 0.5 * Mp * (state.velocity[0] ** 2 + state.velocity[1] ** 2) + Mp * g * state.position[1]
+    const currentPETotal =
+      Mcw * g * state.cwPosition[1] +
+      Ma * g * currentYArm +
+      Mp * g * state.position[1]
+    const currentEProj =
+      0.5 * Mp * (state.velocity[0] ** 2 + state.velocity[1] ** 2) +
+      Mp * g * state.position[1]
 
     if (this.records.length === 0) {
       this.initialPETotal = currentPETotal
@@ -72,7 +73,8 @@ export class PhysicsLogger {
 
     const deltaEProj = currentEProj - this.initialEProj
     const deltaPETotal = this.initialPETotal - currentPETotal
-    const energyEfficiency = Math.abs(deltaPETotal) > 1e-3 ? deltaEProj / Math.abs(deltaPETotal) : 0
+    const energyEfficiency =
+      Math.abs(deltaPETotal) > 1e-3 ? deltaEProj / Math.abs(deltaPETotal) : 0
 
     const yp = state.position[1]
     const vp = Math.sqrt(state.velocity[0] ** 2 + state.velocity[1] ** 2)
@@ -92,6 +94,8 @@ export class PhysicsLogger {
         orientation: new Float64Array(state.orientation),
         angularVelocity: new Float64Array(state.angularVelocity),
         windVelocity: new Float64Array(state.windVelocity),
+        slingParticles: new Float64Array(state.slingParticles),
+        slingVelocities: new Float64Array(state.slingVelocities),
       },
       forces: {
         ...forces,
@@ -105,10 +109,10 @@ export class PhysicsLogger {
       virtualTrebuchet: {
         Aq: state.armAngle,
         Wq: state.cwAngle - state.armAngle,
-        Sq: state.slingAngle - state.armAngle,
+        Sq: 0, // Legacy field
         u1: state.armAngularVelocity,
         u2: state.cwAngularVelocity - state.armAngularVelocity,
-        u3: state.slingAngularVelocity - state.armAngularVelocity,
+        u3: 0, // Legacy field
         Px: state.position[0],
         Py: state.position[1],
         Pvx: state.velocity[0],
@@ -141,7 +145,7 @@ export class PhysicsLogger {
   public exportCSV(): string {
     const toDeg = 180 / Math.PI
     const header =
-      'Time (s),Arm Angle (deg),Weight Rel Angle (deg),Sling Rel Angle (deg),Arm Omega (deg/s),Weight Rel Omega (deg/s),Sling Rel Omega (deg/s),Proj X (m),Proj Y (m),Proj VX (m/s),Proj VY (m/s),Normal Force (N),Energy Eff,Range Eff,Check Function\n'
+      'Time (s),Arm Angle (deg),Weight Rel Angle (deg),Arm Omega (deg/s),Weight Rel Omega (deg/s),Proj X (m),Proj Y (m),Proj VX (m/s),Proj VY (m/s),Normal Force (N),Energy Eff,Range Eff,Check Function\n'
     const rows = this.records
       .map((r) => {
         const vt = r.virtualTrebuchet
@@ -149,10 +153,8 @@ export class PhysicsLogger {
           r.state.time.toFixed(4),
           (vt.Aq * toDeg).toFixed(4),
           (vt.Wq * toDeg).toFixed(4),
-          (vt.Sq * toDeg).toFixed(4),
           (vt.u1 * toDeg).toFixed(4),
           (vt.u2 * toDeg).toFixed(4),
-          (vt.u3 * toDeg).toFixed(4),
           vt.Px.toFixed(4),
           vt.Py.toFixed(4),
           vt.Pvx.toFixed(4),

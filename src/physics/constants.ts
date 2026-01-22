@@ -1,6 +1,9 @@
 export const PHYSICS_CONSTANTS = {
   GRAVITY: 9.81,
+  KKT_REGULARIZATION: 1e-12,
+  MIN_PARTICLE_MASS: 0.001,
   SEA_LEVEL_TEMPERATURE: 288.15,
+  NUM_SLING_PARTICLES: 5, // Number of segments in the soft sling
 }
 
 export const VISUAL_CONSTANTS = {

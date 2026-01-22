@@ -442,8 +442,6 @@ export const DebugOverlay: React.FC<{
             />
           </TelemetrySection>
 
-
-
           <TelemetrySection
             title="Ground Contact"
             icon={SECTION_META[6].icon}
@@ -498,7 +496,9 @@ export const DebugOverlay: React.FC<{
                           : 'bg-slate-500/20 text-slate-400'
                       }`}
                     >
-                      {frameData.constraints.groundContact.isActive ? 'YES' : 'NO'}
+                      {frameData.constraints.groundContact.isActive
+                        ? 'YES'
+                        : 'NO'}
                     </span>
                   ),
                 },

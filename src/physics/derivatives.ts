@@ -1,9 +1,9 @@
 import { PHYSICS_CONSTANTS } from './constants'
 import { aerodynamicForce } from './aerodynamics'
 import type {
-  PhysicsDerivative17DOF,
+  PhysicsDerivative,
   PhysicsForces,
-  PhysicsState17DOF,
+  PhysicsState,
   ProjectileProperties,
   TrebuchetProperties,
 } from './types'
@@ -35,7 +35,7 @@ function solveLinearSystem(A: number[][], b: number[]): number[] {
       L[maxR][k] = tl
     }
     const pV = U[i][i]
-    if (Math.abs(pV) < 1e-12) U[i][i] = pV < 0 ? -1e-12 : 1e-12
+    if (Math.abs(pV) < 1e-20) U[i][i] = pV < 0 ? -1e-20 : 1e-20
     for (let k = i + 1; k < n; k++) {
       L[k][i] = U[k][i] / U[i][i]
       for (let j = i; j < n; j++) U[k][j] -= L[k][i] * U[i][j]
@@ -58,11 +58,11 @@ function solveLinearSystem(A: number[][], b: number[]): number[] {
 }
 
 export function computeDerivatives(
-  state: PhysicsState17DOF,
+  state: PhysicsState,
   projectile: ProjectileProperties,
   trebuchetProps: TrebuchetProperties,
   normalForce: number,
-): { derivative: PhysicsDerivative17DOF; forces: PhysicsForces } {
+): { derivative: PhysicsDerivative; forces: PhysicsForces } {
   const {
     position,
     velocity,
@@ -72,8 +72,8 @@ export function computeDerivatives(
     cwVelocity: vCW,
     cwAngle: phi_cw,
     cwAngularVelocity: dphi_cw,
-    slingAngle: phi_s,
-    slingAngularVelocity: dphi_s,
+    slingParticles,
+    slingVelocities,
     angularVelocity,
     windVelocity,
     isReleased,
@@ -94,6 +94,13 @@ export function computeDerivatives(
   const Mp = projectile.mass
   const Rp = projectile.radius
   const g = PHYSICS_CONSTANTS.GRAVITY
+  const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+  const Lseg = Ls / N
+
+  const Msling = Mp * 0.5 // Higher mass for stability
+  const m_p = Math.max(Msling / (N - 1), PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
+
+  const Mp_eff = Mp
 
   const airVel = new Float64Array([
     velocity[0] - windVelocity[0],
@@ -104,7 +111,7 @@ export function computeDerivatives(
     airVel,
     angularVelocity,
     projectile,
-    position[1],
+    Math.max(0, position[1]),
     PHYSICS_CONSTANTS.SEA_LEVEL_TEMPERATURE,
   )
 
@@ -112,8 +119,6 @@ export function computeDerivatives(
     sinT = Math.sin(th)
   const cosP = Math.cos(phi_cw),
     sinP = Math.sin(phi_cw)
-  const cosS = Math.cos(phi_s),
-    sinS = Math.sin(phi_s)
 
   const xtl = L1 * cosT,
     ytl = H + L1 * sinT
@@ -131,8 +136,23 @@ export function computeDerivatives(
     yts_g = L2 * sinT * dth ** 2
 
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
-  const Is = 1e-6
-  const M_diag = [Ia, Is, Mcw, Mcw, Icw, Mp, Mp]
+
+  const M_inter = N - 1
+  const dimQ = 1 + 2 * M_inter + 2 + 2 + 1
+  const M_diag = new Float64Array(dimQ)
+  const Minv = new Float64Array(dimQ)
+  M_diag[0] = Ia
+  for (let i = 0; i < M_inter; i++) {
+    M_diag[1 + 2 * i] = m_p
+    M_diag[2 + 2 * i] = m_p
+  }
+  M_diag[1 + 2 * M_inter] = Mp_eff
+  M_diag[2 + 2 * M_inter] = Mp_eff
+  M_diag[1 + 2 * M_inter + 2] = Mcw
+  M_diag[2 + 2 * M_inter + 2] = Mcw
+  M_diag[1 + 2 * M_inter + 4] = Icw
+
+  for (let i = 0; i < dimQ; i++) Minv[i] = 1.0 / M_diag[i]
 
   const friction =
     -Math.tanh(dth * 100.0) * jointFriction * Math.abs(normalForce)
@@ -142,95 +162,211 @@ export function computeDerivatives(
     projGndFric = -Math.tanh(velocity[0] * 10.0) * 0.4 * Mp * g
   }
 
-  const Q = [
-    -Ma * g * ((L1 - L2) / 2) * cosT + friction,
-    0,
-    0,
-    -Mcw * g,
-    0,
-    aero.total[0] + projGndFric,
-    aero.total[1] - Mp * g,
-  ]
+  const Q = new Float64Array(dimQ)
+  Q[0] = -Ma * g * ((L1 - L2) / 2) * cosT + friction
+  for (let i = 0; i < M_inter; i++) {
+    Q[1 + 2 * i] = 0
+    Q[2 + 2 * i] = -m_p * g
+  }
+  Q[1 + 2 * M_inter] = aero.total[0] + projGndFric
+  Q[2 + 2 * M_inter] = aero.total[1] - Mp * g
+  Q[1 + 2 * M_inter + 2] = 0
+  Q[2 + 2 * M_inter + 2] = -Mcw * g
+  Q[1 + 2 * M_inter + 4] = 0
 
-  const J = Array.from({ length: 5 }, () => new Array(7).fill(0))
-  const gamma = new Array(5).fill(0)
-  const alpha = 40.0,
-    beta = 1600.0 // Stiffer Baumgarte for rigid hinges
+  const dimC = N + 2 + 1
+  const J = Array.from({ length: dimC }, () => new Array(dimQ).fill(0))
+  const gamma = new Array(dimC).fill(0)
+  const alpha = 10.0,
+    beta = 100.0 // Softer Baumgarte to avoid energy spikes
 
-  // CW Hinge
-  const C0 = pCW[0] - (xts + Rcw * sinP)
-  const dC0 = vCW[0] - (xts_p * dth + Rcw * cosP * dphi_cw)
-  J[0][0] = -xts_p
-  J[0][2] = 1.0
-  J[0][4] = -Rcw * cosP
-  gamma[0] = xts_g - Rcw * sinP * dphi_cw ** 2 - alpha * dC0 - beta * C0
+  let dxN = 0,
+    dyN = 0
+  if (N === 1) {
+    const pN = { x: position[0], y: position[1] }
+    const vN = { x: velocity[0], y: velocity[1] }
+    dxN = pN.x - xtl
+    dyN = pN.y - ytl
+    const dN = Math.sqrt(dxN * dxN + dyN * dyN + 1e-12)
+    const CN = (dN * dN - Ls * Ls) / (2 * Ls)
+    const dCN = (dxN * (vN.x - xtl_p * dth) + dyN * (vN.y - ytl_p * dth)) / Ls
+    J[0][0] = -(dxN * xtl_p + dyN * ytl_p) / Ls
+    J[0][1 + 2 * M_inter] = dxN / Ls
+    J[0][2 + 2 * M_inter] = dyN / Ls
+    gamma[0] =
+      (dxN * xtl_g + dyN * ytl_g) / Ls -
+      ((vN.x - xtl_p * dth) ** 2 + (vN.y - ytl_p * dth) ** 2) / Ls -
+      alpha * dCN -
+      beta * CN
+  } else {
+    const p1 = { x: slingParticles[0], y: slingParticles[1] }
+    const v1 = { x: slingVelocities[0], y: slingVelocities[1] }
+    const dx1 = p1.x - xtl,
+      dy1 = p1.y - ytl
+    const d1 = Math.sqrt(dx1 * dx1 + dy1 * dy1 + 1e-12)
+    const C0 = (d1 * d1 - Lseg * Lseg) / (2 * Lseg)
+    const dC0 = (dx1 * (v1.x - xtl_p * dth) + dy1 * (v1.y - ytl_p * dth)) / Lseg
+    J[0][0] = -(dx1 * xtl_p + dy1 * ytl_p) / Lseg
+    J[0][1] = dx1 / Lseg
+    J[0][2] = dy1 / Lseg
+    gamma[0] =
+      (dx1 * xtl_g + dy1 * ytl_g) / Lseg -
+      ((v1.x - xtl_p * dth) ** 2 + (v1.y - ytl_p * dth) ** 2) / Lseg -
+      alpha * dC0 -
+      beta * C0
 
-  const C1 = pCW[1] - (yts - Rcw * cosP)
-  const dC1 = vCW[1] - (yts_p * dth + Rcw * sinP * dphi_cw)
-  J[1][0] = -yts_p
-  J[1][3] = 1.0
-  J[1][4] = -Rcw * sinP
-  gamma[1] = yts_g + Rcw * cosP * dphi_cw ** 2 - alpha * dC1 - beta * C1
+    for (let i = 0; i < M_inter - 1; i++) {
+      const pa = { x: slingParticles[2 * i], y: slingParticles[2 * i + 1] }
+      const va = { x: slingVelocities[2 * i], y: slingVelocities[2 * i + 1] }
+      const pb = {
+        x: slingParticles[2 * (i + 1)],
+        y: slingParticles[2 * (i + 1) + 1],
+      }
+      const vb = {
+        x: slingVelocities[2 * (i + 1)],
+        y: slingVelocities[2 * (i + 1) + 1],
+      }
+      const dx = pb.x - pa.x,
+        dy = pb.y - pa.y
+      const d = Math.sqrt(dx * dx + dy * dy + 1e-12)
+      const C = (d * d - Lseg * Lseg) / (2 * Lseg)
+      const dC = (dx * (vb.x - va.x) + dy * (vb.y - va.y)) / Lseg
+      J[i + 1][1 + 2 * i] = -dx / Lseg
+      J[i + 1][2 + 2 * i] = -dy / Lseg
+      J[i + 1][1 + 2 * (i + 1)] = dx / Lseg
+      J[i + 1][2 + 2 * (i + 1)] = dy / Lseg
+      gamma[i + 1] =
+        -((vb.x - va.x) ** 2 + (vb.y - va.y) ** 2) / Lseg -
+        alpha * dC -
+        beta * C
+    }
 
-  // Sling Hinge
-  const C2 = position[0] - (xtl + Ls * cosS)
-  const dC2 = velocity[0] - (xtl_p * dth - Ls * sinS * dphi_s)
-  J[2][0] = -xtl_p
-  J[2][1] = Ls * sinS
-  J[2][5] = 1.0
-  gamma[2] = xtl_g - Ls * cosS * dphi_s ** 2 - alpha * dC2 - beta * C2
+    const pM = {
+      x: slingParticles[2 * (M_inter - 1)],
+      y: slingParticles[2 * (M_inter - 1) + 1],
+    }
+    const vM = {
+      x: slingVelocities[2 * (M_inter - 1)],
+      y: slingVelocities[2 * (M_inter - 1) + 1],
+    }
+    const pN = { x: position[0], y: position[1] }
+    const vN = { x: velocity[0], y: velocity[1] }
+    dxN = pN.x - pM.x
+    dyN = pN.y - pM.y
+    const dN = Math.sqrt(dxN * dxN + dyN * dyN + 1e-12)
+    const CN = (dN * dN - Lseg * Lseg) / (2 * Lseg)
+    const dCN = (dxN * (vN.x - vM.x) + dyN * (vN.y - vM.y)) / Lseg
+    J[N - 1][1 + 2 * (M_inter - 1)] = -dxN / Lseg
+    J[N - 1][2 + 2 * (M_inter - 1)] = -dyN / Lseg
+    J[N - 1][1 + 2 * M_inter] = dxN / Lseg
+    J[N - 1][2 + 2 * M_inter] = dyN / Lseg
+    gamma[N - 1] =
+      -((vN.x - vM.x) ** 2 + (vN.y - vM.y) ** 2) / Lseg -
+      alpha * dCN -
+      beta * CN
+  }
 
-  const C3 = position[1] - (ytl + Ls * sinS)
-  const dC3 = velocity[1] - (ytl_p * dth + Ls * cosS * dphi_s)
-  J[3][0] = -ytl_p
-  J[3][1] = -Ls * cosS
-  J[3][6] = 1.0
-  gamma[3] = ytl_g - Ls * sinS * dphi_s ** 2 - alpha * dC3 - beta * C3
+  const idxCW = 1 + 2 * M_inter + 2
+  const idxPhi = 1 + 2 * M_inter + 4
+  const C_cw0 = pCW[0] - (xts + Rcw * sinP)
+  const dC_cw0 = vCW[0] - (xts_p * dth + Rcw * cosP * dphi_cw)
+  J[N][0] = -xts_p
+  J[N][idxCW] = 1.0
+  J[N][idxPhi] = -Rcw * cosP
+  gamma[N] = xts_g - Rcw * sinP * dphi_cw ** 2 - alpha * dC_cw0 - beta * C_cw0
 
-  // Ground Rail
+  const C_cw1 = pCW[1] - (yts - Rcw * cosP)
+  const dC_cw1 = vCW[1] - (yts_p * dth + Rcw * sinP * dphi_cw)
+  J[N + 1][0] = -yts_p
+  J[N + 1][idxCW + 1] = 1.0
+  J[N + 1][idxPhi] = -Rcw * sinP
+  gamma[N + 1] =
+    yts_g + Rcw * cosP * dphi_cw ** 2 - alpha * dC_cw1 - beta * C_cw1
+
   const onR = position[1] - Rp <= 0.05
-  const C4 = position[1] - Rp
-  J[4][6] = 1.0
-  gamma[4] = -100.0 * velocity[1] - 10000.0 * C4
+  const C_gnd = position[1] - Rp
+  J[N + 2][1 + 2 * M_inter + 1] = 1.0
+  gamma[N + 2] = -100.0 * velocity[1] - 10000.0 * C_gnd
 
-  const solveKKT = (mask: boolean[]) => {
-    const dim = 12
-    const A = Array.from({ length: dim }, () => new Array(dim).fill(0))
-    const B = new Array(dim).fill(0)
-    for (let i = 0; i < 7; i++) {
-      A[i][i] = M_diag[i]
-      B[i] = Q[i]
+  const solveSchur = (mask: boolean[]) => {
+    const activeIdx: number[] = []
+    for (let i = 0; i < dimC; i++) if (mask[i]) activeIdx.push(i)
+    const m = activeIdx.length
+
+    if (m === 0) {
+      const q_ddot = new Float64Array(dimQ)
+      for (let i = 0; i < dimQ; i++) q_ddot[i] = Q[i] * Minv[i]
+      return { q_ddot, lambda: new Float64Array(dimC) }
     }
-    for (let i = 0; i < 5; i++) {
-      if (mask[i]) {
-        for (let j = 0; j < 7; j++) {
-          A[7 + i][j] = J[i][j]
-          A[j][7 + i] = J[i][j]
+
+    const S = Array.from({ length: m }, () => new Array(m).fill(0))
+    const rhs = new Float64Array(m)
+    for (let i = 0; i < m; i++) {
+      const idxA = activeIdx[i]
+      const Ji = J[idxA]
+      let jm_q = 0
+      for (let j = 0; j < dimQ; j++) jm_q += Ji[j] * Minv[j] * Q[j]
+      rhs[i] = jm_q - gamma[idxA]
+      for (let k = 0; k < m; k++) {
+        const Jk = J[activeIdx[k]]
+        let sum = 0
+        for (let j = 0; j < dimQ; j++) sum += Ji[j] * Minv[j] * Jk[j]
+        S[i][k] = sum
+      }
+      S[i][i] += PHYSICS_CONSTANTS.KKT_REGULARIZATION
+    }
+
+    const lambdaActive = solveLinearSystem(S, Array.from(rhs))
+    const fullLambda = new Float64Array(dimC).fill(0)
+    for (let i = 0; i < m; i++) fullLambda[activeIdx[i]] = lambdaActive[i]
+
+    const q_ddot = new Float64Array(dimQ)
+    for (let j = 0; j < dimQ; j++) {
+      let jt_lambda = 0
+      for (let i = 0; i < dimC; i++) {
+        if (mask[i]) jt_lambda += J[i][j] * fullLambda[i]
+      }
+      q_ddot[j] = Minv[j] * (Q[j] - jt_lambda)
+    }
+    return { q_ddot, lambda: fullLambda }
+  }
+
+  const mask = new Array(dimC).fill(true)
+  if (isReleased) {
+    for (let i = 0; i < N; i++) mask[i] = false
+  }
+  mask[N + 2] = !isReleased && onR
+
+  let { q_ddot, lambda } = solveSchur(mask)
+
+  for (let iter = 0; iter < 3; iter++) {
+    let changed = false
+    if (!isReleased) {
+      for (let i = 0; i < N; i++) {
+        if (mask[i] && lambda[i] < -1e-3) {
+          // Compression
+          mask[i] = false
+          changed = true
         }
-        B[7 + i] = gamma[i]
-      } else A[7 + i][7 + i] = 1.0
+      }
     }
-    return solveLinearSystem(A, B)
+    if (mask[N + 2] && lambda[N + 2] < -1e-3) {
+      mask[N + 2] = false
+      changed = true
+    }
+    if (!changed) break
+    const res = solveSchur(mask)
+    q_ddot = res.q_ddot
+    lambda = res.lambda
   }
 
-  const mask = [true, true, !isReleased, !isReleased, !isReleased && onR]
-  let sol = solveKKT(mask)
-  if (mask[4] && sol[11] > 0) {
-    mask[4] = false
-    sol = solveKKT(mask)
-  }
-
-  const q_ddot = sol.slice(0, 7)
-  const lambda = sol.slice(7)
-  const q_dot = [dth, dphi_s, vCW[0], vCW[1], dphi_cw, velocity[0], velocity[1]]
-
-  let checkFunction = 0
-  for (let i = 0; i < 5; i++) {
-    if (mask[i]) {
-      let sum = 0
-      for (let j = 0; j < 7; j++) sum += J[i][j] * q_dot[j]
-      checkFunction = Math.max(checkFunction, Math.abs(sum))
-    }
+  const slingDeriv = new Float64Array(2 * M_inter)
+  const slingVDeriv = new Float64Array(2 * M_inter)
+  for (let i = 0; i < M_inter; i++) {
+    slingDeriv[2 * i] = slingVelocities[2 * i]
+    slingDeriv[2 * i + 1] = slingVelocities[2 * i + 1]
+    slingVDeriv[2 * i] = q_ddot[1 + 2 * i]
+    slingVDeriv[2 * i + 1] = q_ddot[2 + 2 * i]
   }
 
   return {
@@ -238,13 +374,17 @@ export function computeDerivatives(
       armAngle: dth,
       armAngularVelocity: q_ddot[0],
       cwPosition: new Float64Array([vCW[0], vCW[1]]),
-      cwVelocity: new Float64Array([q_ddot[2], q_ddot[3]]),
+      cwVelocity: new Float64Array([q_ddot[idxCW], q_ddot[idxCW + 1]]),
       cwAngle: dphi_cw,
-      cwAngularVelocity: q_ddot[4],
-      slingAngle: dphi_s,
-      slingAngularVelocity: q_ddot[1],
+      cwAngularVelocity: q_ddot[idxPhi],
+      slingParticles: slingDeriv,
+      slingVelocities: slingVDeriv,
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
-      velocity: new Float64Array([q_ddot[5], q_ddot[6], 0]),
+      velocity: new Float64Array([
+        q_ddot[1 + 2 * M_inter],
+        q_ddot[2 + 2 * M_inter],
+        0,
+      ]),
       orientation: new Float64Array(4),
       angularVelocity: new Float64Array(3),
       windVelocity: new Float64Array(3),
@@ -256,11 +396,19 @@ export function computeDerivatives(
       magnus: aero.magnus,
       gravity: new Float64Array([0, -Mp * g, 0]),
       tension: !isReleased
-        ? new Float64Array([-lambda[2], -lambda[3], 0])
+        ? new Float64Array([
+            (-lambda[N - 1] * dxN) / (Lseg || Ls),
+            (-lambda[N - 1] * dyN) / (Lseg || Ls),
+            0,
+          ])
         : new Float64Array(3),
-      total: new Float64Array([q_ddot[5] * Mp, q_ddot[6] * Mp, 0]),
-      groundNormal: mask[4] ? -lambda[4] : 0,
-      checkFunction,
+      total: new Float64Array([
+        q_ddot[1 + 2 * M_inter] * Mp,
+        q_ddot[2 + 2 * M_inter] * Mp,
+        0,
+      ]),
+      groundNormal: mask[N + 2] ? -lambda[N + 2] : 0,
+      checkFunction: 0,
       lambda: new Float64Array(lambda),
     },
   }

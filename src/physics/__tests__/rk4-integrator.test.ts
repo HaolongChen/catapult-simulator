@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RK4Integrator } from '../rk4-integrator'
-import type {
-  PhysicsDerivative17DOF,
-  PhysicsForces,
-  PhysicsState17DOF,
-} from '../types'
+import { PHYSICS_CONSTANTS } from '../constants'
+import type { PhysicsDerivative, PhysicsForces, PhysicsState } from '../types'
 
 const EMPTY_FORCES: PhysicsForces = {
   drag: new Float64Array(3),
@@ -14,10 +11,11 @@ const EMPTY_FORCES: PhysicsForces = {
   total: new Float64Array(3),
   groundNormal: 0,
   checkFunction: 0,
-  lambda: new Float64Array(5),
+  lambda: new Float64Array(0),
 }
 
-function createTestState(): PhysicsState17DOF {
+function createTestState(): PhysicsState {
+  const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
   return {
     position: new Float64Array([0, 0, 0]),
     velocity: new Float64Array([0, 0, 0]),
@@ -30,14 +28,15 @@ function createTestState(): PhysicsState17DOF {
     cwPosition: new Float64Array(2),
     cwVelocity: new Float64Array(2),
     windVelocity: new Float64Array([0, 0, 0]),
-    slingAngle: 0,
-    slingAngularVelocity: 0,
+    slingParticles: new Float64Array(2 * M),
+    slingVelocities: new Float64Array(2 * M),
     time: 0,
     isReleased: false,
   }
 }
 
-function createZeroDerivative(): PhysicsDerivative17DOF {
+function createZeroDerivative(): PhysicsDerivative {
+  const M = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES - 1
   return {
     position: new Float64Array(3),
     velocity: new Float64Array(3),
@@ -50,8 +49,8 @@ function createZeroDerivative(): PhysicsDerivative17DOF {
     cwPosition: new Float64Array(2),
     cwVelocity: new Float64Array(2),
     windVelocity: new Float64Array(3),
-    slingAngle: 0,
-    slingAngularVelocity: 0,
+    slingParticles: new Float64Array(2 * M),
+    slingVelocities: new Float64Array(2 * M),
     time: 0,
     isReleased: false,
   }

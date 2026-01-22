@@ -1,7 +1,7 @@
 import type {
   DerivativeFunction,
-  PhysicsDerivative17DOF,
-  PhysicsState17DOF,
+  PhysicsDerivative,
+  PhysicsState,
   RK4Config,
   RK4Result,
 } from './types'
@@ -21,10 +21,10 @@ export class RK4Integrator {
   private config: RK4Config
   private accumulator = 0
 
-  private state: PhysicsState17DOF
-  private previousState: PhysicsState17DOF
+  private state: PhysicsState
+  private previousState: PhysicsState
 
-  constructor(initialState: PhysicsState17DOF, config?: Partial<RK4Config>) {
+  constructor(initialState: PhysicsState, config?: Partial<RK4Config>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
     this.state = initialState
     this.previousState = this.cloneState(initialState)
@@ -51,10 +51,10 @@ export class RK4Integrator {
   }
 
   private adaptiveStep(
-    state: PhysicsState17DOF,
+    state: PhysicsState,
     derivative: DerivativeFunction,
     dt: number,
-  ): { newState: PhysicsState17DOF; nextTimestep: number } {
+  ): { newState: PhysicsState; nextTimestep: number } {
     const { derivative: d1 } = derivative(state.time, state)
     const stateFull = this.rk4Step(state, d1, derivative, dt)
     const dtHalf = dt * 0.5
@@ -73,7 +73,7 @@ export class RK4Integrator {
     return { newState: stateHalf2, nextTimestep }
   }
 
-  private calculateError(s1: PhysicsState17DOF, s2: PhysicsState17DOF): number {
+  private calculateError(s1: PhysicsState, s2: PhysicsState): number {
     let maxError = 0
     const checkArray = (a: Float64Array, b: Float64Array) => {
       for (let i = 0; i < a.length; i++) {
@@ -85,31 +85,33 @@ export class RK4Integrator {
     checkArray(s1.velocity, s2.velocity)
     checkArray(s1.cwPosition, s2.cwPosition)
     checkArray(s1.cwVelocity, s2.cwVelocity)
+    checkArray(s1.slingParticles, s2.slingParticles)
+    checkArray(s1.slingVelocities, s2.slingVelocities)
+
     const armAngleDiff = Math.abs(s1.armAngle - s2.armAngle)
     if (armAngleDiff > maxError) maxError = armAngleDiff
     const cwAngleDiff = Math.abs(s1.cwAngle - s2.cwAngle)
     if (cwAngleDiff > maxError) maxError = cwAngleDiff
-    const slingAngleDiff = Math.abs(s1.slingAngle - s2.slingAngle)
-    if (slingAngleDiff > maxError) maxError = slingAngleDiff
+
     return maxError
   }
 
-  public getState(): PhysicsState17DOF {
+  public getState(): PhysicsState {
     return this.state
   }
 
-  public setState(state: PhysicsState17DOF): void {
+  public setState(state: PhysicsState): void {
     this.state = this.cloneState(state)
     this.previousState = this.cloneState(state)
     this.accumulator = 0
   }
 
   private rk4Step(
-    state: PhysicsState17DOF,
-    d1: PhysicsDerivative17DOF,
+    state: PhysicsState,
+    d1: PhysicsDerivative,
     derivative: DerivativeFunction,
     dt: number,
-  ): PhysicsState17DOF {
+  ): PhysicsState {
     const state2 = this.addState(state, d1, dt * 0.5, state.time + dt * 0.5)
     const { derivative: d2 } = derivative(state2.time, state2)
     const state3 = this.addState(state, d2, dt * 0.5, state.time + dt * 0.5)
@@ -120,11 +122,11 @@ export class RK4Integrator {
   }
 
   private addState(
-    state: PhysicsState17DOF,
-    derivative: PhysicsDerivative17DOF,
+    state: PhysicsState,
+    derivative: PhysicsDerivative,
     scale: number,
     newTime: number,
-  ): PhysicsState17DOF {
+  ): PhysicsState {
     return {
       position: this.addArrays(state.position, derivative.position, scale),
       velocity: this.addArrays(state.velocity, derivative.velocity, scale),
@@ -148,15 +150,22 @@ export class RK4Integrator {
         derivative.cwVelocity,
         scale,
       ),
+      slingParticles: this.addArrays(
+        state.slingParticles,
+        derivative.slingParticles,
+        scale,
+      ),
+      slingVelocities: this.addArrays(
+        state.slingVelocities,
+        derivative.slingVelocities,
+        scale,
+      ),
       armAngle: state.armAngle + derivative.armAngle * scale,
       armAngularVelocity:
         state.armAngularVelocity + derivative.armAngularVelocity * scale,
       cwAngle: state.cwAngle + derivative.cwAngle * scale,
       cwAngularVelocity:
         state.cwAngularVelocity + derivative.cwAngularVelocity * scale,
-      slingAngle: state.slingAngle + derivative.slingAngle * scale,
-      slingAngularVelocity:
-        state.slingAngularVelocity + derivative.slingAngularVelocity * scale,
       windVelocity: this.addArrays(
         state.windVelocity,
         derivative.windVelocity,
@@ -168,13 +177,13 @@ export class RK4Integrator {
   }
 
   private combineState(
-    state: PhysicsState17DOF,
-    d1: PhysicsDerivative17DOF,
-    d2: PhysicsDerivative17DOF,
-    d3: PhysicsDerivative17DOF,
-    d4: PhysicsDerivative17DOF,
+    state: PhysicsState,
+    d1: PhysicsDerivative,
+    d2: PhysicsDerivative,
+    d3: PhysicsDerivative,
+    d4: PhysicsDerivative,
     dt: number,
-  ): PhysicsState17DOF {
+  ): PhysicsState {
     const dto6 = dt / 6
     const combine = (
       s: Float64Array,
@@ -232,6 +241,20 @@ export class RK4Integrator {
         d3.cwVelocity,
         d4.cwVelocity,
       ),
+      slingParticles: combine(
+        state.slingParticles,
+        d1.slingParticles,
+        d2.slingParticles,
+        d3.slingParticles,
+        d4.slingParticles,
+      ),
+      slingVelocities: combine(
+        state.slingVelocities,
+        d1.slingVelocities,
+        d2.slingVelocities,
+        d3.slingVelocities,
+        d4.slingVelocities,
+      ),
       armAngle:
         state.armAngle +
         dto6 * (d1.armAngle + 2 * d2.armAngle + 2 * d3.armAngle + d4.armAngle),
@@ -252,20 +275,6 @@ export class RK4Integrator {
             2 * d2.cwAngularVelocity +
             2 * d3.cwAngularVelocity +
             d4.cwAngularVelocity),
-      slingAngle:
-        state.slingAngle +
-        dto6 *
-          (d1.slingAngle +
-            2 * d2.slingAngle +
-            2 * d3.slingAngle +
-            d4.slingAngle),
-      slingAngularVelocity:
-        state.slingAngularVelocity +
-        dto6 *
-          (d1.slingAngularVelocity +
-            2 * d2.slingAngularVelocity +
-            2 * d3.slingAngularVelocity +
-            d4.slingAngularVelocity),
       windVelocity: combine(
         state.windVelocity,
         d1.windVelocity,
@@ -293,7 +302,7 @@ export class RK4Integrator {
     return res
   }
 
-  private cloneState(state: PhysicsState17DOF): PhysicsState17DOF {
+  private cloneState(state: PhysicsState): PhysicsState {
     return {
       position: new Float64Array(state.position),
       velocity: new Float64Array(state.velocity),
@@ -301,13 +310,13 @@ export class RK4Integrator {
       angularVelocity: new Float64Array(state.angularVelocity),
       cwPosition: new Float64Array(state.cwPosition),
       cwVelocity: new Float64Array(state.cwVelocity),
+      slingParticles: new Float64Array(state.slingParticles),
+      slingVelocities: new Float64Array(state.slingVelocities),
       windVelocity: new Float64Array(state.windVelocity),
       armAngle: state.armAngle,
       armAngularVelocity: state.armAngularVelocity,
       cwAngle: state.cwAngle,
       cwAngularVelocity: state.cwAngularVelocity,
-      slingAngle: state.slingAngle,
-      slingAngularVelocity: state.slingAngularVelocity,
       time: state.time,
       isReleased: state.isReleased,
     }
@@ -317,7 +326,7 @@ export class RK4Integrator {
     return this.accumulator / this.config.initialTimestep
   }
 
-  getRenderState(): PhysicsState17DOF {
+  getRenderState(): PhysicsState {
     const alpha = this.getInterpolationAlpha()
     if (alpha <= 0.0001) return this.state
     if (alpha >= 0.9999) return this.state
@@ -325,10 +334,10 @@ export class RK4Integrator {
   }
 
   private interpolateState(
-    s1: PhysicsState17DOF,
-    s2: PhysicsState17DOF,
+    s1: PhysicsState,
+    s2: PhysicsState,
     alpha: number,
-  ): PhysicsState17DOF {
+  ): PhysicsState {
     const lerp = (a: Float64Array, b: Float64Array) => {
       const res = new Float64Array(a.length)
       for (let i = 0; i < a.length; i++)
@@ -342,6 +351,8 @@ export class RK4Integrator {
       angularVelocity: lerp(s1.angularVelocity, s2.angularVelocity),
       cwPosition: lerp(s1.cwPosition, s2.cwPosition),
       cwVelocity: lerp(s1.cwVelocity, s2.cwVelocity),
+      slingParticles: lerp(s1.slingParticles, s2.slingParticles),
+      slingVelocities: lerp(s1.slingVelocities, s2.slingVelocities),
       windVelocity: lerp(s1.windVelocity, s2.windVelocity),
       armAngle: s1.armAngle * (1 - alpha) + s2.armAngle * alpha,
       armAngularVelocity:
@@ -349,9 +360,6 @@ export class RK4Integrator {
       cwAngle: s1.cwAngle * (1 - alpha) + s2.cwAngle * alpha,
       cwAngularVelocity:
         s1.cwAngularVelocity * (1 - alpha) + s2.cwAngularVelocity * alpha,
-      slingAngle: s1.slingAngle * (1 - alpha) + s2.slingAngle * alpha,
-      slingAngularVelocity:
-        s1.slingAngularVelocity * (1 - alpha) + s2.slingAngularVelocity * alpha,
       time: s1.time * (1 - alpha) + s2.time * alpha,
       isReleased: s2.isReleased,
     }

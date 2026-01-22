@@ -15,7 +15,7 @@ export interface AtmosphericConstants {
  * 19-DOF High Fidelity Physics State
  * Uses redundant world-space coordinates for numerical stability.
  */
-export interface PhysicsState17DOF {
+export interface PhysicsState {
   // Arm
   readonly armAngle: number
   readonly armAngularVelocity: number
@@ -26,15 +26,15 @@ export interface PhysicsState17DOF {
   readonly cwAngle: number
   readonly cwAngularVelocity: number
 
-  // Projectile
+  // Projectile (Last particle of the sling when attached)
   readonly position: Float64Array // [x, y, z]
   readonly velocity: Float64Array // [vx, vy, vz]
   readonly orientation: Float64Array // [q1, q2, q3, q4]
   readonly angularVelocity: Float64Array // [wx, wy, wz]
 
-  // Sling (Double Pendulum DOF)
-  readonly slingAngle: number
-  readonly slingAngularVelocity: number
+  // Intermediate Sling Particles (excluding the projectile)
+  readonly slingParticles: Float64Array // [x1, y1, x2, y2, ..., xM, yM] where M = NUM_SLING_PARTICLES - 1
+  readonly slingVelocities: Float64Array // [vx1, vy1, ..., vxM, vyM]
 
   // Environment & Meta
   readonly windVelocity: Float64Array
@@ -42,15 +42,15 @@ export interface PhysicsState17DOF {
   readonly isReleased: boolean
 }
 
-export interface PhysicsDerivative17DOF {
+export interface PhysicsDerivative {
   readonly armAngle: number
   readonly armAngularVelocity: number
   readonly cwPosition: Float64Array
   readonly cwVelocity: Float64Array
   readonly cwAngle: number
   readonly cwAngularVelocity: number
-  readonly slingAngle: number
-  readonly slingAngularVelocity: number
+  readonly slingParticles: Float64Array
+  readonly slingVelocities: Float64Array
   readonly position: Float64Array
   readonly velocity: Float64Array
   readonly orientation: Float64Array
@@ -107,9 +107,9 @@ export interface PhysicsForces {
 
 export type DerivativeFunction = (
   t: number,
-  state: PhysicsState17DOF,
+  state: PhysicsState,
 ) => {
-  derivative: PhysicsDerivative17DOF
+  derivative: PhysicsDerivative
   forces: PhysicsForces
 }
 
@@ -123,7 +123,7 @@ export interface RK4Config {
 }
 
 export interface RK4Result {
-  newState: PhysicsState17DOF
+  newState: PhysicsState
   stepsTaken: number
   interpolationAlpha: number
 }
@@ -174,8 +174,7 @@ export interface FrameData {
   }
   sling: {
     isAttached: boolean
-    startPoint: [number, number, number]
-    endPoint: [number, number, number]
+    points: [number, number, number][] // All points including arm tip, intermediate, and projectile
     length: number
     tension: number
     tensionVector: [number, number, number]
