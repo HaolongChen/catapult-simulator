@@ -20,11 +20,11 @@ export function createConfig(): SimulationConfig {
     trebuchet: {
       longArmLength: 4.4,
       shortArmLength: 0.8,
-      counterweightMass: 1750,
+      counterweightMass: 8000,
       counterweightRadius: 0.8,
       counterweightInertia: 500,
       slingLength: 3.5,
-      releaseAngle: (60 * Math.PI) / 180,
+      releaseAngle: 135.0,
       jointFriction: 0.1,
       armMass: 200.0,
       pivotHeight: 3.0,
@@ -41,7 +41,7 @@ export function createInitialState(
     pivotHeight: H,
     slingLength: Ls,
   } = config.trebuchet
-  const armAngle = -Math.PI / 6 // -30 degrees (back and down)
+  const armAngle = (-30 * Math.PI) / 180
   const tipX = L1 * Math.cos(armAngle)
   const tipY = H + L1 * Math.sin(armAngle)
 
@@ -60,7 +60,6 @@ export function createInitialState(
   if (Ls > dy_max) {
     projY = projRadius
     const dx = Math.sqrt(Ls * Ls - dy_max * dy_max)
-    // Projectile starts BEHIND the tip in this model (CW rotation)
     projX = tipX - dx
   } else {
     projX = tipX

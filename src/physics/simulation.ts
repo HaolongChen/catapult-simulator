@@ -20,7 +20,7 @@ const EMPTY_FORCES: PhysicsForces = {
   total: new Float64Array(3),
   groundNormal: 0,
   checkFunction: 0,
-  lambda: new Float64Array(6),
+  lambda: new Float64Array(5),
 }
 
 export class CatapultSimulation {
@@ -104,44 +104,46 @@ export class CatapultSimulation {
       newState.cwPosition[0] = shortTip.x + dx_cw * factor_cw
       newState.cwPosition[1] = shortTip.y + dy_cw * factor_cw
 
-      const cosS = Math.cos(newState.slingAngle)
-      const sinS = Math.sin(newState.slingAngle)
-      newState.position[0] = tip.x + Ls * cosS
-      newState.position[1] = tip.y + Ls * sinS
+      const dx_p = newState.position[0] - tip.x
+      const dy_p = newState.position[1] - tip.y
+      const dist_p = Math.sqrt(dx_p * dx_p + dy_p * dy_p + 1e-12)
+      const factor_p = Ls / dist_p
+      newState.position[0] = tip.x + dx_p * factor_p
+      newState.position[1] = tip.y + dy_p * factor_p
 
+      const nx = dx_p / dist_p
+      const ny = dy_p / dist_p
       const vxt =
         -L1 * Math.sin(newState.armAngle) * newState.armAngularVelocity
       const vyt = L1 * Math.cos(newState.armAngle) * newState.armAngularVelocity
-      newState.velocity[0] = vxt - Ls * sinS * newState.slingAngularVelocity
-      newState.velocity[1] = vyt + Ls * cosS * newState.slingAngularVelocity
+      const vrelx = newState.velocity[0] - vxt
+      const vrely = newState.velocity[1] - vyt
+      const vdotn = vrelx * nx + vrely * ny
+      newState.velocity[0] -= vdotn * nx
+      newState.velocity[1] -= vdotn * ny
+
+      if (newState.position[1] < this.config.projectile.radius) {
+        newState.position[1] = this.config.projectile.radius
+      }
 
       newState = {
         ...newState,
-        cwAngle: Math.atan2(dy_cw, dx_cw) + Math.PI / 2, // Normalize to hinge downward
+        cwAngle: Math.atan2(dy_cw, dx_cw) + Math.PI / 2,
+        slingAngle: Math.atan2(dy_p, dx_p),
       }
 
-      const armVec = {
-        x: Math.cos(newState.armAngle),
-        y: Math.sin(newState.armAngle),
-      }
-      const slingVec = {
-        x: Math.cos(newState.slingAngle),
-        y: Math.sin(newState.slingAngle),
-      }
-      const det = armVec.x * slingVec.y - armVec.y * slingVec.x
-      const dot = armVec.x * slingVec.x + armVec.y * slingVec.y
-      const currentRelAngle = Math.atan2(det, dot)
+      const velocityAngle =
+        (Math.atan2(newState.velocity[1], newState.velocity[0]) * 180) / Math.PI
+      const releaseThreshold = this.config.trebuchet.releaseAngle
 
-      const armAngleDeg =
-        ((((newState.armAngle * 180) / Math.PI) % 360) + 360) % 360
-      const releaseThresholdMagnitude = Math.abs(
-        this.config.trebuchet.releaseAngle,
-      )
+      // const armAngleDeg =
+      //   ((((newState.armAngle * 180) / Math.PI) % 360) + 360) % 360
 
       if (
-        armAngleDeg < 120 &&
-        newState.velocity[0] > 0 &&
-        Math.abs(currentRelAngle) < releaseThresholdMagnitude
+        // armAngleDeg < 120 &&
+        // armAngleDeg > 10 &&
+        // newState.velocity[0] > 0 &&
+        velocityAngle >= releaseThreshold
       ) {
         newState = {
           ...newState,
@@ -154,7 +156,13 @@ export class CatapultSimulation {
 
     if (newState.position[1] < this.config.projectile.radius) {
       newState.position[1] = this.config.projectile.radius
-      if (newState.velocity[1] < 0) newState.velocity[1] = 0
+      if (!newState.isReleased) {
+        if (newState.velocity[1] < 0) newState.velocity[1] = 0
+      } else {
+        newState.velocity[0] = 0
+        newState.velocity[1] = 0
+        newState.velocity[2] = 0
+      }
     }
 
     const cwRadius = this.config.trebuchet.counterweightRadius

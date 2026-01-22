@@ -30,7 +30,8 @@ export interface LogRecord {
 export class PhysicsLogger {
   private records: Array<LogRecord> = []
   private isEnabled = false
-  private initialPE = 0
+  private initialPETotal = 0
+  private initialEProj = 0
 
   public enable() {
     this.isEnabled = true
@@ -60,25 +61,26 @@ export class PhysicsLogger {
     const L2 = config.trebuchet.shortArmLength
     const H = config.trebuchet.pivotHeight
 
-    if (this.initialPE === 0 || this.records.length === 0) {
-      const ycw0 = state.cwPosition[1]
-      const yp0 = state.position[1]
-      const yarm0 = H + ((L1 - L2) / 2) * Math.sin(state.armAngle)
-      this.initialPE = Mcw * g * ycw0 + Ma * g * yarm0 + Mp * g * yp0
+    const currentYArm = H + ((L1 - L2) / 2) * Math.sin(state.armAngle)
+    const currentPETotal = Mcw * g * state.cwPosition[1] + Ma * g * currentYArm + Mp * g * state.position[1]
+    const currentEProj = 0.5 * Mp * (state.velocity[0] ** 2 + state.velocity[1] ** 2) + Mp * g * state.position[1]
+
+    if (this.records.length === 0) {
+      this.initialPETotal = currentPETotal
+      this.initialEProj = currentEProj
     }
+
+    const deltaEProj = currentEProj - this.initialEProj
+    const deltaPETotal = this.initialPETotal - currentPETotal
+    const energyEfficiency = Math.abs(deltaPETotal) > 1e-3 ? deltaEProj / Math.abs(deltaPETotal) : 0
 
     const yp = state.position[1]
     const vp = Math.sqrt(state.velocity[0] ** 2 + state.velocity[1] ** 2)
-    const totalEnergyProj = 0.5 * Mp * vp ** 2 + Mp * g * yp
-    const energyEfficiency =
-      this.initialPE > 0 ? totalEnergyProj / this.initialPE : 0
-
     const theta = Math.atan2(state.velocity[1], state.velocity[0])
-    const h = yp
     const R_actual =
       ((vp * Math.cos(theta)) / g) *
       (vp * Math.sin(theta) +
-        Math.sqrt(Math.max(0, (vp * Math.sin(theta)) ** 2 + 2 * g * h)))
+        Math.sqrt(Math.max(0, (vp * Math.sin(theta)) ** 2 + 2 * g * yp)))
     const R_ideal = (vp * vp) / g
     const rangeEfficiency = R_ideal > 0 ? R_actual / R_ideal : 0
 
@@ -171,7 +173,8 @@ export class PhysicsLogger {
 
   public clear() {
     this.records = []
-    this.initialPE = 0
+    this.initialPETotal = 0
+    this.initialEProj = 0
   }
 
   public exportJSON(): string {
