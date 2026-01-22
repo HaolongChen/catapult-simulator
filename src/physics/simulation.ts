@@ -162,15 +162,17 @@ export class CatapultSimulation {
       prevY = state.slingParticles[2 * i + 1]
     }
 
-    // Projectile
-    const dxp = state.position[0] - prevX
-    const dyp = state.position[1] - prevY
-    const dp = Math.sqrt(dxp * dxp + dyp * dyp + 1e-12)
-    const thresholdP = Lseg * 1.01
-    if (dp > thresholdP) {
-      const corr = (dp - thresholdP) * projectionFactor
-      state.position[0] = prevX + (dxp / dp) * (thresholdP + corr)
-      state.position[1] = prevY + (dyp / dp) * (thresholdP + corr)
+    // Projectile (Only if attached)
+    if (!state.isReleased) {
+      const dxp = state.position[0] - prevX
+      const dyp = state.position[1] - prevY
+      const dp = Math.sqrt(dxp * dxp + dyp * dyp + 1e-12)
+      const thresholdP = Lseg * 1.01
+      if (dp > thresholdP) {
+        const corr = (dp - thresholdP) * projectionFactor
+        state.position[0] = prevX + (dxp / dp) * (thresholdP + corr)
+        state.position[1] = prevY + (dyp / dp) * (thresholdP + corr)
+      }
     }
   }
 

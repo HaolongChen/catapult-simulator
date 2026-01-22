@@ -345,7 +345,9 @@ export function computeDerivatives(
 
   const mask = new Array(dimC).fill(true)
   if (isReleased) {
-    for (let i = 0; i < N; i++) mask[i] = false
+    // Keep internal sling segments (0 to N-2) masked as true (attached to arm)
+    // Only unmask the last segment (N-1) which connects to the projectile
+    mask[N - 1] = false
   }
   mask[N + 2] = !isReleased && onR
 

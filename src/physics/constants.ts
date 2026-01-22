@@ -3,7 +3,7 @@ export const PHYSICS_CONSTANTS = {
   KKT_REGULARIZATION: 1e-9, // Stable default
   MIN_PARTICLE_MASS: 0.1, // Reasonable floor
   SEA_LEVEL_TEMPERATURE: 288.15,
-  NUM_SLING_PARTICLES: 5, // Number of segments in the soft sling
+  NUM_SLING_PARTICLES: 20, // Number of segments in the soft sling
   ROPE_YOUNGS_MODULUS: 1e9, // 1 GPa for hemp
   ROPE_DAMPING_RATIO: 0.05,
   ROPE_DIAMETER: 0.02, // 2cm
@@ -13,10 +13,10 @@ export const PHYSICS_CONSTANTS = {
 export const VISUAL_CONSTANTS = {
   GROUND_SIZE: 100,
   SLING_VIOLATION_THRESHOLD: 0.01,
-  PLAYBACK_FPS: 60,
+  PLAYBACK_FPS: 160,
   CAMERA_DEFAULT: {
-    position: [0, 5, 20] as [number, number, number],
-    fov: 50,
+    position: [-10, 0, 0] as [number, number, number],
+    fov: 130,
   },
   LIGHTS: {
     AMBIENT_INTENSITY: 1.5,

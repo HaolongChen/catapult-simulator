@@ -56,21 +56,19 @@ export function renderTrebuchet(
   ctx.stroke()
 
   // 5. Draw Soft Sling (Multi-particle)
-  if (sling.isAttached && sling.points.length > 0) {
-    ctx.beginPath()
-    const startPt = sling.points[0]
-    ctx.moveTo(toCanvasX(startPt[0]), toCanvasY(startPt[1]))
+  ctx.beginPath()
+  const startPt = sling.points[0]
+  ctx.moveTo(toCanvasX(startPt[0]), toCanvasY(startPt[1]))
 
-    for (let i = 1; i < sling.points.length; i++) {
-      const pt = sling.points[i]
-      ctx.lineTo(toCanvasX(pt[0]), toCanvasY(pt[1]))
-    }
-
-    ctx.strokeStyle = '#8b4513'
-    ctx.lineWidth = 1.2
-    ctx.lineJoin = 'round'
-    ctx.globalAlpha = 0.8
-    ctx.stroke()
-    ctx.globalAlpha = 1.0
+  for (let i = 1; i < sling.points.length; i++) {
+    const pt = sling.points[i]
+    ctx.lineTo(toCanvasX(pt[0]), toCanvasY(pt[1]))
   }
+
+  ctx.strokeStyle = '#8b4513'
+  ctx.lineWidth = 1.2
+  ctx.lineJoin = 'round'
+  ctx.globalAlpha = 0.8
+  ctx.stroke()
+  ctx.globalAlpha = 1.0
 }
