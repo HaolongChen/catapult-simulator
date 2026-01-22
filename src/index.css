@@ -121,3 +121,43 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  /* Prevent text selection on touch */
+  button, input[type="range"] {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* Smooth scrolling for mobile */
+  .custom-scrollbar {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Larger touch targets */
+  button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

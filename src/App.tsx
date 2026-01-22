@@ -33,7 +33,7 @@ function App() {
       <DebugOverlay frameData={frameData} />
 
       <div
-        className={`fixed bottom-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} left-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} flex flex-col gap-${UI_CONSTANTS.LAYOUT.GAP_SMALL}`}
+        className={`fixed bottom-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} left-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} flex flex-col gap-${UI_CONSTANTS.LAYOUT.GAP_SMALL} max-md:hidden`}
       >
         <h1 className="text-2xl font-black text-slate-100 tracking-tighter">
           {APP_METADATA.TITLE}
@@ -43,6 +43,13 @@ function App() {
         >
           {APP_METADATA.SUBTITLE}
         </p>
+      </div>
+
+      {/* Mobile Title */}
+      <div className="md:hidden fixed top-4 left-4 right-4 z-50">
+        <h1 className="text-lg font-black text-slate-100 tracking-tighter">
+          {APP_METADATA.TITLE}
+        </h1>
       </div>
     </div>
   )
