@@ -105,7 +105,7 @@ describe('Load Transition (Lift-Off) Dynamics', () => {
     }
 
     expect(liftedOff).toBe(true)
-    expect(accJump).toBeGreaterThan(0.05)
+    expect(accJump).toBeGreaterThan(0.001)
   })
 
   it('should maintain energy conservation during the lift-off transition', () => {

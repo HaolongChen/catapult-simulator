@@ -81,6 +81,8 @@ export interface TrebuchetProperties {
   jointFriction: number
   armMass: number
   pivotHeight: number
+  ropeStiffness?: number // Elastic stiffness (N/m per segment)
+  ropeDamping?: number // Internal viscosity (N·s/m per segment)
 }
 
 export interface SimulationConfig {

@@ -1,9 +1,13 @@
 export const PHYSICS_CONSTANTS = {
   GRAVITY: 9.81,
-  KKT_REGULARIZATION: 1e-12,
-  MIN_PARTICLE_MASS: 0.001,
+  KKT_REGULARIZATION: 1e-9, // Stable default
+  MIN_PARTICLE_MASS: 0.1, // Reasonable floor
   SEA_LEVEL_TEMPERATURE: 288.15,
   NUM_SLING_PARTICLES: 5, // Number of segments in the soft sling
+  ROPE_YOUNGS_MODULUS: 1e9, // 1 GPa for hemp
+  ROPE_DAMPING_RATIO: 0.05,
+  ROPE_DIAMETER: 0.02, // 2cm
+  ROPE_DRAG_COEFFICIENT: 1.2, // Long cylinder
 }
 
 export const VISUAL_CONSTANTS = {

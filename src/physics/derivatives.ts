@@ -89,6 +89,7 @@ export function computeDerivatives(
     jointFriction,
     slingLength: Ls,
     pivotHeight: H,
+    ropeStiffness,
   } = trebuchetProps
 
   const Mp = projectile.mass
@@ -97,11 +98,12 @@ export function computeDerivatives(
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
   const Lseg = Ls / N
 
-  // More realistic sling mass: 5% of projectile mass
+  const E = ropeStiffness || PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS
+  const Area = Math.PI * (PHYSICS_CONSTANTS.ROPE_DIAMETER / 2) ** 2
+  const segmentK = (E * Area) / Lseg
+
   const Msling = Mp * 0.05
   const m_p = Math.max(Msling / (N - 1), PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
-
-  const Mp_eff = Mp
 
   const airVel = new Float64Array([
     velocity[0] - windVelocity[0],
@@ -147,8 +149,8 @@ export function computeDerivatives(
     M_diag[1 + 2 * i] = m_p
     M_diag[2 + 2 * i] = m_p
   }
-  M_diag[1 + 2 * M_inter] = Mp_eff
-  M_diag[2 + 2 * M_inter] = Mp_eff
+  M_diag[1 + 2 * M_inter] = Mp
+  M_diag[2 + 2 * M_inter] = Mp
   M_diag[1 + 2 * M_inter + 2] = Mcw
   M_diag[2 + 2 * M_inter + 2] = Mcw
   M_diag[1 + 2 * M_inter + 4] = Icw
@@ -178,8 +180,8 @@ export function computeDerivatives(
   const dimC = N + 2 + 1
   const J = Array.from({ length: dimC }, () => new Array(dimQ).fill(0))
   const gamma = new Array(dimC).fill(0)
-  const alpha = 20.0,
-    beta = 1000.0 // Stiffer constraints for better coupling propagation
+  const alphaHard = 40.0,
+    betaHard = 1000.0
 
   let dxN = 0,
     dyN = 0
@@ -197,8 +199,8 @@ export function computeDerivatives(
     gamma[0] =
       (dxN * xtl_g + dyN * ytl_g) / Ls -
       ((vN.x - xtl_p * dth) ** 2 + (vN.y - ytl_p * dth) ** 2) / Ls -
-      alpha * dCN -
-      beta * CN
+      alphaHard * dCN -
+      betaHard * CN
   } else {
     const p1 = { x: slingParticles[0], y: slingParticles[1] }
     const v1 = { x: slingVelocities[0], y: slingVelocities[1] }
@@ -213,8 +215,8 @@ export function computeDerivatives(
     gamma[0] =
       (dx1 * xtl_g + dy1 * ytl_g) / Lseg -
       ((v1.x - xtl_p * dth) ** 2 + (v1.y - ytl_p * dth) ** 2) / Lseg -
-      alpha * dC0 -
-      beta * C0
+      alphaHard * dC0 -
+      betaHard * C0
 
     for (let i = 0; i < M_inter - 1; i++) {
       const pa = { x: slingParticles[2 * i], y: slingParticles[2 * i + 1] }
@@ -238,8 +240,8 @@ export function computeDerivatives(
       J[i + 1][2 + 2 * (i + 1)] = dy / Lseg
       gamma[i + 1] =
         -((vb.x - va.x) ** 2 + (vb.y - va.y) ** 2) / Lseg -
-        alpha * dC -
-        beta * C
+        alphaHard * dC -
+        betaHard * C
     }
 
     const pM = {
@@ -263,8 +265,8 @@ export function computeDerivatives(
     J[N - 1][2 + 2 * M_inter] = dyN / Lseg
     gamma[N - 1] =
       -((vN.x - vM.x) ** 2 + (vN.y - vM.y) ** 2) / Lseg -
-      alpha * dCN -
-      beta * CN
+      alphaHard * dCN -
+      betaHard * CN
   }
 
   const idxCW = 1 + 2 * M_inter + 2
@@ -274,7 +276,8 @@ export function computeDerivatives(
   J[N][0] = -xts_p
   J[N][idxCW] = 1.0
   J[N][idxPhi] = -Rcw * cosP
-  gamma[N] = xts_g - Rcw * sinP * dphi_cw ** 2 - alpha * dC_cw0 - beta * C_cw0
+  gamma[N] =
+    xts_g - Rcw * sinP * dphi_cw ** 2 - alphaHard * dC_cw0 - betaHard * C_cw0
 
   const C_cw1 = pCW[1] - (yts - Rcw * cosP)
   const dC_cw1 = vCW[1] - (yts_p * dth + Rcw * sinP * dphi_cw)
@@ -282,7 +285,7 @@ export function computeDerivatives(
   J[N + 1][idxCW + 1] = 1.0
   J[N + 1][idxPhi] = -Rcw * sinP
   gamma[N + 1] =
-    yts_g + Rcw * cosP * dphi_cw ** 2 - alpha * dC_cw1 - beta * C_cw1
+    yts_g + Rcw * cosP * dphi_cw ** 2 - alphaHard * dC_cw1 - betaHard * C_cw1
 
   const onR = position[1] - Rp <= 0.05
   const C_gnd = position[1] - Rp
@@ -302,6 +305,9 @@ export function computeDerivatives(
 
     const S = Array.from({ length: m }, () => new Array(m).fill(0))
     const rhs = new Float64Array(m)
+
+    const compliance = 1.0 / segmentK
+
     for (let i = 0; i < m; i++) {
       const idxA = activeIdx[i]
       const Ji = J[idxA]
@@ -314,6 +320,11 @@ export function computeDerivatives(
         for (let j = 0; j < dimQ; j++) sum += Ji[j] * Minv[j] * Jk[j]
         S[i][k] = sum
       }
+
+      if (idxA < N) {
+        S[i][i] += compliance
+      }
+
       S[i][i] += PHYSICS_CONSTANTS.KKT_REGULARIZATION
     }
 
@@ -345,13 +356,12 @@ export function computeDerivatives(
     if (!isReleased) {
       for (let i = 0; i < N; i++) {
         if (mask[i] && lambda[i] < -1e-3) {
-          // Compression
           mask[i] = false
           changed = true
         }
       }
     }
-    if (mask[N + 2] && lambda[N + 2] < -1e-3) {
+    if (mask[N + 2] && lambda[N + 2] > 1e-3) {
       mask[N + 2] = false
       changed = true
     }

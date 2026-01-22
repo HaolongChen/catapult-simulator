@@ -137,20 +137,26 @@ export class CatapultSimulation {
     state.cwPosition[0] = shortArmTip.x + (dx_cw / d_cw) * Rcw
     state.cwPosition[1] = shortArmTip.y + (dy_cw / d_cw) * Rcw
 
-    // 2. Sling Particles (Only if taut)
+    // 2. Sling Particles (Allow for elastic stretch)
     let prevX = longArmTip.x
     let prevY = longArmTip.y
 
     const M = N - 1
+    // Weaken projection to allow DAE compliance to show
+    const projectionFactor = 0.5
     for (let i = 0; i < M; i++) {
       const px = state.slingParticles[2 * i]
       const py = state.slingParticles[2 * i + 1]
       const dx = px - prevX
       const dy = py - prevY
       const d = Math.sqrt(dx * dx + dy * dy + 1e-12)
-      if (d > Lseg) {
-        state.slingParticles[2 * i] = prevX + (dx / d) * Lseg
-        state.slingParticles[2 * i + 1] = prevY + (dy / d) * Lseg
+
+      // Only project if significantly violating (e.g. > 1% over nominal)
+      const threshold = Lseg * 1.01
+      if (d > threshold) {
+        const corr = (d - threshold) * projectionFactor
+        state.slingParticles[2 * i] = prevX + (dx / d) * (threshold + corr)
+        state.slingParticles[2 * i + 1] = prevY + (dy / d) * (threshold + corr)
       }
       prevX = state.slingParticles[2 * i]
       prevY = state.slingParticles[2 * i + 1]
@@ -160,9 +166,11 @@ export class CatapultSimulation {
     const dxp = state.position[0] - prevX
     const dyp = state.position[1] - prevY
     const dp = Math.sqrt(dxp * dxp + dyp * dyp + 1e-12)
-    if (dp > Lseg) {
-      state.position[0] = prevX + (dxp / dp) * Lseg
-      state.position[1] = prevY + (dyp / dp) * Lseg
+    const thresholdP = Lseg * 1.01
+    if (dp > thresholdP) {
+      const corr = (dp - thresholdP) * projectionFactor
+      state.position[0] = prevX + (dxp / dp) * (thresholdP + corr)
+      state.position[1] = prevY + (dyp / dp) * (thresholdP + corr)
     }
   }
 

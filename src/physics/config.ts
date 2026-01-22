@@ -59,7 +59,8 @@ export function createInitialState(config: SimulationConfig): PhysicsState {
   if (Ls > dy_max) {
     projY = projRadius
     const dx = Math.sqrt(Ls * Ls - dy_max * dy_max)
-    projX = tipX - dx
+    // Initialize slightly closer to allow gravitational sag to develop
+    projX = tipX - dx * 0.9
   } else {
     projX = tipX
     projY = tipY - Ls
@@ -70,10 +71,70 @@ export function createInitialState(config: SimulationConfig): PhysicsState {
   const slingParticles = new Float64Array(2 * M)
   const slingVelocities = new Float64Array(2 * M)
 
+  const Lseg = Ls / N
+  const particles = []
+  particles.push({ x: tipX, y: tipY }) // P0
   for (let i = 0; i < M; i++) {
     const alpha = (i + 1) / N
-    slingParticles[2 * i] = tipX * (1 - alpha) + projX * alpha
-    slingParticles[2 * i + 1] = tipY * (1 - alpha) + projY * alpha
+    particles.push({
+      x: tipX * (1 - alpha) + projX * alpha,
+      y: tipY * (1 - alpha) + projY * alpha,
+    })
+  }
+  particles.push({ x: projX, y: projY }) // PN
+
+  // Geometric PBD Settle
+  for (let iter = 0; iter < 200; iter++) {
+    // 1. Gravity Step (Interior particles)
+    for (let i = 1; i < N; i++) {
+      particles[i].y -= 0.005 // Smaller steps for stability
+      if (particles[i].y < projRadius) particles[i].y = projRadius
+    }
+
+    // 2. Constraint Step
+    for (let i = 0; i < N; i++) {
+      const p1 = particles[i]
+      const p2 = particles[i + 1]
+      const dx = p2.x - p1.x
+      const dy = p2.y - p1.y
+      const dist = Math.sqrt(dx * dx + dy * dy + 1e-12)
+
+      // Stabilization: Avoid perfectly taut initialization snaps
+      const error = (dist - Lseg) / (dist + 1e-12)
+      const offsetX = dx * error * 0.5
+      const offsetY = dy * error * 0.5
+
+      if (i === 0) {
+        // P0 is fixed
+        p2.x -= offsetX * 2
+        p2.y -= offsetY * 2
+      } else if (i === N - 1) {
+        // PN (projectile) is height-constrained
+        p1.x += offsetX
+        p1.y += offsetY
+        p2.x -= offsetX
+        // p2.y is clamped below
+      } else {
+        p1.x += offsetX
+        p1.y += offsetY
+        p2.x -= offsetX
+        p2.y -= offsetY
+      }
+    }
+
+    // 3. Pinning & Rail Clamping
+    particles[0].x = tipX
+    particles[0].y = tipY
+    particles[N].y = projRadius
+    for (let i = 1; i < N; i++) {
+      if (particles[i].y < projRadius) particles[i].y = projRadius
+    }
+  }
+
+  // Write back to state
+  for (let i = 0; i < M; i++) {
+    slingParticles[2 * i] = particles[i + 1].x
+    slingParticles[2 * i + 1] = particles[i + 1].y
     slingVelocities[2 * i] = 0
     slingVelocities[2 * i + 1] = 0
   }
@@ -87,7 +148,7 @@ export function createInitialState(config: SimulationConfig): PhysicsState {
     cwAngularVelocity: 0,
     slingParticles,
     slingVelocities,
-    position: new Float64Array([projX, projY, 0]),
+    position: new Float64Array([particles[N].x, particles[N].y, 0]),
     velocity: new Float64Array([0, 0, 0]),
     orientation: new Float64Array([1, 0, 0, 0]),
     angularVelocity: new Float64Array([0, 0, 0]),
