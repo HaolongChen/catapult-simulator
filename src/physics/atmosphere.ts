@@ -72,8 +72,10 @@ export function airDensity(
 ): number {
   const { seaLevelDensity, scaleHeight } = ATMOSPHERIC_CONSTANTS
 
+  const safeAltitude = Math.max(-100, altitude)
+
   // Barometric formula (exponential atmosphere)
-  const dryDensity = seaLevelDensity * Math.exp(-altitude / scaleHeight)
+  const dryDensity = seaLevelDensity * Math.exp(-safeAltitude / scaleHeight)
 
   // Apply humidity correction
   return humidityDensityCorrection(dryDensity, temperature, humidity)
@@ -104,11 +106,12 @@ export function airTemperature(
 export function airViscosity(temperature: number): number {
   const { sutherlandT0, sutherlandMu0, sutherlandS } = ATMOSPHERIC_CONSTANTS
 
-  // Sutherland's formula
+  // Sutherland's formula with safety floor
+  const safeTemp = Math.max(1.0, temperature)
   const mu =
     sutherlandMu0 *
-    Math.pow(temperature / sutherlandT0, 1.5) *
-    ((sutherlandT0 + sutherlandS) / (temperature + sutherlandS))
+    Math.pow(safeTemp / sutherlandT0, 1.5) *
+    ((sutherlandT0 + sutherlandS) / (safeTemp + sutherlandS))
 
   return mu
 }
@@ -142,7 +145,7 @@ export function atmosphericModel(
   const pressure = (density * universalGasConstant * temperature) / airMolarMass
 
   // Speed of sound in air (simplified)
-  const speedOfSound = 331.3 * Math.sqrt(temperature / 273.15)
+  const speedOfSound = 331.3 * Math.sqrt(Math.max(1.0, temperature) / 273.15)
 
   return {
     density,

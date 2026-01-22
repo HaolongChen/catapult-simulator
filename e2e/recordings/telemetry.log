@@ -1,5 +1,0 @@
-
-Running 1 test using 1 worker
-
-[1A[2K[1/1] [chromium] › e2e/record-sim.spec.ts:3:1 › record simulation launch
-[1A[2K  1 passed (16.6s)

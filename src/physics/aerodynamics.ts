@@ -79,7 +79,10 @@ export function dragForce(
   const vMag = Math.sqrt(vSq)
   const result = new Float64Array(3)
   if (vMag > 1e-6) {
-    const fDrag = 0.5 * density * vSq * cd * area
+    let fDrag = 0.5 * density * vSq * cd * area
+
+    fDrag = Math.min(fDrag, 1e7)
+
     result[0] = -fDrag * (velocity[0] / vMag)
     result[1] = -fDrag * (velocity[1] / vMag)
     result[2] = -fDrag * (velocity[2] / vMag)
@@ -101,7 +104,8 @@ export function magnusForce(
     const crossX = spinVector[1] * velocity[2] - spinVector[2] * velocity[1]
     const crossY = spinVector[2] * velocity[0] - spinVector[0] * velocity[2]
     const crossZ = spinVector[0] * velocity[1] - spinVector[1] * velocity[0]
-    const fMag = density * cl * area * vMag
+    let fMag = density * cl * area * vMag
+    fMag = Math.min(fMag, 1e6)
     result[0] = fMag * (crossX / vMag)
     result[1] = fMag * (crossY / vMag)
     result[2] = fMag * (crossZ / vMag)

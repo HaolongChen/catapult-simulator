@@ -1,130 +1,114 @@
+import { PHYSICS_CONSTANTS } from './constants'
 import { aerodynamicForce } from './aerodynamics'
 import type {
-  PhysicsDerivative17DOF,
+  PhysicsDerivative,
   PhysicsForces,
-  PhysicsState17DOF,
+  PhysicsState,
   ProjectileProperties,
   TrebuchetProperties,
 } from './types'
 
 export type { DerivativeFunction } from './types'
 
-function solveLinearSystem(
-  A: Array<Array<number>>,
-  b: Array<number>,
-): Array<number> {
-  const n = b.length
-  const L = Array.from({ length: n }, () => new Array(n).fill(0))
-  const U = A.map((row) => [...row])
-  const P = Array.from({ length: n }, (_, i) => i)
-
+function solveLinearSystem(A: number[][], b: number[]): number[] {
+  const n = b.length,
+    L = Array.from({ length: n }, () => new Array(n).fill(0)),
+    U = A.map((r) => [...r]),
+    P = Array.from({ length: n }, (_, i) => i)
   for (let i = 0; i < n; i++) {
-    let max = Math.abs(U[i][i])
-    let maxRow = i
-    for (let k = i + 1; k < n; k++) {
+    let max = Math.abs(U[i][i]),
+      maxR = i
+    for (let k = i + 1; k < n; k++)
       if (Math.abs(U[k][i]) > max) {
         max = Math.abs(U[k][i])
-        maxRow = k
+        maxR = k
       }
-    }
-
-    const tempRow = U[i]
-    U[i] = U[maxRow]
-    U[maxRow] = tempRow
-    const tempP = P[i]
-    P[i] = P[maxRow]
-    P[maxRow] = tempP
-
+    const tr = U[i]
+    U[i] = U[maxR]
+    U[maxR] = tr
+    const tp = P[i]
+    P[i] = P[maxR]
+    P[maxR] = tp
     for (let k = 0; k < i; k++) {
-      const tempL = L[i][k]
-      L[i][k] = L[maxRow][k]
-      L[maxRow][k] = tempL
+      const tl = L[i][k]
+      L[i][k] = L[maxR][k]
+      L[maxR][k] = tl
     }
-
-    const pivotVal = U[i][i]
-    if (Math.abs(pivotVal) < 1e-20) {
-      U[i][i] = pivotVal < 0 ? -1e-20 : 1e-20
-    }
-
+    const pV = U[i][i]
+    if (Math.abs(pV) < 1e-20) U[i][i] = pV < 0 ? -1e-20 : 1e-20
     for (let k = i + 1; k < n; k++) {
       L[k][i] = U[k][i] / U[i][i]
-      for (let j = i; j < n; j++) {
-        U[k][j] -= L[k][i] * U[i][j]
-      }
+      for (let j = i; j < n; j++) U[k][j] -= L[k][i] * U[i][j]
     }
     L[i][i] = 1
   }
-
   const y = new Array(n).fill(0)
   for (let i = 0; i < n; i++) {
-    let sum = 0
-    for (let j = 0; j < i; j++) {
-      sum += L[i][j] * y[j]
-    }
-    y[i] = b[P[i]] - sum
+    let s = 0
+    for (let j = 0; j < i; j++) s += L[i][j] * y[j]
+    y[i] = b[P[i]] - s
   }
-
   const x = new Array(n).fill(0)
   for (let i = n - 1; i >= 0; i--) {
-    let sum = 0
-    for (let j = i + 1; j < n; j++) {
-      sum += U[i][j] * x[j]
-    }
-    x[i] = (y[i] - sum) / U[i][i]
+    let s = 0
+    for (let j = i + 1; j < n; j++) s += U[i][j] * x[j]
+    x[i] = (y[i] - s) / U[i][i]
   }
-
   return x
 }
 
 export function computeDerivatives(
-  state: PhysicsState17DOF,
+  state: PhysicsState,
   projectile: ProjectileProperties,
   trebuchetProps: TrebuchetProperties,
   normalForce: number,
-): { derivative: PhysicsDerivative17DOF; forces: PhysicsForces } {
+): { derivative: PhysicsDerivative; forces: PhysicsForces } {
   const {
     position,
     velocity,
-    armAngle,
-    armAngularVelocity,
-    cwAngle,
-    cwAngularVelocity,
-    orientation,
+    armAngle: th,
+    armAngularVelocity: dth,
+    cwPosition: pCW,
+    cwVelocity: vCW,
+    cwAngle: phi_cw,
+    cwAngularVelocity: dphi_cw,
+    slingParticles,
+    slingVelocities,
     angularVelocity,
     windVelocity,
+    isReleased,
   } = state
+
   const {
     longArmLength: L1,
     shortArmLength: L2,
-    slingLength: Ls,
-    releaseAngle,
     counterweightMass: Mcw,
     counterweightRadius: Rcw,
+    counterweightInertia: Icw,
     armMass: Ma,
-    pivotHeight: H,
     jointFriction,
+    slingLength: Ls,
+    pivotHeight: H,
+    ropeStiffness,
   } = trebuchetProps
-  const Mp = projectile.mass
-  const g = 9.81
 
-  const wasReleased = orientation[0] > 0.5
-  const tipX = L1 * Math.cos(armAngle)
-  const tipY = H + L1 * Math.sin(armAngle)
-  const dx = position[0] - tipX
-  const dy = position[1] - tipY
-  const dz = position[2]
-  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz + 1e-12)
-  const ux = dx / dist,
-    uy = dy / dist,
-    uz = dz / dist
-  const armVecX = Math.cos(armAngle),
-    armVecY = Math.sin(armAngle)
-  const slingDotArm = ux * armVecX + uy * armVecY
-  const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360
-  const isUpward = normAng > 45 && normAng < 225
-  const releaseCondition =
-    !wasReleased && isUpward && slingDotArm > Math.cos(releaseAngle)
-  const isReleased = wasReleased || releaseCondition
+  const Mp = Math.max(projectile.mass, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
+  const Rp = projectile.radius
+  const g = PHYSICS_CONSTANTS.GRAVITY
+  const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+  const Lseg = Ls / N
+
+  const E = ropeStiffness || PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS
+  const Area = Math.PI * (PHYSICS_CONSTANTS.ROPE_DIAMETER / 2) ** 2
+  const segmentK = (E * Area) / Lseg
+
+  const Msling = Mp * 0.05
+  const m_p = Math.max(Msling / N, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS)
+
+  const omegaLimit = 20.0
+  const omega = Math.min(omegaLimit, Math.sqrt(segmentK / m_p))
+  const alphaSoft = 2 * PHYSICS_CONSTANTS.ROPE_DAMPING_RATIO * omega
+  const betaSoft = omega * omega
 
   const airVel = new Float64Array([
     velocity[0] - windVelocity[0],
@@ -135,274 +119,304 @@ export function computeDerivatives(
     airVel,
     angularVelocity,
     projectile,
-    position[1],
-    288.15,
+    Math.max(0, position[1]),
+    PHYSICS_CONSTANTS.SEA_LEVEL_TEMPERATURE,
   )
 
-  if (isReleased) {
-    return computeFreeFlight(state, projectile, trebuchetProps, aero)
-  }
+  const cosT = Math.cos(th),
+    sinT = Math.sin(th)
+  const cosP = Math.cos(phi_cw),
+    sinP = Math.sin(phi_cw)
+
+  const xtl = L1 * cosT,
+    ytl = H + L1 * sinT
+  const xts = -L2 * cosT,
+    yts = H - L2 * sinT
+
+  const xtl_p = -L1 * sinT,
+    ytl_p = L1 * cosT
+  const xts_p = L2 * sinT,
+    yts_p = -L2 * cosT
+
+  const xtl_g = -L1 * cosT * dth ** 2,
+    ytl_g = -L1 * sinT * dth ** 2
+  const xts_g = L2 * cosT * dth ** 2,
+    yts_g = L2 * sinT * dth ** 2
 
   const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
-  const Icw_box = 0.4 * Mcw * Rcw * Rcw
-  const M_diag = [Ia + Mcw * L2 * L2, Icw_box + Mcw * Rcw * Rcw, Mp, Mp, Mp]
-  const M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle)
 
-  let t_ext = -Math.sign(armAngularVelocity) * jointFriction * normalForce
-  if (normAng > 160 && normAng < 180 && armAngularVelocity > 0) {
-    t_ext -=
-      1000000 * (normAng - 160) * (Math.PI / 180) + 5000 * armAngularVelocity
+  const dimQ = 1 + 2 * N + 2 + 2 + 1
+  const M_diag = new Float64Array(dimQ)
+  const Minv = new Float64Array(dimQ)
+  M_diag[0] = Ia
+  for (let i = 0; i < N; i++) {
+    M_diag[1 + 2 * i] = m_p
+    M_diag[2 + 2 * i] = m_p
+  }
+  const idxProj = 1 + 2 * N
+  M_diag[idxProj] = Mp
+  M_diag[idxProj + 1] = Mp
+  const idxCW = idxProj + 2
+  M_diag[idxCW] = Mcw
+  M_diag[idxCW + 1] = Mcw
+  const idxPhi = idxCW + 2
+  M_diag[idxPhi] = Icw
+
+  for (let i = 0; i < dimQ; i++) Minv[i] = 1.0 / M_diag[i]
+
+  const friction =
+    -Math.tanh(dth * 100.0) * jointFriction * Math.abs(normalForce)
+
+  let projGndFric = 0
+  if (!isReleased && position[1] - Rp <= 0.05) {
+    projGndFric = -Math.tanh(velocity[0] * 10.0) * 0.4 * Mp * g
   }
 
-  const armCG = (L1 - L2) / 2
-  const Q_th =
-    -Ma * g * armCG * Math.cos(armAngle) +
-    Mcw * g * L2 * Math.cos(armAngle) +
-    t_ext -
-    Mcw * L2 * Rcw * cwAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
-  const Q_phi =
-    -Mcw * g * Rcw * Math.sin(cwAngle) -
-    Mcw * L2 * Rcw * armAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
-  const Q_forces = [
-    Q_th,
-    Q_phi,
-    aero.total[0],
-    aero.total[1] - Mp * g,
-    aero.total[2],
-  ]
+  const Q = new Float64Array(dimQ)
+  Q[0] = -Ma * g * ((L1 - L2) / 2) * cosT + friction
+  for (let i = 0; i < N; i++) {
+    Q[1 + 2 * i] = 0
+    Q[2 + 2 * i] = -m_p * g
+  }
+  Q[idxProj] = aero.total[0] + projGndFric
+  Q[idxProj + 1] = aero.total[1] - Mp * g
+  Q[idxCW] = 0
+  Q[idxCW + 1] = -Mcw * g
+  Q[idxPhi] = 0
 
-  const isTaut = dist >= Ls * 0.999
-  const onGround = position[1] <= 0.005
-  const J1 = [
-    L1 * (uy * Math.cos(armAngle) - ux * Math.sin(armAngle)),
-    0,
-    ux,
-    uy,
-    uz,
-  ]
-  const J2 = [0, 0, 0, 1, 0]
-  const tipVelX = -L1 * armAngularVelocity * Math.sin(armAngle),
-    tipVelY = L1 * armAngularVelocity * Math.cos(armAngle)
-  const relVelX = velocity[0] - tipVelX,
-    relVelY = velocity[1] - tipVelY,
-    relVelZ = velocity[2]
-  const C1_dot =
-    J1[0] * armAngularVelocity +
-    J1[2] * velocity[0] +
-    J1[3] * velocity[1] +
-    J1[4] * velocity[2]
-  const gamma1 =
-    -(relVelX ** 2 + relVelY ** 2 + relVelZ ** 2) / dist -
-    armAngularVelocity ** 2 *
-      L1 *
-      (ux * Math.cos(armAngle) + uy * Math.sin(armAngle))
+  const ropeCd = PHYSICS_CONSTANTS.ROPE_DRAG_COEFFICIENT
+  const ropeDiam = PHYSICS_CONSTANTS.ROPE_DIAMETER
+  const rho = 1.225
+  for (let i = 0; i < N; i++) {
+    const vx = slingVelocities[2 * i]
+    const vy = slingVelocities[2 * i + 1]
+    const vMag = Math.sqrt(vx * vx + vy * vy + 1e-12)
+    const fDrag = -0.5 * rho * vMag * ropeCd * ropeDiam * Lseg
+    Q[1 + 2 * i] += (fDrag * vx) / vMag
+    Q[2 + 2 * i] += (fDrag * vy) / vMag
+  }
 
-  const alpha = 80,
-    beta = 150
-  const b_vec = [
-    Q_forces[0],
-    Q_forces[1],
-    Q_forces[2],
-    Q_forces[3],
-    Q_forces[4],
-    isTaut ? gamma1 - 2 * alpha * C1_dot - beta * beta * (dist - Ls) : 0,
-    onGround ? -2 * alpha * velocity[1] - beta * beta * position[1] : 0,
-  ]
-  const A_matrix = Array.from({ length: 7 }, () => new Array(7).fill(0))
-  A_matrix[0][0] = M_diag[0]
-  A_matrix[0][1] = M12
-  A_matrix[1][0] = M12
-  A_matrix[1][1] = M_diag[1]
-  A_matrix[2][2] = M_diag[2]
-  A_matrix[3][3] = M_diag[3]
-  A_matrix[4][4] = M_diag[4]
+  const dimC = N + 2 + 2 + 1
+  const J = Array.from({ length: dimC }, () => new Array(dimQ).fill(0))
+  const gamma = new Array(dimC).fill(0)
+  const alphaHard = 10.0,
+    betaHard = 100.0
 
-  // Regularization for stability with extreme mass ratios
-  const eps = 1e-8
-  for (let i = 0; i < 7; i++) A_matrix[i][i] += eps
+  for (let i = 0; i < N; i++) {
+    let pa, va, pb, vb, idxA, idxB
+    const La = Lseg
 
-  if (isTaut) {
-    for (let i = 0; i < 5; i++) {
-      A_matrix[5][i] = J1[i]
-      A_matrix[i][5] = J1[i]
+    if (i === 0) {
+      pa = { x: xtl, y: ytl }
+      va = { x: xtl_p * dth, y: ytl_p * dth }
+      pb = { x: slingParticles[0], y: slingParticles[1] }
+      vb = { x: slingVelocities[0], y: slingVelocities[1] }
+      idxA = 0
+      idxB = 1
+    } else {
+      pa = {
+        x: slingParticles[2 * (i - 1)],
+        y: slingParticles[2 * (i - 1) + 1],
+      }
+      va = {
+        x: slingVelocities[2 * (i - 1)],
+        y: slingVelocities[2 * (i - 1) + 1],
+      }
+      pb = { x: slingParticles[2 * i], y: slingParticles[2 * i + 1] }
+      vb = { x: slingVelocities[2 * i], y: slingVelocities[2 * i + 1] }
+      idxA = 1 + 2 * (i - 1)
+      idxB = 1 + 2 * i
     }
-  } else {
-    A_matrix[5][5] = 1
-    b_vec[5] = 0
-  }
-  if (onGround) {
-    for (let i = 0; i < 5; i++) {
-      A_matrix[6][i] = J2[i]
-      A_matrix[i][6] = J2[i]
+
+    const dx = pb.x - pa.x,
+      dy = pb.y - pa.y
+    const d = Math.sqrt(dx * dx + dy * dy + 1e-12)
+    const C = (d * d - La * La) / (2 * La)
+    const relV = { x: vb.x - va.x, y: vb.y - va.y }
+    const dC = (dx * relV.x + dy * relV.y) / La
+
+    if (i === 0) {
+      J[i][0] = -(dx * xtl_p + dy * ytl_p) / La
+      J[i][1] = dx / La
+      J[i][2] = dy / La
+      gamma[i] =
+        (dx * xtl_g + dy * ytl_g) / La -
+        ((vb.x - va.x) ** 2 + (vb.y - va.y) ** 2) / La -
+        alphaSoft * dC -
+        betaSoft * C
+    } else {
+      J[i][idxA] = -dx / La
+      J[i][idxA + 1] = -dy / La
+      J[i][idxB] = dx / La
+      J[i][idxB + 1] = dy / La
+      gamma[i] =
+        -((vb.x - va.x) ** 2 + (vb.y - va.y) ** 2) / La -
+        alphaSoft * dC -
+        betaSoft * C
     }
-  } else {
-    A_matrix[6][6] = 1
-    b_vec[6] = 0
   }
 
-  const x = solveLinearSystem(A_matrix, b_vec)
-  let th_ddot = x[0],
-    phi_ddot = x[1],
-    ax = x[2],
-    ay = x[3],
-    az = x[4]
-  const lambda1 = x[5]
-  const lambda2 = x[6]
+  const pN = {
+    x: slingParticles[2 * (N - 1)],
+    y: slingParticles[2 * (N - 1) + 1],
+  }
+  const vN = {
+    x: slingVelocities[2 * (N - 1)],
+    y: slingVelocities[2 * (N - 1) + 1],
+  }
+  const pProj = { x: position[0], y: position[1] }
+  const vProj = { x: velocity[0], y: velocity[1] }
 
-  let needResolve = false
-  if (isTaut && lambda1 < 0) {
-    for (let i = 0; i < 5; i++) A_matrix[5][i] = A_matrix[i][5] = 0
-    A_matrix[5][5] = 1
-    b_vec[5] = 0
-    needResolve = true
-  }
-  if (onGround && lambda2 > 0) {
-    for (let i = 0; i < 5; i++) A_matrix[6][i] = A_matrix[i][6] = 0
-    A_matrix[6][6] = 1
-    b_vec[6] = 0
-    needResolve = true
-  }
-  if (needResolve) {
-    const x2 = solveLinearSystem(A_matrix, b_vec)
-    th_ddot = x2[0]
-    phi_ddot = x2[1]
-    ax = x2[2]
-    ay = x2[3]
-    az = x2[4]
+  const lockX = pN.x - pProj.x
+  const lockY = pN.y - pProj.y
+  const dLockX = vN.x - vProj.x
+  const dLockY = vN.y - vProj.y
+
+  J[N][1 + 2 * (N - 1)] = 1.0
+  J[N][idxProj] = -1.0
+  gamma[N] = -alphaHard * dLockX - betaHard * lockX
+
+  J[N + 1][1 + 2 * (N - 1) + 1] = 1.0
+  J[N + 1][idxProj + 1] = -1.0
+  gamma[N + 1] = -alphaHard * dLockY - betaHard * lockY
+
+  const C_cw0 = pCW[0] - (xts + Rcw * sinP)
+  const dC_cw0 = vCW[0] - (xts_p * dth + Rcw * cosP * dphi_cw)
+  J[N + 2][0] = -xts_p
+  J[N + 2][idxCW] = 1.0
+  J[N + 2][idxPhi] = -Rcw * cosP
+  gamma[N + 2] =
+    xts_g - Rcw * sinP * dphi_cw ** 2 - alphaHard * dC_cw0 - betaHard * C_cw0
+
+  const C_cw1 = pCW[1] - (yts - Rcw * cosP)
+  const dC_cw1 = vCW[1] - (yts_p * dth + Rcw * sinP * dphi_cw)
+  J[N + 3][0] = -yts_p
+  J[N + 3][idxCW + 1] = 1.0
+  J[N + 3][idxPhi] = -Rcw * sinP
+  gamma[N + 3] =
+    yts_g + Rcw * cosP * dphi_cw ** 2 - alphaHard * dC_cw1 - betaHard * C_cw1
+
+  const onR = position[1] - Rp <= 0.05
+  const C_gnd = position[1] - Rp
+  J[N + 4][idxProj + 1] = 1.0
+  gamma[N + 4] = -10.0 * velocity[1] - 100.0 * C_gnd
+
+  const solveSchur = (mask: boolean[]) => {
+    const activeIdx: number[] = []
+    for (let i = 0; i < dimC; i++) if (mask[i]) activeIdx.push(i)
+    const m = activeIdx.length
+
+    if (m === 0) {
+      const q_ddot = new Float64Array(dimQ)
+      for (let i = 0; i < dimQ; i++) q_ddot[i] = Q[i] * Minv[i]
+      return { q_ddot, lambda: new Float64Array(dimC) }
+    }
+
+    const S = Array.from({ length: m }, () => new Array(m).fill(0))
+    const rhs = new Float64Array(m)
+    const compliance = 1.0 / segmentK
+
+    for (let i = 0; i < m; i++) {
+      const idxA = activeIdx[i]
+      const Ji = J[idxA]
+      let jm_q = 0
+      for (let j = 0; j < dimQ; j++) jm_q += Ji[j] * Minv[j] * Q[j]
+      rhs[i] = jm_q - gamma[idxA]
+      for (let k = 0; k < m; k++) {
+        const Jk = J[activeIdx[k]]
+        let sum = 0
+        for (let j = 0; j < dimQ; j++) sum += Ji[j] * Minv[j] * Jk[j]
+        S[i][k] = sum
+      }
+
+      if (idxA < N) S[i][i] += compliance
+      S[i][i] += PHYSICS_CONSTANTS.KKT_REGULARIZATION
+    }
+
+    const lambdaActive = solveLinearSystem(S, Array.from(rhs))
+    const fullLambda = new Float64Array(dimC).fill(0)
+    for (let i = 0; i < m; i++) fullLambda[activeIdx[i]] = lambdaActive[i]
+
+    const q_ddot = new Float64Array(dimQ)
+    for (let j = 0; j < dimQ; j++) {
+      let jt_lambda = 0
+      for (let i = 0; i < dimC; i++) {
+        if (mask[i]) jt_lambda += J[i][j] * fullLambda[i]
+      }
+      q_ddot[j] = Minv[j] * (Q[j] - jt_lambda)
+    }
+    return { q_ddot, lambda: fullLambda }
   }
 
-  const w = angularVelocity,
-    q = orientation
+  const mask = new Array(dimC).fill(true)
+  if (isReleased) {
+    mask[N] = false
+    mask[N + 1] = false
+  }
+  mask[N + 4] = !isReleased && onR
+
+  let { q_ddot, lambda } = solveSchur(mask)
+
+  for (let iter = 0; iter < 3; iter++) {
+    let changed = false
+    for (let i = 0; i < N; i++) {
+      if (mask[i] && lambda[i] < -1e-3) {
+        mask[i] = false
+        changed = true
+      }
+    }
+    if (mask[N + 4] && lambda[N + 4] > 1e-3) {
+      mask[N + 4] = false
+      changed = true
+    }
+    if (!changed) break
+    const res = solveSchur(mask)
+    q_ddot = res.q_ddot
+    lambda = res.lambda
+  }
+
+  const slingDeriv = new Float64Array(2 * N)
+  const slingVDeriv = new Float64Array(2 * N)
+  for (let i = 0; i < N; i++) {
+    slingDeriv[2 * i] = slingVelocities[2 * i]
+    slingDeriv[2 * i + 1] = slingVelocities[2 * i + 1]
+    slingVDeriv[2 * i] = q_ddot[1 + 2 * i]
+    slingVDeriv[2 * i + 1] = q_ddot[2 + 2 * i]
+  }
+
   return {
     derivative: {
+      armAngle: dth,
+      armAngularVelocity: q_ddot[0],
+      cwPosition: new Float64Array([vCW[0], vCW[1]]),
+      cwVelocity: new Float64Array([q_ddot[idxCW], q_ddot[idxCW + 1]]),
+      cwAngle: dphi_cw,
+      cwAngularVelocity: q_ddot[idxPhi],
+      slingParticles: slingDeriv,
+      slingVelocities: slingVDeriv,
       position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
-      velocity: new Float64Array([ax, ay, az]),
-      orientation: new Float64Array([
-        0.5 * (-q[1] * w[0] - q[2] * w[1] - q[3] * w[2]),
-        0.5 * (q[0] * w[0] + q[2] * w[2] - q[3] * w[1]),
-        0.5 * (q[0] * w[1] - q[1] * w[2] + q[3] * w[0]),
-        0.5 * (q[0] * w[2] + q[1] * w[1] - q[2] * w[0]),
-      ]),
-      angularVelocity: new Float64Array([
-        -0.01 * w[0],
-        -0.01 * w[1],
-        -0.01 * w[2],
-      ]),
-      armAngle: armAngularVelocity,
-      armAngularVelocity: th_ddot,
-      cwAngle: cwAngularVelocity,
-      cwAngularVelocity: phi_ddot,
-      windVelocity: new Float64Array(3),
-      time: 1,
-    },
-    forces: {
-      drag: aero.drag,
-      magnus: aero.magnus,
-      gravity: new Float64Array([0, -Mp * g, 0]),
-      tension: new Float64Array([-ux * lambda1, -uy * lambda1, -uz * lambda1]),
-      total: new Float64Array([
-        aero.total[0] - ux * lambda1,
-        aero.total[1] - uy * lambda1 - Mp * g - lambda2,
-        aero.total[2] - uz * lambda1,
-      ]),
-    },
-  }
-}
-
-function computeFreeFlight(
-  state: PhysicsState17DOF,
-  projectile: ProjectileProperties,
-  trebuchetProps: TrebuchetProperties,
-  aero: { drag: Float64Array; magnus: Float64Array; total: Float64Array },
-): { derivative: PhysicsDerivative17DOF; forces: PhysicsForces } {
-  const {
-    velocity,
-    position,
-    armAngle,
-    armAngularVelocity,
-    cwAngle,
-    cwAngularVelocity,
-    orientation,
-    angularVelocity,
-  } = state
-  const {
-    longArmLength: L1,
-    shortArmLength: L2,
-    counterweightMass: Mcw,
-    counterweightRadius: Rcw,
-    armMass: Ma,
-    jointFriction,
-  } = trebuchetProps
-  const Mp = projectile.mass,
-    g = 9.81
-
-  const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3),
-    Icw = 0.4 * Mcw * Rcw * Rcw
-
-  const M11 = Ia + Mcw * L2 * L2
-  const M12 = Mcw * L2 * Rcw * Math.sin(armAngle - cwAngle)
-  const M22 = Icw + Mcw * Rcw * Rcw
-
-  // Stable determinant calculation for extreme mass ratios
-  const delta = armAngle - cwAngle
-  const det =
-    Ia * Icw +
-    Ia * Mcw * Rcw * Rcw +
-    Icw * Mcw * L2 * L2 +
-    Mcw * Mcw * L2 * L2 * Rcw * Rcw * Math.cos(delta) * Math.cos(delta) +
-    1e-9
-
-  const armCG = (L1 - L2) / 2
-  const G1 =
-      -Ma * g * armCG * Math.cos(armAngle) + Mcw * g * L2 * Math.cos(armAngle),
-    G2 = -Mcw * g * Rcw * Math.sin(cwAngle)
-  const C1 =
-      -Mcw * L2 * Rcw * cwAngularVelocity ** 2 * Math.cos(armAngle - cwAngle),
-    C2 = Mcw * L2 * Rcw * armAngularVelocity ** 2 * Math.cos(armAngle - cwAngle)
-  const normAng = ((((armAngle * 180) / Math.PI) % 360) + 360) % 360
-  let t_ext = -Math.sign(armAngularVelocity) * jointFriction * Mcw * g
-  if (normAng > 160 && normAng < 180 && armAngularVelocity > 0)
-    t_ext -=
-      1000000 * (normAng - 160) * (Math.PI / 180) + 5000 * armAngularVelocity
-
-  const th_ddot = ((G1 - C1 + t_ext) * M22 - (G2 - C2) * M12) / det,
-    phi_ddot = (M11 * (G2 - C2) - M12 * (G1 - C1 + t_ext)) / det
-
-  let ay = (aero.total[1] - Mp * g) / Mp
-
-  // Improved ground collision: acceleration-based penalty to avoid mass-ratio issues and tunnelling
-  if (position[1] < 0) {
-    const stiffness = 2000000 // Higher stiffness for high speed
-    const damping = 4000
-    ay += stiffness * -position[1] - damping * velocity[1]
-  }
-
-  const q = orientation,
-    w = angularVelocity
-  return {
-    derivative: {
-      position: new Float64Array([velocity[0], velocity[1], velocity[2]]),
-      velocity: new Float64Array([aero.total[0] / Mp, ay, aero.total[2] / Mp]),
-      orientation: new Float64Array([
-        0.5 * (-q[1] * w[0] - q[2] * w[1] - q[3] * w[2]),
-        0.5 * (q[0] * w[0] + q[2] * w[2] - q[3] * w[1]),
-        0.5 * (q[0] * w[1] - q[1] * w[2] + q[3] * w[0]),
-        0.5 * (q[0] * w[2] + q[1] * w[1] - q[2] * w[0]),
-      ]),
+      velocity: new Float64Array([q_ddot[idxProj], q_ddot[idxProj + 1], 0]),
+      orientation: new Float64Array(4),
       angularVelocity: new Float64Array(3),
-      armAngle: armAngularVelocity,
-      armAngularVelocity: th_ddot,
-      cwAngle: cwAngularVelocity,
-      cwAngularVelocity: phi_ddot,
       windVelocity: new Float64Array(3),
       time: 1,
+      isReleased,
     },
     forces: {
       drag: aero.drag,
       magnus: aero.magnus,
       gravity: new Float64Array([0, -Mp * g, 0]),
-      tension: new Float64Array(3),
-      total: aero.total,
+      tension: !isReleased
+        ? new Float64Array([lambda[N] || 0, lambda[N + 1] || 0, 0])
+        : new Float64Array(3),
+      total: new Float64Array([
+        q_ddot[idxProj] * Mp,
+        q_ddot[idxProj + 1] * Mp,
+        0,
+      ]),
+      groundNormal: mask[N + 4] ? -lambda[N + 4] : 0,
+      checkFunction: 0,
+      lambda: new Float64Array(lambda),
     },
   }
 }

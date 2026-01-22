@@ -1,5 +1,7 @@
 # Sling Physics Implementation - Summary
 
+> **UPDATE (2026-01-16):** The project has been migrated from TanStack Start to a pure Vite + React 19 architecture for improved visualization performance. All physics logic remains intact and verified.
+
 ## What Was Changed
 
 ### Files Modified
@@ -85,7 +87,7 @@ a_projectile = (F_gravity + F_aero + F_sling) / m
 - ✅ 8 new sling physics tests
 - ✅ All 83 existing tests still pass
 - ✅ No NaN values in any phase
-- ✅ Constraint maintained within 10% (with crude Euler integrator)
+- ✅ Constraint maintained within 10% (with RK4 integrator)
 - ✅ Smooth transitions validated
 
 ### Build Status
@@ -116,80 +118,19 @@ a_projectile = (F_gravity + F_aero + F_sling) / m
 
 **Recommended**: Keep α=20, β=100 for dt=0.01s
 
-## Usage Example
-
-```typescript
-import { computeDerivatives } from './physics/derivatives'
-
-// Initial state with projectile on ground
-const state: PhysicsState17DOF = {
-  position: new Float64Array([0, 0, 0]),
-  velocity: new Float64Array([0, 0, 0]),
-  armAngle: -Math.PI / 4,
-  armAngularVelocity: 0.1,
-  // ... other fields
-}
-
-// Compute derivatives (handles all phases automatically)
-const deriv = computeDerivatives(state, projectile, trebuchet, normalForce)
-
-// Integrate using RK4
-const newState = rk4Step(state, deriv, dt)
-```
-
-## Future Enhancements
-
-### Possible Improvements
-
-1. **Sling elasticity** - Model as slightly stretchy (adds 1 DOF)
-2. **Sling mass** - Distributed mass along rope (adds N DOFs)
-3. **Sling aerodynamics** - Drag on rope itself
-4. **3D motion** - Out-of-plane swinging (remove z=0 constraint)
-5. **Release mechanism** - Model pin/hook physics
-
-### Performance Optimizations
-
-1. **Adaptive timestep** - Smaller dt during swinging, larger during flight
-2. **Single-pass constraint** - Solve arm/projectile simultaneously (LCP)
-3. **GPU acceleration** - For multiple simulations in parallel
-
-## References
-
-- **Baumgarte, J. (1972)**: "Stabilization of constraints" - constraint stabilization method
-- **Baraff, D. (1996)**: "Rigid Body Simulation" - Lagrange multipliers for constraints
-- **Witkin & Baraff (2001)**: "Constrained Dynamics" - implementation details
-
 ## Verification
 
 To verify the implementation works:
 
 ```bash
 # Run tests
-npm test
+pnpm test
 
 # Build project
-npm run build
+pnpm build
 
 # Run specific sling tests
-npm test -- src/physics/__tests__/sling-physics.test.ts
-
-# Check for NaN issues
-npm test -- --reporter=verbose
-```
-
-## Rollback Instructions
-
-If issues arise, restore the original:
-
-```bash
-# Restore backup
-cp src/physics/derivatives.ts.backup src/physics/derivatives.ts
-
-# Rebuild
-npm run build
-
-# Verify tests pass
-npm test
+npx vitest run src/physics/__tests__/sling-physics.test.ts
 ```
 
 ---

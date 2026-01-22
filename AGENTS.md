@@ -1,125 +1,77 @@
-# PROJECT AGENT KNOWLEDGE BASE
+# PROJECT KNOWLEDGE BASE
 
-**Stack:** TanStack Start (React 19 + SSR) + React Three Fiber + @tanstack/store
-**Core Focus:** 17-DOF high-fidelity physics simulation of medieval trebuchets.
+**Generated:** 2026-01-21 21:32:21
+**Commit:** 8164699
+**Branch:** rebuild
 
-## 1. COMMANDS
+## OVERVIEW
 
-### Development & Maintenance
+High-fidelity 7-DOF trebuchet simulator featuring a redundant coordinate DAE system and absolute velocity-based kinematic release. Built with Vite, React 19, and @tanstack/store.
 
-- `npm run dev` - Start development server on `http://localhost:3000`.
-- `npm run build` - Production build via Vite and Nitro.
-- `npm run check` - **CRITICAL**: Runs Prettier and ESLint with auto-fix. Run this before finishing any task.
-- `npm run lint` - Static analysis check.
-- `pnpm dlx shadcn@latest add [component]` - Add new Shadcn components.
-
-### Testing
-
-- `npm run test` - Run all Vitest unit tests.
-- `npx vitest run path/to/file.test.ts` - Run a specific test file.
-- `npx vitest -t "test name pattern"` - Run tests matching a specific name.
-- `npx playwright test` - Run all E2E integration tests.
-- `npx playwright test e2e/simulation.spec.ts` - Run a specific E2E test.
-
----
-
-## 2. PROJECT STRUCTURE
+## STRUCTURE
 
 ```text
-src/
-├── components/          # React components
-│   ├── ui/              # Shadcn components
-│   └── visualization/   # 3D R3F components (Scene, Models, Controls)
-├── physics/             # 17-DOF Physics Engine (Pure TS)
-│   ├── __tests__/       # Mathematical verification tests
-│   ├── aerodynamics.ts  # Drag and Magnus effect models
-│   ├── derivatives.ts   # ODE system derivatives
-│   ├── simulation.ts    # Main simulation controller
-│   └── types.ts         # High-precision type definitions
-├── routes/              # TanStack Router file-based routing
-│   ├── __root.tsx       # Root layout & Devtools
-│   └── index.tsx        # Primary simulator entry point
-├── lib/                 # State & Utilities
-│   ├── simulation-store.ts # Global @tanstack/store
-│   └── utils.ts         # Tailwind merger (cn)
-└── styles.css           # Tailwind + Global CSS
+./
+├── public/              # Static assets (trajectory.json, simulation_log.csv)
+├── scripts/             # Headless simulation export tools
+├── src/
+│   ├── components/      # React UI modules
+│   │   └── visualization2d/ # Modular canvas renderer
+│   ├── hooks/           # App-level React hooks (trajectory management)
+│   ├── lib/             # UI utilities (Tailwind cn)
+│   └── physics/         # 7-DOF Lagrangian Engine (Pure TS)
+│       └── __tests__/   # Energy conservation & mathematical validation
+└── tests/               # E2e and integration tests
 ```
 
----
+## WHERE TO LOOK
 
-## 3. CODE STYLE & CONVENTIONS
+| Task            | Location                          | Notes                                 |
+| --------------- | --------------------------------- | ------------------------------------- |
+| Physics Engine  | `src/physics/`                    | KKT solver, RK4 integrator, DAE logic |
+| 2D Rendering    | `src/components/visualization2d/` | Stateless Canvas drawing              |
+| Telemetry UI    | `src/components/DebugOverlay.tsx` | Real-time physics metrics             |
+| Sim Data Export | `scripts/export_trajectory.ts`    | Generates trajectory and CSV logs     |
 
-### General
+## CODE MAP
 
-- **No Semicolons**: Do not use semicolons at the end of statements.
-- **Quotes**: Use single quotes `'` for strings.
-- **Trailing Commas**: Always include trailing commas in multiline objects/arrays.
-- **Path Aliases**: Always use `@/` to refer to `./src/`.
+| Symbol                     | Type      | Location                                   | Role                           |
+| -------------------------- | --------- | ------------------------------------------ | ------------------------------ |
+| `CatapultSimulation`       | Class     | `src/physics/simulation.ts`                | Main controller & orchestrator |
+| `computeDerivatives`       | Function  | `src/physics/derivatives.ts`               | Core DAE/KKT numerical solver  |
+| `RK4Integrator`            | Class     | `src/physics/rk4-integrator.ts`            | Adaptive numerical integration |
+| `getTrebuchetKinematics`   | Function  | `src/physics/trebuchet.ts`                 | Geometry source of truth       |
+| `TrebuchetVisualization2D` | Component | `src/components/visualization2d/index.tsx` | Main renderer component        |
 
-### Imports
+## CONVENTIONS
 
-- Group imports: React first, then external libraries, then internal modules.
-- Use `import type` for type-only imports to aid tree-shaking.
+- **7-DOF Model**: Redundant coordinates (Cartesian + Angles) for extreme stability.
+- **Kinematic Release**: Separation triggered by absolute projectile velocity angle.
+- **Single Source of Truth**: All geometry points MUST derive from `trebuchet.ts`.
+- **No Semicolons**: Enforced by Prettier.
 
-### Naming Conventions
+## ANTI-PATTERNS (THIS PROJECT)
 
-- **Components**: PascalCase (e.g., `TrebuchetModel`).
-- **Files**: kebab-case (e.g., `rk4-integrator.ts`), except for Route files which follow TanStack conventions.
-- **Variables/Functions**: camelCase.
-- **Constants**: UPPER_SNAKE_CASE.
-- **Types/Interfaces**: PascalCase.
+- **Hardcoded constants**: Use `src/physics/constants.ts`.
+- **Manual angle calculation**: Do NOT calculate arm/sling points in renderers; use `trebuchet.ts`.
+- **Legacy V-Shape**: Do not use dual-rope attachment; the sling is now a single dynamic link.
+- **NaN Suppression**: Never use `as any` or `@ts-ignore` to hide numerical instability.
 
-### TypeScript & Types
+## UNIQUE STYLES
 
-- Use `interface` for object shapes, `type` for unions/aliases.
-- **Strict Typing**: Avoid `any` or `@ts-ignore`.
-- **Numerical Precision**: Physics variables must use `number`. Use `Float64Array` for state vectors to ensure 64-bit precision during integration.
+- **Telegraphic Code**: Minimal abstractions in math sections for readability.
+- **Stepwise Rendering**: Renderer functions use numbered comments for drawing sequences.
 
-### Error Handling
+## COMMANDS
 
-- Use error boundaries for 3D components (`Scene.tsx`).
-- In physics code, check for `NaN` or `Infinity` during integration steps.
-- Prefer descriptive error messages in `throw new Error()` over generic strings.
+```bash
+pnpm dev              # Start app
+pnpm test             # Run 75+ physics tests
+pnpm check            # lint + format + fix
+pnpm export-trajectory # Generate JSON trajectory and VT-compatible CSV log. Always double check the exported log. If there's anything abnormal in log, though all tests passed, you must still see it as bugs and fix them.
+```
 
----
+## NOTES
 
-## 4. PHYSICS ENGINEERING STANDARDS
-
-The simulator implements a high-fidelity Lagrangian DAE (Differential-Algebraic Equation) system.
-
-- **Integrator**: Fixed-timestep RK4 with internal sub-stepping. Default $\Delta t = 0.005s$.
-- **Constraint Solver**: Baumgarte-stabilized Penalty Method.
-- **Coordinates**:
-  - `theta`: Arm angle (radians). $0$ is horizontal-right, positive is CCW.
-  - `cwAngle`: Counterweight angle relative to vertical-down.
-  - `position`: Projectile world coordinates $[x, y, z]$.
-- **Constraint Enforcement**:
-  - Sling length error must be monitored. Targets should be $< 0.01m$ deviation.
-  - Ground penetration must be handled via penalty forces or unilateral constraints.
-
----
-
-## 5. REACT & TANSTACK PATTERNS
-
-- **State Management**: Use `@tanstack/store` for performance-sensitive simulation state. Avoid `useState` for frequently changing physics variables.
-- **Server Functions**: Use `createServerFn` for any heavy calculation or data fetching that should happen server-side.
-- **Route Definitions**: Use `createFileRoute('/')` for route components.
-- **React 19**: Use new patterns like `use` hook and improved `ref` handling where appropriate.
-- **Optimization**: The React Compiler is enabled. Avoid manual `useMemo` or `useCallback` unless specifically solving a profiling-identified bottleneck.
-
----
-
-## 6. VISUALIZATION (R3F)
-
-- All 3D models belong in `src/components/visualization/`.
-- Use `useFrame` only in components that need to react per-frame (e.g., `SimulationLoop`).
-- Keep heavy calculation out of the render loop; move it to the `simulationStore` update logic.
-- **Shadcn UI**: Use for all floating panels and control overlays. Positioning should be `absolute` or `fixed` to stay on top of the 3D `<Canvas>`.
-
----
-
-## 7. ANTI-PATTERNS
-
-- **No Double Quotes**: Except where necessary for JSON or JSX strings containing single quotes.
-- **No Component Bloat**: Do not put complex logic in route files; delegate to components or lib/physics.
-- **No Mocking without justification**: Always use real physics constants ($g = 9.81$) unless building a specific unit test for scaled environments.
+- **Velocity Triangle**: Release angle accounts for arm tangential speed + relative sling speed.
+- **Interpolation**: Rendering uses `alpha` interpolation between fixed physics steps for smooth visuals.
