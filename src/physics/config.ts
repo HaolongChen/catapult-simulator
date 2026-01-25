@@ -3,7 +3,7 @@ import type { PhysicsState, SimulationConfig } from './types'
 
 export function createConfig(): SimulationConfig {
   return {
-    initialTimestep: 0.0005,
+    initialTimestep: 0.005,
     maxSubsteps: 10,
     maxAccumulator: 1.0,
     tolerance: 1e-6,

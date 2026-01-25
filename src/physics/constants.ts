@@ -1,7 +1,7 @@
 export const PHYSICS_CONSTANTS = {
   GRAVITY: 9.81,
   KKT_REGULARIZATION_BASE: 1e-9, // Stable baseline
-  SLING_MASS: 5, // Reasonable floor
+  SLING_MASS: 5,
   SEA_LEVEL_TEMPERATURE: 288.15,
   NUM_SLING_PARTICLES: 5, // Default stable value
   ROPE_YOUNGS_MODULUS: 1e9, // 1 GPa for hemp
