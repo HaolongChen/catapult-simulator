@@ -95,7 +95,8 @@ export function airTemperature(
   const T0 = surfaceTemperature
 
   // Linear temperature gradient in troposphere (0-11 km)
-  return T0 + L * altitude
+  // Hard clamp at 50K to prevent absolute zero violations
+  return Math.max(50, T0 + L * altitude)
 }
 
 /**

@@ -171,26 +171,14 @@ export const DebugOverlay: React.FC<{
   frameData?: FrameData
 }> = ({ frameData }) => {
   const config = createConfig()
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
 
   if (!frameData) return null
 
   return (
     <>
-      {/* Mobile Toggle Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden fixed top-4 right-4 z-110 w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white flex items-center justify-center shadow-lg transition-all"
-      >
-        {isOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
-
       <aside
-        className={`fixed top-0 left-0 h-full w-120 z-100 backdrop-blur-xl border-r border-white/10 shadow-[10px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto custom-scrollbar transition-transform duration-300 max-md:w-full ${isOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full'}`}
-        style={{
-          background:
-            'linear-gradient(165deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
-        }}
+        className={`fixed top-0 left-0 h-full w-120 z-100 border-r border-white/10 shadow-[10px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto custom-scrollbar max-md:w-full transition duration-300 ${isOpen ? 'translate-x-0 backdrop-blur-lg bg-linear-to-b from-[#1e293bf2] to-[#0f172afa]' : '-translate-x-5/6 backdrop-blur-[2px] bg-linear-to-b from-[#ffffff00] to-[#ffffff00]'}`}
       >
         <div className="p-6 border-b border-white/5 flex justify-between items-end max-md:p-4 max-md:pt-16">
           <div>
@@ -205,13 +193,18 @@ export const DebugOverlay: React.FC<{
             </p>
           </div>
           <div className="text-right">
-            <span className="block text-[0.7rem] font-mono text-blue-400 max-md:text-[0.6rem]">
-              FRAME_{frameData.time.toFixed(2).replace('.', '')}
-            </span>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className={`top-4 right-4 z-100 w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white flex items-center justify-center shadow-lg transition-all ${isOpen ? 'translate-y-0 opacity-100' : 'translate-y-10 '} hover:cursor-pointer max-md:w-8 max-md:h-8`}
+            >
+              {isOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
 
-        <div className="p-4 max-md:p-3 max-md:pb-24">
+        <div
+          className={`p-4 max-md:p-3 max-md:pb-24 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        >
           <TelemetrySection
             title="System Status"
             icon={SECTION_META[0].icon}

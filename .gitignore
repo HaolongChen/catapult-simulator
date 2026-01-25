@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 playwright-report
 test-results
+public/*
+!public/vite.svg
+tests
+src/*/__tests__/*
+
+*.py
+*.jpg

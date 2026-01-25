@@ -17,47 +17,47 @@ export interface AtmosphericConstants {
  */
 export interface PhysicsState {
   // Arm
-  readonly armAngle: number
-  readonly armAngularVelocity: number
+  armAngle: number
+  armAngularVelocity: number
 
   // Counterweight (Hinged)
-  readonly cwPosition: Float64Array // [x, y]
-  readonly cwVelocity: Float64Array // [vx, vy]
-  readonly cwAngle: number
-  readonly cwAngularVelocity: number
+  cwPosition: Float64Array // [x, y]
+  cwVelocity: Float64Array // [vx, vy]
+  cwAngle: number
+  cwAngularVelocity: number
 
   // Projectile (Last particle of the sling when attached)
-  readonly position: Float64Array // [x, y, z]
-  readonly velocity: Float64Array // [vx, vy, vz]
-  readonly orientation: Float64Array // [q1, q2, q3, q4]
-  readonly angularVelocity: Float64Array // [wx, wy, wz]
+  position: Float64Array // [x, y, z]
+  velocity: Float64Array // [vx, vy, vz]
+  orientation: Float64Array // [q1, q2, q3, q4]
+  angularVelocity: Float64Array // [wx, wy, wz]
 
   // Intermediate Sling Particles (including terminal pouch particle)
-  readonly slingParticles: Float64Array // [x1, y1, x2, y2, ..., xN, yN] where N = NUM_SLING_PARTICLES
-  readonly slingVelocities: Float64Array // [vx1, vy1, ..., vxN, vyN]
+  slingParticles: Float64Array // [x1, y1, x2, y2, ..., xN, yN] where N = NUM_SLING_PARTICLES
+  slingVelocities: Float64Array // [vx1, vy1, ..., vxN, vyN]
 
   // Environment & Meta
-  readonly windVelocity: Float64Array
-  readonly time: number
-  readonly isReleased: boolean
+  windVelocity: Float64Array
+  time: number
+  isReleased: boolean
 }
 
 export interface PhysicsDerivative {
-  readonly armAngle: number
-  readonly armAngularVelocity: number
-  readonly cwPosition: Float64Array
-  readonly cwVelocity: Float64Array
-  readonly cwAngle: number
-  readonly cwAngularVelocity: number
-  readonly slingParticles: Float64Array
-  readonly slingVelocities: Float64Array
-  readonly position: Float64Array
-  readonly velocity: Float64Array
-  readonly orientation: Float64Array
-  readonly angularVelocity: Float64Array
-  readonly windVelocity: Float64Array
-  readonly time: number
-  readonly isReleased: boolean
+  armAngle: number
+  armAngularVelocity: number
+  cwPosition: Float64Array
+  cwVelocity: Float64Array
+  cwAngle: number
+  cwAngularVelocity: number
+  slingParticles: Float64Array
+  slingVelocities: Float64Array
+  position: Float64Array
+  velocity: Float64Array
+  orientation: Float64Array
+  angularVelocity: Float64Array
+  windVelocity: Float64Array
+  time: number
+  isReleased: boolean
 }
 
 export interface ProjectileProperties {
@@ -97,14 +97,14 @@ export interface SimulationConfig {
 }
 
 export interface PhysicsForces {
-  readonly drag: Float64Array
-  readonly magnus: Float64Array
-  readonly gravity: Float64Array
-  readonly tension: Float64Array
-  readonly total: Float64Array
-  readonly groundNormal: number
-  readonly checkFunction: number // J * q_dot norm
-  readonly lambda: Float64Array // Raw multipliers for debugging
+  drag: Float64Array
+  magnus: Float64Array
+  gravity: Float64Array
+  tension: Float64Array
+  total: Float64Array
+  groundNormal: number
+  checkFunction: number // J * q_dot norm
+  lambda: Float64Array // Raw multipliers for debugging
 }
 
 export type DerivativeFunction = (
@@ -122,6 +122,7 @@ export interface RK4Config {
   tolerance: number
   minTimestep: number
   maxTimestep: number
+  releaseAngle: number
 }
 
 export interface RK4Result {
@@ -131,9 +132,9 @@ export interface RK4Result {
 }
 
 export interface AerodynamicForce {
-  readonly drag: Float64Array
-  readonly magnus: Float64Array
-  readonly total: Float64Array
+  drag: Float64Array
+  magnus: Float64Array
+  total: Float64Array
 }
 
 export interface FrameData {

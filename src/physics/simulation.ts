@@ -42,6 +42,7 @@ export class CatapultSimulation {
       tolerance: config.tolerance,
       minTimestep: config.minTimestep,
       maxTimestep: config.maxTimestep,
+      releaseAngle: config.trebuchet.releaseAngle,
     })
 
     const res = computeDerivatives(
@@ -70,6 +71,16 @@ export class CatapultSimulation {
     const result = this.integrator.update(deltaTime, derivativeFunction)
     let newState = result.newState
 
+    // Quaternion Renormalization
+    const q = newState.orientation
+    const qMag = Math.sqrt(q[0] ** 2 + q[1] ** 2 + q[2] ** 2 + q[3] ** 2)
+    if (qMag > 1e-12) {
+      q[0] /= qMag
+      q[1] /= qMag
+      q[2] /= qMag
+      q[3] /= qMag
+    }
+
     const normalizeAngle = (a: number) => {
       const TWO_PI = 2 * Math.PI
       let res = a % TWO_PI
@@ -84,7 +95,6 @@ export class CatapultSimulation {
       cwAngle: normalizeAngle(newState.cwAngle),
     }
 
-    // Post-Integration Constraint Enforcement (Projection)
     this.projectConstraints(newState)
     this.projectVelocities(newState)
 
@@ -93,60 +103,46 @@ export class CatapultSimulation {
       if (!newState.isReleased) {
         if (newState.velocity[1] < 0) newState.velocity[1] = 0
       } else {
-        newState.velocity[0] = 0
-        newState.velocity[1] = 0
-        newState.velocity[2] = 0
-      }
-    }
-
-    // Release Check
-    if (!newState.isReleased) {
-      const velocityAngle =
-        (Math.atan2(newState.velocity[1], newState.velocity[0]) * 180) / Math.PI
-      const releaseThreshold = this.config.trebuchet.releaseAngle
-
-      if (velocityAngle >= releaseThreshold) {
-        newState = {
-          ...newState,
-          isReleased: true,
-        }
+        if (newState.velocity[1] < 0) newState.velocity[1] *= -0.2
       }
     }
 
     this.state = newState
-    this.integrator.setState(newState)
     physicsLogger.log(this.state, this.lastForces, this.config)
     return this.state
   }
 
   private projectConstraints(state: PhysicsState) {
-    const { trebuchet } = this.config
-    const { counterweightRadius: Rcw, slingLength: Ls } = trebuchet
-    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-    const Lseg = Ls / N
+    const mutableState = state as { cwAngle: number }
+    const { trebuchet } = this.config,
+      { counterweightRadius: Rcw, slingLength: Ls } = trebuchet
+    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
+      Lseg = Ls / N
+    const kinematics = getTrebuchetKinematics(state.armAngle, trebuchet),
+      { shortArmTip, longArmTip } = kinematics
 
-    const kinematics = getTrebuchetKinematics(state.armAngle, trebuchet)
-    const { shortArmTip, longArmTip } = kinematics
-
-    // 1. CW Position
-    const dx_cw = state.cwPosition[0] - shortArmTip.x
-    const dy_cw = state.cwPosition[1] - shortArmTip.y
+    // 1. Counterweight Projection
+    const dx_cw = state.cwPosition[0] - shortArmTip.x,
+      dy_cw = state.cwPosition[1] - shortArmTip.y
     const d_cw = Math.sqrt(dx_cw * dx_cw + dy_cw * dy_cw + 1e-12)
     state.cwPosition[0] = shortArmTip.x + (dx_cw / d_cw) * Rcw
     state.cwPosition[1] = shortArmTip.y + (dy_cw / d_cw) * Rcw
+    // Sync redundant angular coordinate
+    mutableState.cwAngle = Math.atan2(
+      state.cwPosition[0] - shortArmTip.x,
+      -(state.cwPosition[1] - shortArmTip.y),
+    )
 
-    // 2. Sling Particles (Allow for elastic stretch)
-    let prevX = longArmTip.x
-    let prevY = longArmTip.y
-
+    // 2. Sling Projection
+    let prevX = longArmTip.x,
+      prevY = longArmTip.y
     const projectionFactor = 0.5
     for (let i = 0; i < N; i++) {
-      const px = state.slingParticles[2 * i]
-      const py = state.slingParticles[2 * i + 1]
-      const dx = px - prevX
-      const dy = py - prevY
-      const d = Math.sqrt(dx * dx + dy * dy + 1e-12)
-
+      const px = state.slingParticles[2 * i],
+        py = state.slingParticles[2 * i + 1]
+      const dx = px - prevX,
+        dy = py - prevY,
+        d = Math.sqrt(dx * dx + dy * dy + 1e-12)
       const threshold = Lseg * 1.01
       if (d > threshold) {
         const corr = (d - threshold) * projectionFactor
@@ -156,23 +152,38 @@ export class CatapultSimulation {
       prevX = state.slingParticles[2 * i]
       prevY = state.slingParticles[2 * i + 1]
     }
-
-    // 3. Lock Projection (Before release)
     if (!state.isReleased) {
-      // Force Proj and PN to be identical for stability
       state.position[0] = state.slingParticles[2 * (N - 1)]
       state.position[1] = state.slingParticles[2 * (N - 1) + 1]
     }
   }
 
   private projectVelocities(state: PhysicsState) {
-    const { trebuchet } = this.config
-    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-    const Lseg = trebuchet.slingLength / N
+    const mutableState = state as { cwAngularVelocity: number }
+    const { trebuchet } = this.config,
+      N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
+      Lseg = trebuchet.slingLength / N
+    const kinematics = getTrebuchetKinematics(state.armAngle, trebuchet),
+      { longArmTip, shortArmTip } = kinematics
 
-    const kinematics = getTrebuchetKinematics(state.armAngle, trebuchet)
-    const { longArmTip } = kinematics
+    // 1. Counterweight Velocity Projection
+    const xts_p = trebuchet.shortArmLength * Math.sin(state.armAngle)
+    const yts_p = -trebuchet.shortArmLength * Math.cos(state.armAngle)
+    const vts_x = xts_p * state.armAngularVelocity
+    const vts_y = yts_p * state.armAngularVelocity
 
+    const vcw_rel_x = state.cwVelocity[0] - vts_x,
+      vcw_rel_y = state.cwVelocity[1] - vts_y
+    const rcw_x = state.cwPosition[0] - shortArmTip.x,
+      rcw_y = state.cwPosition[1] - shortArmTip.y
+    const rcw2 = rcw_x * rcw_x + rcw_y * rcw_y + 1e-12
+    const v_dot_r = (vcw_rel_x * rcw_x + vcw_rel_y * rcw_y) / rcw2
+    state.cwVelocity[0] -= v_dot_r * rcw_x
+    state.cwVelocity[1] -= v_dot_r * rcw_y
+    mutableState.cwAngularVelocity =
+      (rcw_x * vcw_rel_y - rcw_y * vcw_rel_x) / rcw2
+
+    // 2. Sling Velocity Projection
     const vtx =
       -trebuchet.longArmLength *
       Math.sin(state.armAngle) *
@@ -181,40 +192,34 @@ export class CatapultSimulation {
       trebuchet.longArmLength *
       Math.cos(state.armAngle) *
       state.armAngularVelocity
-
-    let prevX = longArmTip.x
-    let prevY = longArmTip.y
-    let prevVX = vtx
-    let prevVY = vty
-
+    let prevX = longArmTip.x,
+      prevY = longArmTip.y,
+      prevVX = vtx,
+      prevVY = vty
     for (let i = 0; i < N; i++) {
-      const px = state.slingParticles[2 * i]
-      const py = state.slingParticles[2 * i + 1]
-      const pvx = state.slingVelocities[2 * i]
-      const pvy = state.slingVelocities[2 * i + 1]
-
-      const dx = px - prevX
-      const dy = py - prevY
-      const d = Math.sqrt(dx * dx + dy * dy + 1e-12)
-
+      const px = state.slingParticles[2 * i],
+        py = state.slingParticles[2 * i + 1],
+        pvx = state.slingVelocities[2 * i],
+        pvy = state.slingVelocities[2 * i + 1]
+      const dx = px - prevX,
+        dy = py - prevY,
+        d = Math.sqrt(dx * dx + dy * dy + 1e-12)
       if (d >= Lseg * 0.99) {
-        const nx = dx / d
-        const ny = dy / d
-        const relVX = pvx - prevVX
-        const relVY = pvy - prevVY
-        const vdotn = relVX * nx + relVY * ny
-        if (vdotn > 0) {
-          state.slingVelocities[2 * i] -= vdotn * nx
-          state.slingVelocities[2 * i + 1] -= vdotn * ny
+        const nx = dx / d,
+          ny = dy / d,
+          relVX = pvx - prevVX,
+          relVY = pvy - prevVY,
+          vdotn = relVX * nx + relVY * ny
+        if (vdotn > 0.01) {
+          state.slingVelocities[2 * i] -= vdotn * nx * 0.9
+          state.slingVelocities[2 * i + 1] -= vdotn * ny * 0.9
         }
       }
-
       prevX = px
       prevY = py
       prevVX = state.slingVelocities[2 * i]
       prevVY = state.slingVelocities[2 * i + 1]
     }
-
     if (!state.isReleased) {
       state.velocity[0] = state.slingVelocities[2 * (N - 1)]
       state.velocity[1] = state.slingVelocities[2 * (N - 1) + 1]
@@ -240,10 +245,8 @@ export class CatapultSimulation {
       time,
       slingParticles,
     } = this.state
-
     const kinematics = getTrebuchetKinematics(armAngle, this.config.trebuchet)
     const { longArmTip, shortArmTip, pivot } = kinematics
-
     const projectileBB = {
       min: [
         position[0] - this.config.projectile.radius,
@@ -256,20 +259,15 @@ export class CatapultSimulation {
         position[2] + this.config.projectile.radius,
       ] as [number, number, number],
     }
-
     const slingPoints: [number, number, number][] = [
       [longArmTip.x, longArmTip.y, 0],
     ]
     const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < N; i++)
       slingPoints.push([slingParticles[2 * i], slingParticles[2 * i + 1], 0])
-    }
-
     let phase = isReleased ? 'released' : 'swinging'
-    if (!isReleased && this.lastForces.groundNormal > 0) {
+    if (!isReleased && this.lastForces.groundNormal > 0)
       phase = 'ground_dragging'
-    }
-
     return {
       time,
       timestep: this.config.initialTimestep,
@@ -319,10 +317,7 @@ export class CatapultSimulation {
           this.lastForces.tension[2],
         ],
       },
-      ground: {
-        height: 0,
-        normalForce: this.lastForces.groundNormal,
-      },
+      ground: { height: 0, normalForce: this.lastForces.groundNormal },
       forces: {
         projectile: {
           gravity: [
@@ -359,11 +354,7 @@ export class CatapultSimulation {
         },
       },
       constraints: {
-        slingLength: {
-          current: Ls,
-          target: Ls,
-          violation: 0,
-        },
+        slingLength: { current: Ls, target: Ls, violation: 0 },
         groundContact: {
           penetration: Math.min(0, position[1] - this.config.projectile.radius),
           isActive: this.lastForces.groundNormal > 0,
@@ -376,26 +367,35 @@ export class CatapultSimulation {
   getLastForces(): PhysicsForces {
     return this.lastForces
   }
-
   getRenderState(): PhysicsState {
     return this.integrator.getRenderState()
   }
-
   getInterpolationAlpha(): number {
     return this.integrator.getInterpolationAlpha()
   }
-
   getState(): PhysicsState {
     return this.state
   }
-
   setState(state: PhysicsState): void {
-    this.state = state
-    this.integrator.setState(state)
+    this.state = this.cloneState(state)
+    this.integrator.setState(this.state)
   }
-
   reset(): void {
     this.integrator.reset()
     this.lastForces = EMPTY_FORCES
+  }
+  private cloneState(state: PhysicsState): PhysicsState {
+    return {
+      ...state,
+      position: new Float64Array(state.position),
+      velocity: new Float64Array(state.velocity),
+      orientation: new Float64Array(state.orientation),
+      angularVelocity: new Float64Array(state.angularVelocity),
+      cwPosition: new Float64Array(state.cwPosition),
+      cwVelocity: new Float64Array(state.cwVelocity),
+      slingParticles: new Float64Array(state.slingParticles),
+      slingVelocities: new Float64Array(state.slingVelocities),
+      windVelocity: new Float64Array(state.windVelocity),
+    }
   }
 }

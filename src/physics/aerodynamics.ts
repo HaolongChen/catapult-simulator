@@ -45,6 +45,9 @@ export function dragCoefficient(
     cdRe = baseCd * (1 - 0.2 * Math.log10(reynolds / 2e5 + 1))
   }
 
+  // Prevent negative drag (unphysical energy gain) while allowing low-Re physics
+  cdRe = Math.max(1e-4, cdRe)
+
   let cdMach = cdRe
   if (mach > 0.6) {
     cdMach = cdRe * (1 + 0.3 * Math.pow(mach - 0.6, 2))

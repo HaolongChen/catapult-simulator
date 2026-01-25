@@ -2,41 +2,42 @@
 
 ## OVERVIEW
 
-Canvas-based modular 2D renderer for trebuchet simulation, enforcing stateless drawing and strict separation between geometry and visualization logic.
+Modular 2D Canvas renderer using a high-frequency rAF loop for smooth physics visualization.
 
 ## STRUCTURE
 
 ```text
 src/components/visualization2d/
-├── index.tsx                   # Main component (composes all renderers)
+├── index.tsx                   # Composition root; manages rAF and lifecycle
 ├── hooks/
-│   ├── useCanvasTransform.ts   # World <-> canvas coordinate conversions
-│   ├── useCanvasInteraction.ts # Zoom/pan interaction handlers
-│   └── useParticleSystem.ts    # Visual effects (impacts, alpha-fade)
+│   ├── useCanvasTransform.ts   # Projection logic (meters to pixels)
+│   ├── useCanvasInteraction.ts # Camera controls (zoom, pan, world-coords)
+│   └── useParticleSystem.ts    # Ephemeral VFX (impact smoke, trails)
 └── renderers/
-    ├── grid.ts                 # Metric grid and axes
-    ├── trebuchet.ts            # Arm and counterweight display
-    ├── projectile.ts           # Projectile + velocity/force vectors
-    └── telemetry.ts            # Trajectory trail, indicators
+    ├── grid.ts                 # Dynamic metric background and ground line
+    ├── trebuchet.ts            # Machine state (arm, sling, counterweight)
+    ├── projectile.ts           # Projectile, velocity/force vector overlays
+    └── telemetry.ts            # Trajectory trails and historical data
 ```
 
 ## WHERE TO LOOK
 
-| Task             | Location                      | Notes                                                     |
-| ---------------- | ----------------------------- | --------------------------------------------------------- |
-| Main Composition | `index.tsx`                   | Order: grid → ground → trebuchet → projectile → overlays. |
-| World Transforms | `hooks/useCanvasTransform.ts` | Source for `toCanvasX`/`toCanvasY`. Never bypass.         |
-| Alpha Smoothing  | `index.tsx` / Renderers       | Interpolates between simulation steps for smooth 60fps.   |
+| Task                | Location                | Notes                                                                    |
+| :------------------ | :---------------------- | :----------------------------------------------------------------------- |
+| **Render Loop**     | `index.tsx`             | Order: Grid → Trajectory → Trebuchet → Projectile → Particles → Vectors. |
+| **Coordinates**     | `useCanvasTransform.ts` | Source of truth for `toCanvasX` and `toCanvasY`.                         |
+| **Physics Mapping** | `renderers/`            | Maps physics frame data to canvas drawing commands.                      |
 
 ## CONVENTIONS
 
-- **Stateless Renderers**: `renderX` functions are referentially transparent—no internal state or side effects.
-- **World-Driven Geometry**: All geometry (arm, sling, pivots) is sourced strictly from `src/physics/trebuchet.ts`.
-- **Alpha Interpolation**: Smooth dynamic movement via `alpha` (0…1) between simulation states.
-- **No Pixel Units**: All renderer logic is world-based (meters); pixel math happens only at render-call time.
+- **Ref-Based Updates**: Use `refs` inside `requestAnimationFrame` to avoid React re-render overhead.
+- **Stateless Renderers**: `renderX` functions must be pure, receiving `ctx` and data as arguments.
+- **Inverted Y-Axis**: World `+Y` is up; Canvas `+Y` is down. Handle strictly via `toCanvasY`.
+- **Meter-First**: Logic operates in meters; pixel conversion happens only at the final draw call.
 
 ## ANTI-PATTERNS
 
-- **Manual Geometry Math**: Never compute endpoints or angles in renderers; use frame data results.
-- **React State in Renderers**: Never interact with state, refs, or DOM inside renderer functions.
-- **Mixing Transforms**: Keep world <-> screen conversions centralized in transforms logic.
+- **React State for Physics**: Do NOT use `useState` for frame-by-frame position updates.
+- **Direct Canvas Math**: Never hardcode pixel offsets; always use the transform hook's API.
+- **Local Physics Logic**: Renderers must not calculate dynamics; only draw provided state.
+- **DOM Manip in Loop**: Keep the render loop restricted to Canvas context operations.
