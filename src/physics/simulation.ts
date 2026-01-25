@@ -126,7 +126,7 @@ export class CatapultSimulation {
   }
 
   private projectConstraints(state: PhysicsState) {
-    const mutableState = state as any
+    const mutableState = state as { cwAngle: number; };
     const { trebuchet } = this.config,
       { counterweightRadius: Rcw, slingLength: Ls } = trebuchet
     const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
@@ -172,7 +172,7 @@ export class CatapultSimulation {
   }
 
   private projectVelocities(state: PhysicsState) {
-    const mutableState = state as any
+    const mutableState = state as { cwAngularVelocity: number };
     const { trebuchet } = this.config,
       N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
       Lseg = trebuchet.slingLength / N

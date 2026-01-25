@@ -37,19 +37,19 @@ describe('Reproduction: Arm Stuck with Light Sling Particles', () => {
 
     const state = createInitialState(config)
     const sim = new CatapultSimulation(state, config)
-    
+
     const initialArmAngle = state.armAngle
-    
+
     // Simulate for 1.0 seconds
     let lastState = state
     for (let i = 0; i < 100; i++) {
       lastState = sim.update(0.01)
     }
-    
+
     const deltaAngle = Math.abs(lastState.armAngle - initialArmAngle)
     console.log('Delta Arm Angle (rad):', deltaAngle)
     console.log('Delta Arm Angle (deg):', (deltaAngle * 180) / Math.PI)
-    
+
     // Expect at least 5 degrees of movement in 1.0s
     expect((deltaAngle * 180) / Math.PI).toBeGreaterThan(5)
   })
