@@ -1,12 +1,12 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-01-21 21:32:21
-**Commit:** 8164699
+**Generated:** 2026-01-25 11:00:00
+**Commit:** dfad7a2
 **Branch:** rebuild
 
 ## OVERVIEW
 
-High-fidelity 7-DOF trebuchet simulator featuring a redundant coordinate DAE system and absolute velocity-based kinematic release. Built with Vite, React 19, and @tanstack/store.
+High-fidelity 19-DOF trebuchet simulator featuring a redundant coordinate DAE system and absolute velocity-based kinematic release. Built with Vite, React 19, and @tanstack/store.
 
 ## STRUCTURE
 
@@ -19,7 +19,7 @@ High-fidelity 7-DOF trebuchet simulator featuring a redundant coordinate DAE sys
 │   │   └── visualization2d/ # Modular canvas renderer
 │   ├── hooks/           # App-level React hooks (trajectory management)
 │   ├── lib/             # UI utilities (Tailwind cn)
-│   └── physics/         # 7-DOF Lagrangian Engine (Pure TS)
+│   └── physics/         # 19-DOF Lagrangian Engine (Pure TS)
 │       └── __tests__/   # Energy conservation & mathematical validation
 └── tests/               # E2e and integration tests
 ```
@@ -45,10 +45,11 @@ High-fidelity 7-DOF trebuchet simulator featuring a redundant coordinate DAE sys
 
 ## CONVENTIONS
 
-- **7-DOF Model**: Redundant coordinates (Cartesian + Angles) for extreme stability.
+- **19-DOF Model**: Redundant coordinates (Cartesian + Angles) for extreme stability.
 - **Kinematic Release**: Separation triggered by absolute projectile velocity angle.
 - **Single Source of Truth**: All geometry points MUST derive from `trebuchet.ts`.
 - **No Semicolons**: Enforced by Prettier.
+- **Path Aliases**: Use `@/*` for root-relative imports from `src/`.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
@@ -56,6 +57,7 @@ High-fidelity 7-DOF trebuchet simulator featuring a redundant coordinate DAE sys
 - **Manual angle calculation**: Do NOT calculate arm/sling points in renderers; use `trebuchet.ts`.
 - **Legacy V-Shape**: Do not use dual-rope attachment; the sling is now a single dynamic link.
 - **NaN Suppression**: Never use `as any` or `@ts-ignore` to hide numerical instability.
+- **Direct State Mutation**: Never manipulate positions/velocities directly; always use update routines.
 
 ## UNIQUE STYLES
 
@@ -68,10 +70,11 @@ High-fidelity 7-DOF trebuchet simulator featuring a redundant coordinate DAE sys
 pnpm dev              # Start app
 pnpm test             # Run 75+ physics tests
 pnpm check            # lint + format + fix
-pnpm export-trajectory # Generate JSON trajectory and VT-compatible CSV log. Always double check the exported log. If there's anything abnormal in log, though all tests passed, you must still see it as bugs and fix them.
+pnpm export-trajectory # Generate JSON trajectory and VT-compatible CSV log.
 ```
 
 ## NOTES
 
 - **Velocity Triangle**: Release angle accounts for arm tangential speed + relative sling speed.
 - **Interpolation**: Rendering uses `alpha` interpolation between fixed physics steps for smooth visuals.
+- **Sling Constraint**: Unilateral (can only pull, never push).

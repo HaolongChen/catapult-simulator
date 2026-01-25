@@ -2,41 +2,37 @@
 
 ## OVERVIEW
 
-Core 7-DOF Lagrangian physics engine for trebuchet simulation, featuring a redundant coordinate DAE system, KKT constraint solver, and absolute velocity-based kinematic release.
-
-## STRUCTURE
-
-```text
-src/physics/
-├── simulation.ts        # CatapultSimulation orchestrator (7-DOF, event & step manager)
-├── trebuchet.ts         # Single source kinematics: arm-paths, sling bag geometry
-├── derivatives.ts       # DAE system, computes generalized/constraint forces
-├── rk4-integrator.ts    # Adaptive RK4 for DAE systems, substep constraint enforcement
-├── constants.ts         # Physical & numerical constants
-├── types.ts             # Engine shared types/interfaces
-└── __tests__/           # Physics validation (energy conservation, constraints)
-```
+High-fidelity 19-DOF Lagrangian DAE engine with multi-particle sling dynamics and 3D aero-ballistics.
 
 ## WHERE TO LOOK
 
-| Topic                         | Location            | Notes                                   |
-| ----------------------------- | ------------------- | --------------------------------------- |
-| DAE/KKT System                | `derivatives.ts`    | Matrix assembly, constraint solve       |
-| Simulation Orchestration      | `simulation.ts`     | 7-DOF step logic, release event         |
-| Trebuchet Geometry            | `trebuchet.ts`      | All positions/angles, single-rope sling |
-| Integration & Constraint Sync | `rk4-integrator.ts` | RK4, in-step constraint enforcement     |
-| Validation & Tests            | `__tests__/`        | Energy/constraint/unit tests            |
+| Topic                   | Location            | Notes                                                   |
+| ----------------------- | ------------------- | ------------------------------------------------------- |
+| DAE/KKT System          | `derivatives.ts`    | LU-based solve for accelerations & Lagrange multipliers |
+| Aero-ballistics         | `aerodynamics.ts`   | Drag/Magnus forces using Reynolds/Mach number scaling   |
+| Atmospheric Model       | `atmosphere.ts`     | ISA 1976 model for altitude-dependent density/viscosity |
+| Adaptive Integration    | `rk4-integrator.ts` | Error-bounded RK4 with adaptive sub-stepping            |
+| Trebuchet Geometry      | `trebuchet.ts`      | Source of truth for 3D kinematics and joint constraints |
+| Simulation Orchestrator | `simulation.ts`     | Event manager, release logic, and renormalization       |
 
 ## CONVENTIONS
 
-- **Redundant 7-DOF Model**: Coordinates combine Cartesian and rotational DOFs for extreme stability. All geometry derives from `trebuchet.ts`.
-- **Absolute Velocity Kinematic Release**: Release triggers based on absolute projectile velocity angle, accounting for arm tangential speed + relative sling speed.
-- **Baumgarte Stabilization**: High-stiffness stabilization in `derivatives.ts` prevents numerical drift and tunneling.
-- **Unilateral Handling**: KKT solver dynamically masks constraints (e.g., ground rail, sling tension) for realistic state transitions.
+- **19-DOF Redundant State**: Represents 3D world-space coordinates, angles, and quaternions for extreme stability. See `types.ts`.
+- **Float64 Memory Layout**: Heavy use of `Float64Array` for all vector quantities to ensure precision and cache efficiency.
+- **Baumgarte Stabilization**: Algebraic constraints are stabilized in the DAE system to prevent numerical "tunneling."
+- **Unit Quaternions**: Projectile orientation MUST be renormalized in `simulation.ts` after every integration step.
+- **Unilateral KKT Masking**: Constraints (e.g., ground rail, sling tension) are dynamically enabled/disabled in the solver.
 
 ## ANTI-PATTERNS
 
-- **Direct State Mutation**: Never manipulate positions/velocities directly; always use update routines.
-- **Manual Constraint Forces**: Penalty methods are forbidden. Use the DAE constraint solution exclusively.
-- **NaN Suppression**: Never hide numerical instability; all math failures must fail loud and early.
-- **Geometry Duplication**: Do not re-implement kinematics; import from `trebuchet.ts`.
+- **Direct State Nudging**: Never manually correct positions to satisfy constraints; let the DAE solver maintain manifold.
+- **Penalty-based Forces**: Do not use spring-dampers for rigid constraints. Use Lagrange multipliers.
+- **Scalar Math Loops**: Avoid manual `x, y, z` arithmetic where vector-ready `Float64Array` offsets are possible.
+- **Hardcoded Environment**: Never assume constant air density; use the `atmosphere.ts` lookup.
+- **Geometric Hardcoding**: Do not calculate arm or attachment points outside of `trebuchet.ts`.
+
+## PERFORMANCE NOTES
+
+- **Matrix Assembly**: Constraint Jacobians are rebuilt every derivative call.
+- **LU Factorization**: Matrix inversion is performed via LU decomposition with partial pivoting for numerical safety.
+- **Sub-stepping**: The integrator may run multiple sub-steps per frame to maintain energy conservation within `tolerance`.
