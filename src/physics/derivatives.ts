@@ -93,7 +93,7 @@ export function computeDerivatives(
     ropeStiffness,
   } = trebuchetProps
 
-  const Mp = Math.max(projectile.mass, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS_BASE)
+  const Mp = projectile.mass
   const Rp = projectile.radius,
     g = PHYSICS_CONSTANTS.GRAVITY
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
@@ -103,8 +103,8 @@ export function computeDerivatives(
   const Area = Math.PI * (PHYSICS_CONSTANTS.ROPE_DIAMETER / 2) ** 2
   const segmentK = (E * Area) / Lseg
 
-  const Msling = Mp * 0.05
-  const m_p = Math.max(Msling / N, PHYSICS_CONSTANTS.MIN_PARTICLE_MASS_BASE)
+  const Msling = PHYSICS_CONSTANTS.SLING_MASS
+  const m_p = Msling / N
 
   const omegaLimit = PHYSICS_CONSTANTS.MAX_STABILITY_OMEGA
   const omegaRest = Math.min(omegaLimit, Math.sqrt(segmentK / m_p))

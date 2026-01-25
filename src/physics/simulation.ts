@@ -42,6 +42,7 @@ export class CatapultSimulation {
       tolerance: config.tolerance,
       minTimestep: config.minTimestep,
       maxTimestep: config.maxTimestep,
+      releaseAngle: config.trebuchet.releaseAngle,
     })
 
     const res = computeDerivatives(
@@ -70,19 +71,7 @@ export class CatapultSimulation {
     const result = this.integrator.update(deltaTime, derivativeFunction)
     let newState = result.newState
 
-    if (!newState.isReleased) {
-      const velocityAngle = Math.atan2(
-        newState.velocity[1],
-        newState.velocity[0],
-      )
-      if (
-        newState.velocity[0] > 5.0 &&
-        newState.armAngle > 0.1 &&
-        velocityAngle >= this.config.trebuchet.releaseAngle
-      ) {
-        newState = { ...newState, isReleased: true }
-      }
-    }
+    
 
     // Quaternion Renormalization
     const q = newState.orientation
@@ -126,7 +115,7 @@ export class CatapultSimulation {
   }
 
   private projectConstraints(state: PhysicsState) {
-    const mutableState = state as { cwAngle: number; };
+    const mutableState = state as { cwAngle: number }
     const { trebuchet } = this.config,
       { counterweightRadius: Rcw, slingLength: Ls } = trebuchet
     const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
@@ -172,7 +161,7 @@ export class CatapultSimulation {
   }
 
   private projectVelocities(state: PhysicsState) {
-    const mutableState = state as { cwAngularVelocity: number };
+    const mutableState = state as { cwAngularVelocity: number }
     const { trebuchet } = this.config,
       N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
       Lseg = trebuchet.slingLength / N

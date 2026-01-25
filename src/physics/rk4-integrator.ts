@@ -15,6 +15,7 @@ const DEFAULT_CONFIG: RK4Config = {
   tolerance: 1e-6,
   minTimestep: 1e-7,
   maxTimestep: 0.01,
+  releaseAngle: 0,
 }
 
 export class RK4Integrator {
@@ -93,6 +94,10 @@ export class RK4Integrator {
     const cwAngleDiff = Math.abs(s1.cwAngle - s2.cwAngle)
     if (cwAngleDiff > maxError) maxError = cwAngleDiff
 
+    if(s1.isReleased !== s2.isReleased) {
+      console.log("error in isReleased calculation!")
+    }
+
     return maxError
   }
 
@@ -118,7 +123,7 @@ export class RK4Integrator {
     const { derivative: d3 } = derivative(state3.time, state3)
     const state4 = this.addState(state, d3, dt, state.time + dt)
     const { derivative: d4 } = derivative(state4.time, state4)
-    return this.combineState(state, d1, d2, d3, d4, dt)
+    return this.combineState(state, d1, d2, d3, d4, dt, state4.isReleased)
   }
 
   private addState(
@@ -131,6 +136,16 @@ export class RK4Integrator {
       const res = new Float64Array(a.length)
       for (let i = 0; i < a.length; i++) res[i] = a[i] + b[i] * scale
       return res
+    }
+    let isReleased = state.isReleased
+    if (!state.isReleased) {
+      const velocityAngle = Math.atan2(
+        state.velocity[1],
+        state.velocity[0],
+      )
+      if (velocityAngle >= this.config.releaseAngle) {
+        isReleased = true
+      }
     }
     return {
       position: addArrays(state.position, derivative.position),
@@ -158,7 +173,7 @@ export class RK4Integrator {
         state.cwAngularVelocity + derivative.cwAngularVelocity * scale,
       windVelocity: addArrays(state.windVelocity, derivative.windVelocity),
       time: newTime,
-      isReleased: state.isReleased, // Topological lock
+      isReleased: isReleased, // Topological lock
     }
   }
 
@@ -169,6 +184,7 @@ export class RK4Integrator {
     d3: PhysicsDerivative,
     d4: PhysicsDerivative,
     dt: number,
+    isReleased: boolean,
   ): PhysicsState {
     const dto6 = dt / 6
     const combine = (
@@ -269,7 +285,7 @@ export class RK4Integrator {
         d4.windVelocity,
       ),
       time: state.time + dt,
-      isReleased: state.isReleased, // Topological lock
+      isReleased
     }
   }
 

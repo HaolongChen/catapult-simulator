@@ -19,7 +19,7 @@ physicsLogger.enable()
 
 trajectory.push(sim.exportFrameData())
 
-for (let i = 0; i < UI_CONSTANTS.CONTROLS.FPS_CONVERSION; i++) {
+for (let i = 0; i < UI_CONSTANTS.CONTROLS.DURATION; i++) {
   sim.update(0.01)
   trajectory.push(sim.exportFrameData())
 }

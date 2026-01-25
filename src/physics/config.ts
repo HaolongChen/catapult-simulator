@@ -10,7 +10,7 @@ export function createConfig(): SimulationConfig {
     minTimestep: 1e-7,
     maxTimestep: 0.01,
     projectile: {
-      mass: 1.0,
+      mass: 2.0,
       radius: 0.1,
       area: Math.PI * 0.1 * 0.1,
       dragCoefficient: 0.47,
@@ -21,11 +21,11 @@ export function createConfig(): SimulationConfig {
     trebuchet: {
       longArmLength: 4.4,
       shortArmLength: 0.8,
-      counterweightMass: 2000,
+      counterweightMass: 4000,
       counterweightRadius: 0.8,
       counterweightInertia: 500,
       slingLength: 3.5,
-      releaseAngle: (135.0 * Math.PI) / 180,
+      releaseAngle: (120.0 * Math.PI) / 180, // Standard launch angle in Radians
       jointFriction: 0.1,
       armMass: 200.0,
       pivotHeight: 3.0,
