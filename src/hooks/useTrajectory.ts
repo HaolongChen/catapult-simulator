@@ -18,8 +18,7 @@ export function useTrajectory() {
   useEffect(() => {
     if (!isPlaying || trajectory.length === 0) return
 
-    const baseDelay =
-      1000 / VISUAL_CONSTANTS.PLAYBACK_FPS
+    const baseDelay = 1000 / VISUAL_CONSTANTS.PLAYBACK_FPS
     const interval = setInterval(() => {
       setFrame((f) => (f + 1) % trajectory.length)
     }, baseDelay / playbackSpeed)

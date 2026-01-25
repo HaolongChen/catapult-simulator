@@ -32,21 +32,23 @@ function App() {
 
       <DebugOverlay frameData={frameData} />
 
-      <div
-        className={`fixed bottom-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} left-${UI_CONSTANTS.LAYOUT.OFFSET_STANDARD} flex flex-col gap-${UI_CONSTANTS.LAYOUT.GAP_SMALL} max-md:hidden`}
-      >
+      <div className="fixed bottom-8 left-20 flex flex-col gap-2 max-md:hidden">
         <h1 className="text-2xl font-black text-slate-100 tracking-tighter">
           {APP_METADATA.TITLE}
         </h1>
         <p
-          className={`text-[${UI_CONSTANTS.OVERLAY.FONT_SIZE_HEADER}px] font-bold text-slate-400 uppercase tracking-[${UI_CONSTANTS.OVERLAY.TRACKING_WIDE}em]`}
+          className="font-bold text-slate-400 uppercase"
+          style={{
+            fontSize: `${UI_CONSTANTS.OVERLAY.FONT_SIZE_HEADER}px`,
+            letterSpacing: `${UI_CONSTANTS.OVERLAY.TRACKING_WIDE}em`,
+          }}
         >
           {APP_METADATA.SUBTITLE}
         </p>
       </div>
 
       {/* Mobile Title */}
-      <div className="md:hidden fixed top-4 left-4 right-4 z-50">
+      <div className="md:hidden fixed top-4 left-10 right-10 z-50">
         <h1 className="text-lg font-black text-slate-100 tracking-tighter">
           {APP_METADATA.TITLE}
         </h1>

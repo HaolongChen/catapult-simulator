@@ -71,8 +71,6 @@ export class CatapultSimulation {
     const result = this.integrator.update(deltaTime, derivativeFunction)
     let newState = result.newState
 
-    
-
     // Quaternion Renormalization
     const q = newState.orientation
     const qMag = Math.sqrt(q[0] ** 2 + q[1] ** 2 + q[2] ** 2 + q[3] ** 2)

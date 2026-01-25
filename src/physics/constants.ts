@@ -3,12 +3,12 @@ export const PHYSICS_CONSTANTS = {
   KKT_REGULARIZATION_BASE: 1e-9, // Stable baseline
   SLING_MASS: 5,
   SEA_LEVEL_TEMPERATURE: 288.15,
-  NUM_SLING_PARTICLES: 5, // Default stable value
+  NUM_SLING_PARTICLES: 20, // Default stable value
   ROPE_YOUNGS_MODULUS: 1e9, // 1 GPa for hemp
-  ROPE_DAMPING_RATIO: 0.1, // Increased damping
+  ROPE_DAMPING_RATIO: 0.5, // Increased damping
   ROPE_DIAMETER: 0.02,
   ROPE_DRAG_COEFFICIENT: 1.2,
-  MAX_STABILITY_OMEGA: 400.0,
+  MAX_STABILITY_OMEGA: 100.0,
 }
 
 export const VISUAL_CONSTANTS = {
@@ -35,11 +35,11 @@ export const VISUAL_CONSTANTS = {
 
 export const UI_CONSTANTS = {
   CONTROLS: {
-    WIDTH: 1200,
+    WIDTH: 1000,
     ICON_SIZE_LARGE: 24,
     ICON_SIZE_MEDIUM: 20,
     RESET_FRAME: 0,
-    DURATION: 6000,
+    DURATION: 2000,
     BUTTON_SIZE_MAIN: 12,
     BUTTON_SIZE_SECONDARY: 10,
     PROGRESS_HEIGHT: 2,

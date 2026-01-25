@@ -37,8 +37,25 @@ export class RK4Integrator {
     while (this.accumulator >= this.config.initialTimestep) {
       const dt = this.config.initialTimestep
       this.previousState = this.cloneState(this.state)
-      const adaptiveResult = this.adaptiveStep(this.state, derivative, dt)
-      this.state = adaptiveResult.newState
+
+      const res = this.adaptiveStep(this.state, derivative, dt)
+
+      if (!this.isFiniteState(res.newState)) {
+        const subDt = dt * 0.1
+        let subState = this.cloneState(this.state)
+        for (let i = 0; i < 10; i++) {
+          const subRes = this.adaptiveStep(subState, derivative, subDt)
+          subState = subRes.newState
+        }
+        if (this.isFiniteState(subState)) {
+          this.state = subState
+        } else {
+          this.state = res.newState
+        }
+      } else {
+        this.state = res.newState
+      }
+
       this.accumulator -= dt
       steps++
       if (steps >= this.config.maxSubsteps) break
@@ -49,6 +66,24 @@ export class RK4Integrator {
       stepsTaken: steps,
       interpolationAlpha,
     }
+  }
+
+  private isFiniteState(s: PhysicsState): boolean {
+    const check = (a: Float64Array) => {
+      for (let i = 0; i < a.length; i++)
+        if (!Number.isFinite(a[i])) return false
+      return true
+    }
+    return (
+      Number.isFinite(s.armAngle) &&
+      Number.isFinite(s.cwAngle) &&
+      check(s.position) &&
+      check(s.velocity) &&
+      check(s.cwPosition) &&
+      check(s.cwVelocity) &&
+      check(s.slingParticles) &&
+      check(s.slingVelocities)
+    )
   }
 
   private adaptiveStep(
@@ -64,7 +99,7 @@ export class RK4Integrator {
     const stateHalf2 = this.rk4Step(stateHalf1, dHalf2, derivative, dtHalf)
     const error = this.calculateError(stateFull, stateHalf2)
     let nextTimestep = dt
-    if (error > 0) {
+    if (error > 0 && Number.isFinite(error)) {
       const scale = 0.9 * Math.pow(this.config.tolerance / error, 0.2)
       nextTimestep = Math.max(
         this.config.minTimestep,
@@ -93,10 +128,6 @@ export class RK4Integrator {
     if (armAngleDiff > maxError) maxError = armAngleDiff
     const cwAngleDiff = Math.abs(s1.cwAngle - s2.cwAngle)
     if (cwAngleDiff > maxError) maxError = cwAngleDiff
-
-    if(s1.isReleased !== s2.isReleased) {
-      console.log("error in isReleased calculation!")
-    }
 
     return maxError
   }
@@ -139,10 +170,7 @@ export class RK4Integrator {
     }
     let isReleased = state.isReleased
     if (!state.isReleased) {
-      const velocityAngle = Math.atan2(
-        state.velocity[1],
-        state.velocity[0],
-      )
+      const velocityAngle = Math.atan2(state.velocity[1], state.velocity[0])
       if (velocityAngle >= this.config.releaseAngle) {
         isReleased = true
       }
@@ -173,7 +201,7 @@ export class RK4Integrator {
         state.cwAngularVelocity + derivative.cwAngularVelocity * scale,
       windVelocity: addArrays(state.windVelocity, derivative.windVelocity),
       time: newTime,
-      isReleased: isReleased, // Topological lock
+      isReleased,
     }
   }
 
@@ -285,7 +313,7 @@ export class RK4Integrator {
         d4.windVelocity,
       ),
       time: state.time + dt,
-      isReleased
+      isReleased,
     }
   }
 

@@ -106,7 +106,7 @@ export function computeDerivatives(
   const Msling = PHYSICS_CONSTANTS.SLING_MASS
   const m_p = Msling / N
 
-  const omegaLimit = PHYSICS_CONSTANTS.MAX_STABILITY_OMEGA
+  const omegaLimit = PHYSICS_CONSTANTS.MAX_STABILITY_OMEGA / Math.sqrt(N / 25.0)
   const omegaRest = Math.min(omegaLimit, Math.sqrt(segmentK / m_p))
   const alphaSoft = 2 * PHYSICS_CONSTANTS.ROPE_DAMPING_RATIO * omegaRest
   const betaSoft = omegaRest * omegaRest
@@ -350,7 +350,9 @@ export function computeDerivatives(
         for (let j = 0; j < dimQ; j++) sum += Ji[j] * Minv[j] * Jk[j]
         S[i][k] = sum
       }
-      S[i][i] += compliance
+      const slingCompliance = 1e-9 * (N / 25.0)
+      const actualCompliance = idxA_S < N ? slingCompliance : compliance
+      S[i][i] += actualCompliance
       const eps_c = Math.max(1e-12, S[i][i] * 1e-9)
       S[i][i] += eps_c
     }
