@@ -1,4 +1,4 @@
-import { UI_CONSTANTS, VISUAL_CONSTANTS } from '@/physics/constants'
+import { VISUAL_CONSTANTS } from '@/physics/constants'
 import { useState, useEffect } from 'react'
 import type { FrameData } from '@/physics/types'
 
@@ -19,7 +19,7 @@ export function useTrajectory() {
     if (!isPlaying || trajectory.length === 0) return
 
     const baseDelay =
-      UI_CONSTANTS.CONTROLS.FPS_CONVERSION / VISUAL_CONSTANTS.PLAYBACK_FPS
+      1000 / VISUAL_CONSTANTS.PLAYBACK_FPS
     const interval = setInterval(() => {
       setFrame((f) => (f + 1) % trajectory.length)
     }, baseDelay / playbackSpeed)

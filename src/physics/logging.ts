@@ -152,7 +152,7 @@ export class PhysicsLogger {
   public exportCSV(): string {
     const toDeg = 180 / Math.PI
     const header =
-      'Time (s),Arm Angle (deg),Weight Rel Angle (deg),Sling Rel Angle (deg),Arm Omega (deg/s),Weight Rel Omega (deg/s),Proj X (m),Proj Y (m),Proj VX (m/s),Proj VY (m/s),Normal Force (N),Energy Eff,Range Eff,Check Function\n'
+      'Time (s),Arm Angle (deg),Weight Rel Angle (deg),Sling Rel Angle (deg),Arm Omega (deg/s),Weight Rel Omega (deg/s),Proj X (m),Proj Y (m),Proj VX (m/s),Proj VY (m/s),Normal Force (N),Energy Eff,Range Eff,Check Function, is released\n'
     const rows = this.records
       .map((r) => {
         const vt = r.virtualTrebuchet
@@ -171,6 +171,7 @@ export class PhysicsLogger {
           vt.energyEfficiency.toFixed(6),
           vt.rangeEfficiency.toFixed(6),
           vt.checkFunction.toExponential(6),
+          r.state.isReleased ? 1 : 0,
         ].join(',')
       })
       .join('\n')
