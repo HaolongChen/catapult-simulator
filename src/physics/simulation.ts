@@ -465,6 +465,7 @@ export class CatapultSimulation {
   }
   reset(): void {
     this.integrator.reset()
+    this.integrator.resetDegraded() // Clear degraded flag on simulation reset
     this.lastForces = EMPTY_FORCES
   }
   private cloneState(state: PhysicsState): PhysicsState {
