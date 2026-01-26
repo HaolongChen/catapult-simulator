@@ -8,6 +8,7 @@ import type {
   PhysicsForces,
   PhysicsState,
   SimulationConfig,
+  TrebuchetProperties,
 } from './types'
 
 export type { SimulationConfig }
@@ -24,6 +25,76 @@ const EMPTY_FORCES: PhysicsForces = {
 }
 
 export class CatapultSimulation {
+  static validateTrebuchetProperties(
+    props: TrebuchetProperties,
+  ): TrebuchetProperties {
+    const result = { ...props }
+    const DEFAULT_SLING_LENGTH = 3.5 // From createConfig()
+
+    // ropeStiffness validation (optional property)
+    if (result.ropeStiffness !== undefined) {
+      if (Number.isNaN(result.ropeStiffness)) {
+        console.warn(
+          `ropeStiffness is NaN, using default ${PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS}`,
+        )
+        result.ropeStiffness = PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS
+      } else if (result.ropeStiffness === Infinity) {
+        console.warn(`ropeStiffness is Infinity, clamping to 1e12`)
+        result.ropeStiffness = 1e12
+      } else if (
+        result.ropeStiffness === -Infinity ||
+        result.ropeStiffness <= 0
+      ) {
+        console.warn(
+          `ropeStiffness ${result.ropeStiffness} is invalid, clamping to 1e6`,
+        )
+        result.ropeStiffness = 1e6
+      } else if (result.ropeStiffness < 1e6) {
+        console.warn(
+          `ropeStiffness ${result.ropeStiffness} below minimum, clamping to 1e6`,
+        )
+        result.ropeStiffness = 1e6
+      } else if (result.ropeStiffness > 1e12) {
+        console.warn(
+          `ropeStiffness ${result.ropeStiffness} above maximum, clamping to 1e12`,
+        )
+        result.ropeStiffness = 1e12
+      }
+    }
+
+    // slingLength validation (required property, but handle invalid values at runtime)
+    // Check undefined first (for JS callers, `as any` casts, or runtime edge cases)
+    // Then check NaN, Infinity, etc. in order
+    if (result.slingLength === undefined || Number.isNaN(result.slingLength)) {
+      console.warn(
+        `slingLength is ${result.slingLength}, using default ${DEFAULT_SLING_LENGTH}`,
+      )
+      result.slingLength = DEFAULT_SLING_LENGTH
+    } else if (result.slingLength === Infinity) {
+      console.warn(`slingLength is Infinity, clamping to 100`)
+      result.slingLength = 100
+    } else if (result.slingLength === -Infinity) {
+      console.warn(`slingLength is -Infinity, clamping to 0.1`)
+      result.slingLength = 0.1
+    } else if (result.slingLength <= 0) {
+      console.warn(
+        `slingLength ${result.slingLength} is non-positive, clamping to 0.1`,
+      )
+      result.slingLength = 0.1
+    } else if (result.slingLength < 0.1) {
+      console.warn(
+        `slingLength ${result.slingLength} below minimum, clamping to 0.1`,
+      )
+      result.slingLength = 0.1
+    } else if (result.slingLength > 100) {
+      console.warn(
+        `slingLength ${result.slingLength} above maximum, clamping to 100`,
+      )
+      result.slingLength = 100
+    }
+
+    return result
+  }
   private integrator: RK4Integrator
   private state: PhysicsState
   private config: SimulationConfig
@@ -31,8 +102,14 @@ export class CatapultSimulation {
   private lastForces: PhysicsForces = EMPTY_FORCES
 
   constructor(initialState: PhysicsState, config: SimulationConfig) {
+    // Validate and clamp parameters to safe ranges
+    this.config = {
+      ...config,
+      trebuchet: CatapultSimulation.validateTrebuchetProperties(
+        config.trebuchet,
+      ),
+    }
     this.state = initialState
-    this.config = config
     this.normalForce =
       config.trebuchet.counterweightMass * PHYSICS_CONSTANTS.GRAVITY
     this.integrator = new RK4Integrator(initialState, {

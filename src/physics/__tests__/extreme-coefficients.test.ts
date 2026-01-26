@@ -354,3 +354,71 @@ describe('Division guards in derivatives', () => {
     warnSpy.mockRestore()
   })
 })
+
+describe('Parameter Validation', () => {
+  it('should clamp extreme ropeStiffness to safe range', () => {
+    const config = createConfig()
+    const props = { ...config.trebuchet, ropeStiffness: 1e15 }
+    const validated = CatapultSimulation.validateTrebuchetProperties(props)
+
+    expect(validated.ropeStiffness).toBe(1e12)
+  })
+
+  it('should clamp extreme slingLength to safe range', () => {
+    const config = createConfig()
+    const props = { ...config.trebuchet, slingLength: 500 }
+    const validated = CatapultSimulation.validateTrebuchetProperties(props)
+
+    expect(validated.slingLength).toBe(100)
+  })
+
+  it('should warn when parameters are clamped', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    const props = { ...config.trebuchet, ropeStiffness: 1e15 }
+    CatapultSimulation.validateTrebuchetProperties(props)
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('clamping'))
+    warnSpy.mockRestore()
+  })
+
+  it('should replace NaN ropeStiffness with default', () => {
+    const config = createConfig()
+    const props = { ...config.trebuchet, ropeStiffness: NaN }
+    const validated = CatapultSimulation.validateTrebuchetProperties(props)
+
+    expect(validated.ropeStiffness).toBe(PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS)
+  })
+
+  it('should replace Infinity slingLength with upper bound', () => {
+    const config = createConfig()
+    const props = { ...config.trebuchet, slingLength: Infinity }
+    const validated = CatapultSimulation.validateTrebuchetProperties(props)
+
+    expect(validated.slingLength).toBe(100)
+  })
+
+  it('should replace negative slingLength with lower bound', () => {
+    const config = createConfig()
+    const props = { ...config.trebuchet, slingLength: -5 }
+    const validated = CatapultSimulation.validateTrebuchetProperties(props)
+
+    expect(validated.slingLength).toBe(0.1)
+  })
+
+  it('should handle state/config mismatch gracefully', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    const state = createInitialState(config)
+
+    state.slingParticles[0] = 1000
+
+    expect(() => {
+      new CatapultSimulation(state, config)
+    }).not.toThrow()
+
+    warnSpy.mockRestore()
+  })
+})
