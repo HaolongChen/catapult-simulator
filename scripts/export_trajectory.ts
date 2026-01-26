@@ -19,9 +19,38 @@ physicsLogger.enable()
 
 trajectory.push(sim.exportFrameData())
 
+let stuckFrames = 0
+let lastTime = 0
+
 for (let i = 0; i < UI_CONSTANTS.CONTROLS.DURATION; i++) {
   sim.update(0.01)
-  trajectory.push(sim.exportFrameData())
+  const frameData = sim.exportFrameData()
+  trajectory.push(frameData)
+
+  // Detect if simulation is stuck (degraded mode or numerical issues)
+  if (frameData.time === lastTime) {
+    stuckFrames++
+    if (stuckFrames >= 10) {
+      console.warn(
+        `\n⚠️  WARNING: Simulation got stuck at t=${frameData.time.toFixed(2)}s (frame ${i})`,
+      )
+      console.warn(
+        `The simulation entered degraded mode due to numerical instability.`,
+      )
+      console.warn(`This often happens with extreme config parameters:\n`)
+      console.warn(`  - Very high counterweightMass (> 8000 kg)`)
+      console.warn(`  - Very long slingLength (> 7 m)`)
+      console.warn(`  - Very high projectile mass or very low friction\n`)
+      console.warn(`Try reducing these values in src/physics/config.ts`)
+      console.warn(
+        `Stopping export early. Generated ${trajectory.length} frames.\n`,
+      )
+      break
+    }
+  } else {
+    stuckFrames = 0
+    lastTime = frameData.time
+  }
 }
 
 const publicDir = path.join(__dirname, '..', 'public')
