@@ -8,6 +8,7 @@ import type {
   PhysicsDerivative,
   PhysicsForces,
   PhysicsState,
+  SimulationConfig,
 } from '../types'
 
 const EMPTY_FORCES: PhysicsForces = {
@@ -421,4 +422,309 @@ describe('Parameter Validation', () => {
 
     warnSpy.mockRestore()
   })
+})
+
+function getEnergy(state: PhysicsState, config: SimulationConfig): number {
+  const G = PHYSICS_CONSTANTS.GRAVITY
+  const { trebuchet, projectile } = config
+  const {
+    armAngle,
+    armAngularVelocity,
+    cwPosition,
+    cwVelocity,
+    cwAngularVelocity,
+    position,
+    velocity,
+    angularVelocity,
+    slingParticles,
+    slingVelocities,
+  } = state
+
+  const Ma = trebuchet.armMass
+  const L1 = trebuchet.longArmLength
+  const L2 = trebuchet.shortArmLength
+  const H = trebuchet.pivotHeight
+  const L_cg = (L1 - L2) / 2
+  const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
+
+  const Mcw = trebuchet.counterweightMass
+  const Icw = trebuchet.counterweightInertia
+
+  const Mp = projectile.mass
+  const Rp = projectile.radius
+  const Ip = 0.4 * Mp * Rp * Rp
+
+  const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+  const Msling = PHYSICS_CONSTANTS.SLING_MASS
+  const m_p = Msling / N
+
+  const peArm = Ma * G * (H + L_cg * Math.sin(armAngle))
+  const peCw = Mcw * G * cwPosition[1]
+  const peProj = Mp * G * position[1]
+  let peSling = 0
+  for (let i = 0; i < N; i++) {
+    peSling += m_p * G * slingParticles[2 * i + 1]
+  }
+
+  const keArm = 0.5 * Ia * armAngularVelocity ** 2
+  const keCw =
+    0.5 * Mcw * (cwVelocity[0] ** 2 + cwVelocity[1] ** 2) +
+    0.5 * Icw * cwAngularVelocity ** 2
+  const keProj =
+    0.5 * Mp * (velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2) +
+    0.5 *
+      Ip *
+      (angularVelocity[0] ** 2 +
+        angularVelocity[1] ** 2 +
+        angularVelocity[2] ** 2)
+  let keSling = 0
+  for (let i = 0; i < N; i++) {
+    keSling +=
+      0.5 *
+      m_p *
+      (slingVelocities[2 * i] ** 2 + slingVelocities[2 * i + 1] ** 2)
+  }
+
+  return peArm + peCw + peProj + peSling + keArm + keCw + keProj + keSling
+}
+
+describe('Extreme Coefficient Tests', () => {
+  const ENERGY_THRESHOLD = 0.0021
+
+  it('should handle very high ropeStiffness (1e15)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.ropeStiffness = 1e15
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle very low ropeStiffness (1e3)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.ropeStiffness = 1e3
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle zero slingLength', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.slingLength = 0
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle very long slingLength (200m)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.slingLength = 200
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle undefined ropeStiffness', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.ropeStiffness = undefined as any
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle combined high stiffness + short length', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.ropeStiffness = 1e15
+    config.trebuchet.slingLength = 0.5
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle combined low stiffness + long length', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.ropeStiffness = 1e3
+    config.trebuchet.slingLength = 50
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it('should maintain energy drift ≤ threshold (high-pivot vacuum)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.projectile.dragCoefficient = 0
+    config.trebuchet.jointFriction = 0
+    config.trebuchet.pivotHeight = 15.0
+    config.initialTimestep = 0.0005
+
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+    const initialEnergy = getEnergy(state, config)
+
+    let hasReleased = false
+    const dt = 0.01
+    while (!hasReleased && sim.getState().time < 10) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+      hasReleased = currentState.isReleased
+    }
+
+    const finalState = sim.getState()
+    const finalEnergy = getEnergy(finalState, config)
+    const energyDrift =
+      Math.abs(finalEnergy - initialEnergy) / Math.abs(initialEnergy)
+
+    expect(energyDrift).toBeLessThanOrEqual(ENERGY_THRESHOLD)
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle NaN ropeStiffness', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.ropeStiffness = NaN
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle Infinity slingLength', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    const props = { ...config.trebuchet, slingLength: Infinity }
+    const validated = CatapultSimulation.validateTrebuchetProperties(props)
+    expect(validated.slingLength).toBe(100)
+
+    config.trebuchet = validated
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    const dt = 0.01
+    for (let t = 0; t < 3; t += dt) {
+      sim.update(dt)
+      const currentState = sim.getState()
+      assertStateIsFinite(currentState)
+    }
+
+    warnSpy.mockRestore()
+  })
+
+  it(
+    'Fuzzer: should remain finite for 100 seeded random configurations',
+    () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      let seed = 42
+      const random = () => {
+        seed = (seed * 1664525 + 1013904223) % 4294967296
+        return seed / 4294967296
+      }
+
+      let failureCount = 0
+
+      for (let i = 0; i < 100; i++) {
+        const config = createConfig()
+        config.trebuchet.ropeStiffness = 1e5 + random() * (1e13 - 1e5)
+        config.trebuchet.slingLength = 0.01 + random() * (150 - 0.01)
+
+        try {
+          const state = createInitialState(config)
+          const sim = new CatapultSimulation(state, config)
+          const dt = 0.02
+          for (let t = 0; t < 1; t += dt) {
+            sim.update(dt)
+            assertStateIsFinite(sim.getState())
+          }
+        } catch (e) {
+          failureCount++
+        }
+      }
+
+      expect(failureCount).toBe(0)
+      warnSpy.mockRestore()
+    },
+    30000,
+  )
 })
