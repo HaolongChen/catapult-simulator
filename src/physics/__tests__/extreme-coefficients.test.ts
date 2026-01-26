@@ -567,6 +567,7 @@ describe('Extreme Coefficient Tests', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const config = createConfig()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config.trebuchet.ropeStiffness = undefined as any
     const state = createInitialState(config)
     const sim = new CatapultSimulation(state, config)
@@ -717,7 +718,7 @@ describe('Extreme Coefficient Tests', () => {
             sim.update(dt)
             assertStateIsFinite(sim.getState())
           }
-        } catch (e) {
+        } catch {
           failureCount++
         }
       }
