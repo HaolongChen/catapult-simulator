@@ -97,14 +97,14 @@ export function computeDerivatives(
   const Rp = projectile.radius,
     g = PHYSICS_CONSTANTS.GRAVITY
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
-    Lseg = Ls / N
+    Lseg = Math.max(1e-6, Ls) / Math.max(1, N)
 
   const E = ropeStiffness || PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS
   const Area = Math.PI * (PHYSICS_CONSTANTS.ROPE_DIAMETER / 2) ** 2
   const segmentK = (E * Area) / Lseg
 
   const Msling = PHYSICS_CONSTANTS.SLING_MASS
-  const m_p = Msling / N
+  const m_p = Math.max(1e-6, Msling) / Math.max(1, N)
 
   const omegaLimit = PHYSICS_CONSTANTS.MAX_STABILITY_OMEGA / Math.sqrt(N / 25.0)
   const omegaRest = Math.min(omegaLimit, Math.sqrt(segmentK / m_p))
@@ -224,16 +224,16 @@ export function computeDerivatives(
   }
 
   const Minv = new Float64Array(dimQ)
-  Minv[0] = 1.0 / Ia
+  Minv[0] = 1.0 / Math.max(1e-12, Ia)
   for (let i = 0; i < N; i++) {
-    Minv[idxSling + 2 * i] = 1.0 / m_p
-    Minv[idxSling + 2 * i + 1] = 1.0 / m_p
+    Minv[idxSling + 2 * i] = 1.0 / Math.max(1e-12, m_p)
+    Minv[idxSling + 2 * i + 1] = 1.0 / Math.max(1e-12, m_p)
   }
-  Minv[idxProj] = 1.0 / Mp
-  Minv[idxProj + 1] = 1.0 / Mp
-  Minv[idxCW] = 1.0 / Mcw
-  Minv[idxCW + 1] = 1.0 / Mcw
-  Minv[idxPhi] = 1.0 / Icw
+  Minv[idxProj] = 1.0 / Math.max(1e-12, Mp)
+  Minv[idxProj + 1] = 1.0 / Math.max(1e-12, Mp)
+  Minv[idxCW] = 1.0 / Math.max(1e-12, Mcw)
+  Minv[idxCW + 1] = 1.0 / Math.max(1e-12, Mcw)
+  Minv[idxPhi] = 1.0 / Math.max(1e-12, Icw)
 
   const dimC = N + 2 + 2 + 1
   const J = Array.from({ length: dimC }, () => new Array(dimQ).fill(0)),

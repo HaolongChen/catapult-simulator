@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { RK4Integrator } from '../rk4-integrator'
+import { CatapultSimulation } from '../simulation'
+import { createConfig, createInitialState } from '../config'
 import { PHYSICS_CONSTANTS } from '../constants'
 import type {
   DerivativeFunction,
@@ -69,6 +71,33 @@ function createNaNDerivative(): DerivativeFunction {
     },
     forces: EMPTY_FORCES,
   })
+}
+
+// Helper function to assert all PhysicsState fields are finite
+function assertStateIsFinite(state: PhysicsState): void {
+  // Scalars
+  expect(Number.isFinite(state.armAngle)).toBe(true)
+  expect(Number.isFinite(state.armAngularVelocity)).toBe(true)
+  expect(Number.isFinite(state.cwAngle)).toBe(true)
+  expect(Number.isFinite(state.cwAngularVelocity)).toBe(true)
+  expect(Number.isFinite(state.time)).toBe(true)
+
+  // Float64Array fields - iterate directly (flat arrays)
+  const checkArray = (arr: Float64Array) => {
+    for (let i = 0; i < arr.length; i++) {
+      expect(Number.isFinite(arr[i])).toBe(true)
+    }
+  }
+
+  checkArray(state.position)
+  checkArray(state.velocity)
+  checkArray(state.orientation)
+  checkArray(state.angularVelocity)
+  checkArray(state.cwPosition)
+  checkArray(state.cwVelocity)
+  checkArray(state.slingParticles) // Float64Array, not 2D
+  checkArray(state.slingVelocities) // Float64Array, not 2D
+  checkArray(state.windVelocity)
 }
 
 describe('RK4Integrator - Degraded Mode', () => {
@@ -248,6 +277,46 @@ describe('RK4Integrator - Degraded Mode', () => {
     // because early return doesn't consume time
     const result2 = integrator.update(0.1, createNaNDerivative())
     expect(result2.interpolationAlpha).toBe(0)
+
+    warnSpy.mockRestore()
+  })
+})
+
+describe('Division guards in derivatives', () => {
+  it('should handle very small slingLength without NaN', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.slingLength = 0.001 // Very small - tests Lseg guard (Math.max(1e-6, Ls))
+    // Note: 0 exactly would cause createInitialState issues, so use very small value
+    // The derivatives.ts guard ensures Lseg >= 1e-6 even if config has tiny value
+
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    // Run 50 updates - should not produce NaN due to division guards
+    for (let i = 0; i < 50; i++) {
+      sim.update(1 / 60)
+    }
+    assertStateIsFinite(sim.getState())
+
+    warnSpy.mockRestore()
+  })
+
+  it('should handle zero counterweightMass without NaN', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    config.trebuchet.counterweightMass = 0 // Guards in derivatives.ts protect against 1/Mcw
+
+    const state = createInitialState(config)
+    const sim = new CatapultSimulation(state, config)
+
+    // Run 50 updates - should not produce NaN due to 1/Math.max(1e-12, Mcw) guard
+    for (let i = 0; i < 50; i++) {
+      sim.update(1 / 60)
+    }
+    assertStateIsFinite(sim.getState())
 
     warnSpy.mockRestore()
   })
