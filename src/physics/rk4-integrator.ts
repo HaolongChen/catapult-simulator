@@ -21,6 +21,7 @@ const DEFAULT_CONFIG: RK4Config = {
 export class RK4Integrator {
   private config: RK4Config
   private accumulator = 0
+  private _degraded = false
 
   private state: PhysicsState
   private previousState: PhysicsState
@@ -32,8 +33,17 @@ export class RK4Integrator {
   }
 
   update(frameTime: number, derivative: DerivativeFunction): RK4Result {
+    if (this._degraded) {
+      return {
+        newState: this.state,
+        stepsTaken: 0,
+        interpolationAlpha: 0,
+      }
+    }
+
     this.accumulator += frameTime
     let steps = 0
+
     while (this.accumulator >= this.config.initialTimestep) {
       const dt = this.config.initialTimestep
       this.previousState = this.cloneState(this.state)
@@ -47,10 +57,14 @@ export class RK4Integrator {
           const subRes = this.adaptiveStep(subState, derivative, subDt)
           subState = subRes.newState
         }
+
         if (this.isFiniteState(subState)) {
           this.state = subState
         } else {
-          this.state = res.newState
+          this.state = this.previousState
+          this._degraded = true
+          this.accumulator = 0
+          break
         }
       } else {
         this.state = res.newState
@@ -60,6 +74,7 @@ export class RK4Integrator {
       steps++
       if (steps >= this.config.maxSubsteps) break
     }
+
     const interpolationAlpha = this.accumulator / this.config.initialTimestep
     return {
       newState: this.state,
@@ -76,13 +91,19 @@ export class RK4Integrator {
     }
     return (
       Number.isFinite(s.armAngle) &&
+      Number.isFinite(s.armAngularVelocity) &&
       Number.isFinite(s.cwAngle) &&
+      Number.isFinite(s.cwAngularVelocity) &&
+      Number.isFinite(s.time) &&
       check(s.position) &&
       check(s.velocity) &&
+      check(s.orientation) &&
+      check(s.angularVelocity) &&
       check(s.cwPosition) &&
       check(s.cwVelocity) &&
       check(s.slingParticles) &&
-      check(s.slingVelocities)
+      check(s.slingVelocities) &&
+      check(s.windVelocity)
     )
   }
 
@@ -140,6 +161,7 @@ export class RK4Integrator {
     this.state = this.cloneState(state)
     this.previousState = this.cloneState(state)
     this.accumulator = 0
+    this._degraded = false
   }
 
   private rk4Step(
@@ -377,5 +399,13 @@ export class RK4Integrator {
 
   reset(): void {
     this.accumulator = 0
+  }
+
+  get degraded(): boolean {
+    return this._degraded
+  }
+
+  resetDegraded(): void {
+    this._degraded = false
   }
 }
