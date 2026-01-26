@@ -79,6 +79,12 @@ export class CatapultSimulation {
       q[1] /= qMag
       q[2] /= qMag
       q[3] /= qMag
+    } else {
+      // Reset to identity quaternion
+      q[0] = 1
+      q[1] = 0
+      q[2] = 0
+      q[3] = 0
     }
 
     const normalizeAngle = (a: number) => {

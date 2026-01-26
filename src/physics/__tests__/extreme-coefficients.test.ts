@@ -97,8 +97,41 @@ function assertStateIsFinite(state: PhysicsState): void {
   checkArray(state.cwVelocity)
   checkArray(state.slingParticles) // Float64Array, not 2D
   checkArray(state.slingVelocities) // Float64Array, not 2D
-  checkArray(state.windVelocity)
+   checkArray(state.windVelocity)
 }
+
+describe('Quaternion Degeneracy', () => {
+  it('should recover from degenerate quaternion', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const config = createConfig()
+    const state = createInitialState(config)
+
+    // Create degenerate quaternion (all zeros)
+    state.orientation[0] = 0
+    state.orientation[1] = 0
+    state.orientation[2] = 0
+    state.orientation[3] = 0
+
+    const sim = new CatapultSimulation(state, config)
+
+    // Run multiple updates - quaternion should be recovered to identity
+    for (let i = 0; i < 50; i++) {
+      sim.update(1 / 60)
+    }
+
+    const finalState = sim.getState()
+    assertStateIsFinite(finalState)
+
+    // Verify quaternion was reset to identity [1, 0, 0, 0]
+    expect(finalState.orientation[0]).toBe(1)
+    expect(finalState.orientation[1]).toBe(0)
+    expect(finalState.orientation[2]).toBe(0)
+    expect(finalState.orientation[3]).toBe(0)
+
+    warnSpy.mockRestore()
+  })
+})
 
 describe('RK4Integrator - Degraded Mode', () => {
   it('should not accept NaN state from fallback', () => {
