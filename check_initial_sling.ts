@@ -39,4 +39,8 @@ for (let i = 0; i < 20; i++) {
 }
 console.log('Total sling length:', totalLength.toFixed(6), 'm')
 console.log('Target length:', config.trebuchet.slingLength, 'm')
-console.log('Error:', (totalLength - config.trebuchet.slingLength).toFixed(6), 'm')
+console.log(
+  'Error:',
+  (totalLength - config.trebuchet.slingLength).toFixed(6),
+  'm',
+)
