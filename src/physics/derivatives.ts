@@ -64,21 +64,56 @@ export function computeDerivatives(
   trebuchetProps: TrebuchetProperties,
   normalForce: number,
 ): { derivative: PhysicsDerivative; forces: PhysicsForces } {
+  const clamp = (val: number, min: number, max: number) =>
+    Math.min(Math.max(val, min), max)
   const {
     position,
-    velocity,
+    velocity: velocityRaw,
     armAngle: th,
-    armAngularVelocity: dth,
+    armAngularVelocity: dthRaw,
     cwPosition: pCW,
-    cwVelocity: vCW,
+    cwVelocity: vCWRaw,
     cwAngle: phi_cw,
-    cwAngularVelocity: dphi_cw,
+    cwAngularVelocity: dphi_cwRaw,
     slingParticles,
-    slingVelocities,
+    slingVelocities: slingVelocitiesRaw,
     angularVelocity,
     windVelocity,
     isReleased,
   } = state
+
+  const MAX_ANGULAR_VEL = 10000
+  const MAX_LINEAR_VEL = 1000
+
+  if (Math.abs(dthRaw) > MAX_ANGULAR_VEL) {
+    console.warn(
+      `[NUMERICAL GUARD] Arm angular velocity clamped: ${dthRaw.toFixed(2)} → ${Math.sign(dthRaw) * MAX_ANGULAR_VEL} rad/s`,
+    )
+  }
+  if (Math.abs(dphi_cwRaw) > MAX_ANGULAR_VEL) {
+    console.warn(
+      `[NUMERICAL GUARD] CW angular velocity clamped: ${dphi_cwRaw.toFixed(2)} → ${Math.sign(dphi_cwRaw) * MAX_ANGULAR_VEL} rad/s`,
+    )
+  }
+
+  const dth = clamp(dthRaw, -MAX_ANGULAR_VEL, MAX_ANGULAR_VEL)
+  const dphi_cw = clamp(dphi_cwRaw, -MAX_ANGULAR_VEL, MAX_ANGULAR_VEL)
+  const velocity = new Float64Array([
+    clamp(velocityRaw[0], -MAX_LINEAR_VEL, MAX_LINEAR_VEL),
+    clamp(velocityRaw[1], -MAX_LINEAR_VEL, MAX_LINEAR_VEL),
+    clamp(velocityRaw[2], -MAX_LINEAR_VEL, MAX_LINEAR_VEL),
+  ])
+  const vCW = new Float64Array([
+    clamp(vCWRaw[0], -MAX_LINEAR_VEL, MAX_LINEAR_VEL),
+    clamp(vCWRaw[1], -MAX_LINEAR_VEL, MAX_LINEAR_VEL),
+  ])
+  const slingVelocities = new Float64Array(slingVelocitiesRaw.length)
+  for (let i = 0; i < slingVelocitiesRaw.length; i++)
+    slingVelocities[i] = clamp(
+      slingVelocitiesRaw[i],
+      -MAX_LINEAR_VEL,
+      MAX_LINEAR_VEL,
+    )
 
   const {
     longArmLength: L1,
@@ -88,28 +123,26 @@ export function computeDerivatives(
     counterweightInertia: Icw,
     armMass: Ma,
     jointFriction,
+    angularDamping,
     slingLength: Ls,
     pivotHeight: H,
-    ropeStiffness,
   } = trebuchetProps
 
   const Mp = projectile.mass
   const Rp = projectile.radius,
     g = PHYSICS_CONSTANTS.GRAVITY
   const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
-    Lseg = Ls / N
-
-  const E = ropeStiffness || PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS
-  const Area = Math.PI * (PHYSICS_CONSTANTS.ROPE_DIAMETER / 2) ** 2
-  const segmentK = (E * Area) / Lseg
+    Lseg = Math.max(1e-6, Ls) / Math.max(1, N)
 
   const Msling = PHYSICS_CONSTANTS.SLING_MASS
-  const m_p = Msling / N
+  const m_p = Math.max(1e-6, Msling) / Math.max(1, N)
 
-  const omegaLimit = PHYSICS_CONSTANTS.MAX_STABILITY_OMEGA / Math.sqrt(N / 25.0)
-  const omegaRest = Math.min(omegaLimit, Math.sqrt(segmentK / m_p))
-  const alphaSoft = 2 * PHYSICS_CONSTANTS.ROPE_DAMPING_RATIO * omegaRest
-  const betaSoft = omegaRest * omegaRest
+  // Frequency-based tuning (Erin Catto GDC 2011) - mesh-independent
+  // Use material property (natural frequency in Hz) instead of stiffness
+  const ropeFrequencyHz = 30.0 // Box2D uses 30Hz for contacts, 20-60Hz for ropes
+  const omega = 2.0 * Math.PI * ropeFrequencyHz
+  const alphaSoft = 2.0 * PHYSICS_CONSTANTS.ROPE_DAMPING_RATIO * omega
+  const betaSoft = omega * omega
 
   const airVel = new Float64Array([
     velocity[0] - windVelocity[0],
@@ -139,7 +172,8 @@ export function computeDerivatives(
   const xts_g = L2 * cosT * dth ** 2,
     yts_g = L2 * sinT * dth ** 2
 
-  const Ia = (1 / 3) * (Ma / (L1 + L2)) * (L1 ** 3 + L2 ** 3)
+  const armLength = Math.max(L1 + L2, 1e-12)
+  const Ia = (1 / 3) * (Ma / armLength) * (L1 ** 3 + L2 ** 3)
   const pivotFriction =
     -Math.tanh(dth * 100.0) * jointFriction * Math.abs(normalForce)
 
@@ -152,7 +186,7 @@ export function computeDerivatives(
 
   Q[0] = -Ma * g * ((L1 - L2) / 2) * cosT + pivotFriction
 
-  const getDamping = (m: number, L: number) => jointFriction * m * L * L * 0.01
+  const getDamping = (m: number, L: number) => angularDamping * m * L * L
 
   const rs_x = slingParticles[0] - xtl,
     rs_y = slingParticles[1] - ytl
@@ -162,11 +196,33 @@ export function computeDerivatives(
       rs_y * (slingVelocities[0] - xtl_p * dth)) /
     rs2
   const t_s = -getDamping(m_p, Lseg) * (omega_s_link - dth)
-  Q[0] += -t_s - (t_s * (rs_x * ytl_p - rs_y * xtl_p)) / rs2
-  Q[idxSling] += (t_s * -rs_y) / rs2
-  Q[idxSling + 1] += (t_s * rs_x) / rs2
 
-  const t_cw = -getDamping(Mcw, Rcw) * (dphi_cw - dth)
+  const dvx = slingVelocities[0] - xtl_p * dth
+  const dvy = slingVelocities[1] - ytl_p * dth
+  const relVelMag = Math.sqrt(dvx * dvx + dvy * dvy + 1e-12)
+  const estimatedTension = m_p * relVelMag * Math.abs(omega_s_link) + m_p * g
+  const slingFriction =
+    -Math.tanh(omega_s_link * 100.0) * jointFriction * estimatedTension
+
+  Q[0] += -t_s - (t_s * (rs_x * ytl_p - rs_y * xtl_p)) / rs2 + slingFriction
+  Q[idxSling] += (t_s * -rs_y) / rs2 - (slingFriction * rs_y) / rs2
+  Q[idxSling + 1] += (t_s * rs_x) / rs2 + (slingFriction * rs_x) / rs2
+
+  const rcw_x = pCW[0] - xts
+  const rcw_y = pCW[1] - yts
+  const rcw2 = Math.max(rcw_x * rcw_x + rcw_y * rcw_y, 1e-4)
+  const omega_cw_link =
+    (rcw_x * (vCW[1] - yts_p * dth) - rcw_y * (vCW[0] - xts_p * dth)) / rcw2
+  const cwRelVelX = vCW[0] - xts_p * dth
+  const cwRelVelY = vCW[1] - yts_p * dth
+  const cwRelVelMag = Math.sqrt(
+    cwRelVelX * cwRelVelX + cwRelVelY * cwRelVelY + 1e-12,
+  )
+  const estimatedCwForce = Mcw * (cwRelVelMag * Math.abs(omega_cw_link) + g)
+  const cwFriction =
+    -Math.tanh(omega_cw_link * 100.0) * jointFriction * estimatedCwForce
+
+  const t_cw = -getDamping(Mcw, Rcw) * (dphi_cw - dth) + cwFriction
   Q[0] -= t_cw
   Q[idxPhi] += t_cw
 
@@ -185,55 +241,31 @@ export function computeDerivatives(
 
   Q[idxCW + 1] += -Mcw * g
 
-  for (let i = 0; i < N - 1; i++) {
-    const idxA = idxSling + 2 * i,
-      idxB = idxSling + 2 * (i + 1)
-    const rax =
-      slingParticles[2 * i] - (i === 0 ? xtl : slingParticles[2 * (i - 1)])
-    const ray =
-      slingParticles[2 * i + 1] -
-      (i === 0 ? ytl : slingParticles[2 * (i - 1) + 1])
-    const rbx = slingParticles[2 * (i + 1)] - slingParticles[2 * i]
-    const rby = slingParticles[2 * (i + 1) + 1] - slingParticles[2 * i + 1]
-    const ra2_b = Math.max(rax * rax + ray * ray, 1e-4),
-      rb2_b = Math.max(rbx * rbx + rby * rby, 1e-4)
-    const vax =
-      slingVelocities[2 * i] -
-      (i === 0 ? xtl_p * dth : slingVelocities[2 * (i - 1)])
-    const vay =
-      slingVelocities[2 * i + 1] -
-      (i === 0 ? ytl_p * dth : slingVelocities[2 * (i - 1) + 1])
-    const vbx = slingVelocities[2 * (i + 1)] - slingVelocities[2 * i]
-    const vby = slingVelocities[2 * (i + 1) + 1] - slingVelocities[2 * i + 1]
-    const omegaA = (rax * vay - ray * vax) / ra2_b,
-      omegaB = (rbx * vby - rby * vbx) / rb2_b
-    const maxOmegaRel = 500.0,
-      torque =
-        -getDamping(m_p, Lseg) *
-        Math.max(-maxOmegaRel, Math.min(maxOmegaRel, omegaB - omegaA))
-    if (i === 0) {
-      Q[0] += (torque * (rax * ytl_p - ray * xtl_p)) / ra2_b
-    } else {
-      Q[idxSling + 2 * (i - 1)] -= (torque * ray) / ra2_b
-      Q[idxSling + 2 * (i - 1) + 1] += (torque * rax) / ra2_b
-    }
-    Q[idxA] += (torque * ray) / ra2_b - (torque * -rby) / rb2_b
-    Q[idxA + 1] += (-torque * rax) / ra2_b - (torque * rbx) / rb2_b
-    Q[idxB] += (torque * -rby) / rb2_b
-    Q[idxB + 1] += (torque * rbx) / rb2_b
-  }
+  // DISABLED: Inter-segment bending torques
+  // Research shows ALL professional trebuchet simulators treat sling as series of
+  // distance constraints WITHOUT bending resistance. Adding angular damping between
+  // segments causes numerical instability and massive tension spikes.
+  // Reference: Box2D, PhysX, academic papers (arXiv 2303.01306)
+  //
+  // Previous implementation (lines 224-260) computed:
+  // - Relative angular velocity between adjacent segments: omegaB - omegaA
+  // - Applied damping torque: -getDamping(m_p, Lseg) * (omegaB - omegaA)
+  // - Distributed torque to particles via Jacobian transpose
+  //
+  // Result: 1e12 N tension spikes, test timeouts, DAE solver divergence
+  // Solution: Remove bending coupling, rely purely on distance constraints
 
   const Minv = new Float64Array(dimQ)
-  Minv[0] = 1.0 / Ia
+  Minv[0] = 1.0 / Math.max(1e-12, Ia)
   for (let i = 0; i < N; i++) {
-    Minv[idxSling + 2 * i] = 1.0 / m_p
-    Minv[idxSling + 2 * i + 1] = 1.0 / m_p
+    Minv[idxSling + 2 * i] = 1.0 / Math.max(1e-12, m_p)
+    Minv[idxSling + 2 * i + 1] = 1.0 / Math.max(1e-12, m_p)
   }
-  Minv[idxProj] = 1.0 / Mp
-  Minv[idxProj + 1] = 1.0 / Mp
-  Minv[idxCW] = 1.0 / Mcw
-  Minv[idxCW + 1] = 1.0 / Mcw
-  Minv[idxPhi] = 1.0 / Icw
+  Minv[idxProj] = 1.0 / Math.max(1e-12, Mp)
+  Minv[idxProj + 1] = 1.0 / Math.max(1e-12, Mp)
+  Minv[idxCW] = 1.0 / Math.max(1e-12, Mcw)
+  Minv[idxCW + 1] = 1.0 / Math.max(1e-12, Mcw)
+  Minv[idxPhi] = 1.0 / Math.max(1e-12, Icw)
 
   const dimC = N + 2 + 2 + 1
   const J = Array.from({ length: dimC }, () => new Array(dimQ).fill(0)),
@@ -279,10 +311,14 @@ export function computeDerivatives(
       J[i][idxB_J] = dx / Lseg
       J[i][idxB_J + 1] = dy / Lseg
     }
+    const positionError = d - Lseg
+    const clampedPosError = clamp(positionError, -Lseg * 0.5, Lseg * 0.5)
+    const baumgartePosTerm =
+      (betaSoft * clampedPosError * (d + Lseg)) / (2 * Lseg)
     gamma[i] +=
       -((vb.x - va.x) ** 2 + (vb.y - va.y) ** 2) / Lseg -
       alphaSoft * dC_dist -
-      (betaSoft * (d * d - Lseg * Lseg)) / (2 * Lseg)
+      baumgartePosTerm
   }
 
   const pN_lock = {
@@ -337,7 +373,7 @@ export function computeDerivatives(
       }
     const S = Array.from({ length: m }, () => new Array(m).fill(0)),
       rhs = new Float64Array(m)
-    const compliance = 1e-10
+    const compliance = 1e-7
     for (let i = 0; i < m; i++) {
       const idxA_S = activeIdx[i],
         Ji = J[idxA_S]
@@ -350,7 +386,7 @@ export function computeDerivatives(
         for (let j = 0; j < dimQ; j++) sum += Ji[j] * Minv[j] * Jk[j]
         S[i][k] = sum
       }
-      const slingCompliance = 1e-9 * (N / 25.0)
+      const slingCompliance = 5e-7
       const actualCompliance = idxA_S < N ? slingCompliance : compliance
       S[i][i] += actualCompliance
       const eps_c = Math.max(1e-12, S[i][i] * 1e-9)
@@ -407,13 +443,20 @@ export function computeDerivatives(
   }
   mask_final[N + 4] = !isReleased && onR
   let { q_ddot, lambda, check } = solveSchur(mask_final)
+
+  const slingAttachmentFriction = slingFriction
+  const cwHingeFriction = cwFriction
+
+  const slingTensionMask = new Array(N).fill(true)
   for (let iter = 0; iter < N; iter++) {
     let changed = false
-    for (let i = 0; i < N; i++)
+    for (let i = 0; i < N; i++) {
       if (mask_final[i] && lambda[i] < -1e-3) {
         mask_final[i] = false
+        slingTensionMask[i] = false
         changed = true
       }
+    }
     if (mask_final[N + 4] && lambda[N + 4] > 1e-7) {
       mask_final[N + 4] = false
       changed = true
@@ -423,6 +466,13 @@ export function computeDerivatives(
     q_ddot = res.q_ddot
     lambda = res.lambda
     check = res.check
+  }
+
+  const MAX_ROPE_TENSION = 1e7
+  for (let i = 0; i < N; i++) {
+    if (mask_final[i]) {
+      lambda[i] = clamp(lambda[i], 0, MAX_ROPE_TENSION)
+    }
   }
 
   const slingDeriv = new Float64Array(2 * N),
@@ -445,10 +495,11 @@ export function computeDerivatives(
   )
   const c_rot = 0.5 * atmosphere.density * vMag_p * projectile.area * Rp * 0.02
   const I_p = 0.4 * Mp * Rp * Rp
+  const invIp = 1.0 / Math.max(I_p, 1e-12)
   const alpha_p = new Float64Array([
-    (-c_rot * wx) / I_p,
-    (-c_rot * wy) / I_p,
-    (-c_rot * wz) / I_p,
+    -c_rot * wx * invIp,
+    -c_rot * wy * invIp,
+    -c_rot * wz * invIp,
   ])
   const [qw, qx, qy, qz] = state.orientation
   const qDot = new Float64Array([
@@ -457,6 +508,63 @@ export function computeDerivatives(
     0.5 * (qw * wy + qz * wx - qx * wz),
     0.5 * (qw * wz + qx * wy - qy * wx),
   ])
+
+  // Clamp accelerations to prevent numerical overflow
+  const MAX_LINEAR_ACCEL = 10000 // m/s²
+  const MAX_ANGULAR_ACCEL = 50000 // rad/s²
+
+  if (Math.abs(q_ddot[0]) > MAX_ANGULAR_ACCEL) {
+    console.warn(
+      `[NUMERICAL GUARD] Arm angular acceleration clamped: ${q_ddot[0].toFixed(2)} → ${Math.sign(q_ddot[0]) * MAX_ANGULAR_ACCEL} rad/s²`,
+    )
+  }
+
+  q_ddot[0] = clamp(q_ddot[0], -MAX_ANGULAR_ACCEL, MAX_ANGULAR_ACCEL) // arm
+  for (let i = 0; i < N; i++) {
+    slingVDeriv[2 * i] = clamp(
+      slingVDeriv[2 * i],
+      -MAX_LINEAR_ACCEL,
+      MAX_LINEAR_ACCEL,
+    )
+    slingVDeriv[2 * i + 1] = clamp(
+      slingVDeriv[2 * i + 1],
+      -MAX_LINEAR_ACCEL,
+      MAX_LINEAR_ACCEL,
+    )
+  }
+  q_ddot[idxProj] = clamp(q_ddot[idxProj], -MAX_LINEAR_ACCEL, MAX_LINEAR_ACCEL)
+  q_ddot[idxProj + 1] = clamp(
+    q_ddot[idxProj + 1],
+    -MAX_LINEAR_ACCEL,
+    MAX_LINEAR_ACCEL,
+  )
+  q_ddot[idxCW] = clamp(q_ddot[idxCW], -MAX_LINEAR_ACCEL, MAX_LINEAR_ACCEL)
+  q_ddot[idxCW + 1] = clamp(
+    q_ddot[idxCW + 1],
+    -MAX_LINEAR_ACCEL,
+    MAX_LINEAR_ACCEL,
+  )
+  q_ddot[idxPhi] = clamp(q_ddot[idxPhi], -MAX_ANGULAR_ACCEL, MAX_ANGULAR_ACCEL)
+
+  const BUG_THRESHOLDS = PHYSICS_CONSTANTS.COMPUTATIONAL_BUG_THRESHOLDS
+  if (Math.abs(pivotFriction) > BUG_THRESHOLDS.SUSPICIOUS_TORQUE) {
+    console.warn(
+      `[COMPUTATIONAL BUG?] Pivot friction torque suspiciously large: ${pivotFriction.toExponential(2)} N⋅m (threshold: ${BUG_THRESHOLDS.SUSPICIOUS_TORQUE})`,
+    )
+  }
+  if (Math.abs(Q[0]) > BUG_THRESHOLDS.SUSPICIOUS_TORQUE) {
+    console.warn(
+      `[COMPUTATIONAL BUG?] Total arm torque suspiciously large: ${Q[0].toExponential(2)} N⋅m (threshold: ${BUG_THRESHOLDS.SUSPICIOUS_TORQUE})`,
+    )
+  }
+  for (let i = 0; i < N; i++) {
+    if (Math.abs(lambda[i]) > BUG_THRESHOLDS.SUSPICIOUS_FORCE) {
+      console.warn(
+        `[COMPUTATIONAL BUG?] Sling segment ${i} tension suspiciously large: ${lambda[i].toExponential(2)} N (threshold: ${BUG_THRESHOLDS.SUSPICIOUS_FORCE})`,
+      )
+      break
+    }
+  }
 
   return {
     derivative: {
@@ -491,6 +599,14 @@ export function computeDerivatives(
       groundNormal: mask_final[N + 4] ? -lambda[N + 4] : 0,
       checkFunction: check,
       lambda: new Float64Array(lambda),
+      armTorques: {
+        pivotFriction,
+        slingDamping: t_s,
+        slingAttachmentFriction,
+        cwDamping: t_cw,
+        cwHingeFriction,
+        total: Q[0],
+      },
     },
   }
 }

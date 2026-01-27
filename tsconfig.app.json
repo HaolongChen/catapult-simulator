@@ -28,5 +28,11 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "scripts", "vite.config.ts", "vitest.config.ts"]
+  "include": [
+    "src",
+    "scripts/export_trajectory.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["scripts/debug"]
 }

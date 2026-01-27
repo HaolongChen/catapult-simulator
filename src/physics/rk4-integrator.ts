@@ -21,19 +21,41 @@ const DEFAULT_CONFIG: RK4Config = {
 export class RK4Integrator {
   private config: RK4Config
   private accumulator = 0
+  private _degraded = false
 
   private state: PhysicsState
   private previousState: PhysicsState
 
   constructor(initialState: PhysicsState, config?: Partial<RK4Config>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
+
+    // Validate timestep to prevent division by zero
+    if (
+      this.config.initialTimestep <= 0 ||
+      !Number.isFinite(this.config.initialTimestep)
+    ) {
+      console.warn(
+        `Invalid initialTimestep ${this.config.initialTimestep}, clamping to 1e-6`,
+      )
+      this.config.initialTimestep = Math.max(this.config.initialTimestep, 1e-6)
+    }
+
     this.state = initialState
     this.previousState = this.cloneState(initialState)
   }
 
   update(frameTime: number, derivative: DerivativeFunction): RK4Result {
+    if (this._degraded) {
+      return {
+        newState: this.state,
+        stepsTaken: 0,
+        interpolationAlpha: 0,
+      }
+    }
+
     this.accumulator += frameTime
     let steps = 0
+
     while (this.accumulator >= this.config.initialTimestep) {
       const dt = this.config.initialTimestep
       this.previousState = this.cloneState(this.state)
@@ -47,10 +69,14 @@ export class RK4Integrator {
           const subRes = this.adaptiveStep(subState, derivative, subDt)
           subState = subRes.newState
         }
+
         if (this.isFiniteState(subState)) {
           this.state = subState
         } else {
-          this.state = res.newState
+          this.state = this.previousState
+          this._degraded = true
+          this.accumulator = 0
+          break
         }
       } else {
         this.state = res.newState
@@ -60,7 +86,9 @@ export class RK4Integrator {
       steps++
       if (steps >= this.config.maxSubsteps) break
     }
-    const interpolationAlpha = this.accumulator / this.config.initialTimestep
+
+    const interpolationAlpha =
+      this.accumulator / Math.max(this.config.initialTimestep, 1e-12)
     return {
       newState: this.state,
       stepsTaken: steps,
@@ -76,13 +104,19 @@ export class RK4Integrator {
     }
     return (
       Number.isFinite(s.armAngle) &&
+      Number.isFinite(s.armAngularVelocity) &&
       Number.isFinite(s.cwAngle) &&
+      Number.isFinite(s.cwAngularVelocity) &&
+      Number.isFinite(s.time) &&
       check(s.position) &&
       check(s.velocity) &&
+      check(s.orientation) &&
+      check(s.angularVelocity) &&
       check(s.cwPosition) &&
       check(s.cwVelocity) &&
       check(s.slingParticles) &&
-      check(s.slingVelocities)
+      check(s.slingVelocities) &&
+      check(s.windVelocity)
     )
   }
 
@@ -140,6 +174,7 @@ export class RK4Integrator {
     this.state = this.cloneState(state)
     this.previousState = this.cloneState(state)
     this.accumulator = 0
+    this._degraded = false
   }
 
   private rk4Step(
@@ -168,16 +203,15 @@ export class RK4Integrator {
       for (let i = 0; i < a.length; i++) res[i] = a[i] + b[i] * scale
       return res
     }
+    const newVelocity = addArrays(state.velocity, derivative.velocity)
     let isReleased = state.isReleased
-    if (!state.isReleased) {
-      const velocityAngle = Math.atan2(state.velocity[1], state.velocity[0])
-      if (velocityAngle >= this.config.releaseAngle) {
-        isReleased = true
-      }
+    if (!isReleased) {
+      const velocityAngle = Math.atan2(newVelocity[1], newVelocity[0])
+      if (velocityAngle >= this.config.releaseAngle) isReleased = true
     }
     return {
       position: addArrays(state.position, derivative.position),
-      velocity: addArrays(state.velocity, derivative.velocity),
+      velocity: newVelocity,
       orientation: addArrays(state.orientation, derivative.orientation),
       angularVelocity: addArrays(
         state.angularVelocity,
@@ -333,7 +367,7 @@ export class RK4Integrator {
   }
 
   getInterpolationAlpha(): number {
-    return this.accumulator / this.config.initialTimestep
+    return this.accumulator / Math.max(this.config.initialTimestep, 1e-12)
   }
 
   getRenderState(): PhysicsState {
@@ -377,5 +411,13 @@ export class RK4Integrator {
 
   reset(): void {
     this.accumulator = 0
+  }
+
+  get degraded(): boolean {
+    return this._degraded
+  }
+
+  resetDegraded(): void {
+    this._degraded = false
   }
 }

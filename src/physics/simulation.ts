@@ -8,6 +8,7 @@ import type {
   PhysicsForces,
   PhysicsState,
   SimulationConfig,
+  TrebuchetProperties,
 } from './types'
 
 export type { SimulationConfig }
@@ -21,9 +22,87 @@ const EMPTY_FORCES: PhysicsForces = {
   groundNormal: 0,
   checkFunction: 0,
   lambda: new Float64Array(0),
+  armTorques: {
+    pivotFriction: 0,
+    slingDamping: 0,
+    slingAttachmentFriction: 0,
+    cwDamping: 0,
+    cwHingeFriction: 0,
+    total: 0,
+  },
 }
 
 export class CatapultSimulation {
+  static validateTrebuchetProperties(
+    props: TrebuchetProperties,
+  ): TrebuchetProperties {
+    const result = { ...props }
+    const DEFAULT_SLING_LENGTH = 3.5 // From createConfig()
+
+    // ropeStiffness validation (optional property)
+    if (result.ropeStiffness !== undefined) {
+      if (Number.isNaN(result.ropeStiffness)) {
+        console.warn(
+          `ropeStiffness is NaN, using default ${PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS}`,
+        )
+        result.ropeStiffness = PHYSICS_CONSTANTS.ROPE_YOUNGS_MODULUS
+      } else if (result.ropeStiffness === Infinity) {
+        console.warn(`ropeStiffness is Infinity, clamping to 1e12`)
+        result.ropeStiffness = 1e12
+      } else if (
+        result.ropeStiffness === -Infinity ||
+        result.ropeStiffness <= 0
+      ) {
+        console.warn(
+          `ropeStiffness ${result.ropeStiffness} is invalid, clamping to 1e6`,
+        )
+        result.ropeStiffness = 1e6
+      } else if (result.ropeStiffness < 1e6) {
+        console.warn(
+          `ropeStiffness ${result.ropeStiffness} below minimum, clamping to 1e6`,
+        )
+        result.ropeStiffness = 1e6
+      } else if (result.ropeStiffness > 1e12) {
+        console.warn(
+          `ropeStiffness ${result.ropeStiffness} above maximum, clamping to 1e12`,
+        )
+        result.ropeStiffness = 1e12
+      }
+    }
+
+    // slingLength validation (required property, but handle invalid values at runtime)
+    // Check undefined first (for JS callers, `as any` casts, or runtime edge cases)
+    // Then check NaN, Infinity, etc. in order
+    if (result.slingLength === undefined || Number.isNaN(result.slingLength)) {
+      console.warn(
+        `slingLength is ${result.slingLength}, using default ${DEFAULT_SLING_LENGTH}`,
+      )
+      result.slingLength = DEFAULT_SLING_LENGTH
+    } else if (result.slingLength === Infinity) {
+      console.warn(`slingLength is Infinity, clamping to 100`)
+      result.slingLength = 100
+    } else if (result.slingLength === -Infinity) {
+      console.warn(`slingLength is -Infinity, clamping to 0.1`)
+      result.slingLength = 0.1
+    } else if (result.slingLength <= 0) {
+      console.warn(
+        `slingLength ${result.slingLength} is non-positive, clamping to 0.1`,
+      )
+      result.slingLength = 0.1
+    } else if (result.slingLength < 0.1) {
+      console.warn(
+        `slingLength ${result.slingLength} below minimum, clamping to 0.1`,
+      )
+      result.slingLength = 0.1
+    } else if (result.slingLength > 100) {
+      console.warn(
+        `slingLength ${result.slingLength} above maximum, clamping to 100`,
+      )
+      result.slingLength = 100
+    }
+
+    return result
+  }
   private integrator: RK4Integrator
   private state: PhysicsState
   private config: SimulationConfig
@@ -31,8 +110,14 @@ export class CatapultSimulation {
   private lastForces: PhysicsForces = EMPTY_FORCES
 
   constructor(initialState: PhysicsState, config: SimulationConfig) {
+    // Validate and clamp parameters to safe ranges
+    this.config = {
+      ...config,
+      trebuchet: CatapultSimulation.validateTrebuchetProperties(
+        config.trebuchet,
+      ),
+    }
     this.state = initialState
-    this.config = config
     this.normalForce =
       config.trebuchet.counterweightMass * PHYSICS_CONSTANTS.GRAVITY
     this.integrator = new RK4Integrator(initialState, {
@@ -79,6 +164,12 @@ export class CatapultSimulation {
       q[1] /= qMag
       q[2] /= qMag
       q[3] /= qMag
+    } else {
+      // Reset to identity quaternion
+      q[0] = 1
+      q[1] = 0
+      q[2] = 0
+      q[3] = 0
     }
 
     const normalizeAngle = (a: number) => {
@@ -133,10 +224,10 @@ export class CatapultSimulation {
       -(state.cwPosition[1] - shortArmTip.y),
     )
 
-    // 2. Sling Projection
+    // 2. Sling Projection (MINIMAL - DAE solver maintains constraints)
     let prevX = longArmTip.x,
       prevY = longArmTip.y
-    const projectionFactor = 0.5
+    const projectionFactor = 0.0
     for (let i = 0; i < N; i++) {
       const px = state.slingParticles[2 * i],
         py = state.slingParticles[2 * i + 1]
@@ -160,22 +251,23 @@ export class CatapultSimulation {
 
   private projectVelocities(state: PhysicsState) {
     const mutableState = state as { cwAngularVelocity: number }
-    const { trebuchet } = this.config,
-      N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES,
-      Lseg = trebuchet.slingLength / N
-    const kinematics = getTrebuchetKinematics(state.armAngle, trebuchet),
-      { longArmTip, shortArmTip } = kinematics
+    const { trebuchet } = this.config
+    const N = PHYSICS_CONSTANTS.NUM_SLING_PARTICLES
+    const kinematics = getTrebuchetKinematics(state.armAngle, trebuchet)
+    const { shortArmTip } = kinematics
 
-    // 1. Counterweight Velocity Projection
+    // 1. Counterweight Velocity Projection (Kinematic Consistency)
+    // Unlike sling dynamics, the CW is rigidly constrained to circular motion.
+    // This projection enforces velocity-level kinematic consistency.
     const xts_p = trebuchet.shortArmLength * Math.sin(state.armAngle)
     const yts_p = -trebuchet.shortArmLength * Math.cos(state.armAngle)
     const vts_x = xts_p * state.armAngularVelocity
     const vts_y = yts_p * state.armAngularVelocity
 
-    const vcw_rel_x = state.cwVelocity[0] - vts_x,
-      vcw_rel_y = state.cwVelocity[1] - vts_y
-    const rcw_x = state.cwPosition[0] - shortArmTip.x,
-      rcw_y = state.cwPosition[1] - shortArmTip.y
+    const vcw_rel_x = state.cwVelocity[0] - vts_x
+    const vcw_rel_y = state.cwVelocity[1] - vts_y
+    const rcw_x = state.cwPosition[0] - shortArmTip.x
+    const rcw_y = state.cwPosition[1] - shortArmTip.y
     const rcw2 = rcw_x * rcw_x + rcw_y * rcw_y + 1e-12
     const v_dot_r = (vcw_rel_x * rcw_x + vcw_rel_y * rcw_y) / rcw2
     state.cwVelocity[0] -= v_dot_r * rcw_x
@@ -183,43 +275,11 @@ export class CatapultSimulation {
     mutableState.cwAngularVelocity =
       (rcw_x * vcw_rel_y - rcw_y * vcw_rel_x) / rcw2
 
-    // 2. Sling Velocity Projection
-    const vtx =
-      -trebuchet.longArmLength *
-      Math.sin(state.armAngle) *
-      state.armAngularVelocity
-    const vty =
-      trebuchet.longArmLength *
-      Math.cos(state.armAngle) *
-      state.armAngularVelocity
-    let prevX = longArmTip.x,
-      prevY = longArmTip.y,
-      prevVX = vtx,
-      prevVY = vty
-    for (let i = 0; i < N; i++) {
-      const px = state.slingParticles[2 * i],
-        py = state.slingParticles[2 * i + 1],
-        pvx = state.slingVelocities[2 * i],
-        pvy = state.slingVelocities[2 * i + 1]
-      const dx = px - prevX,
-        dy = py - prevY,
-        d = Math.sqrt(dx * dx + dy * dy + 1e-12)
-      if (d >= Lseg * 0.99) {
-        const nx = dx / d,
-          ny = dy / d,
-          relVX = pvx - prevVX,
-          relVY = pvy - prevVY,
-          vdotn = relVX * nx + relVY * ny
-        if (vdotn > 0.01) {
-          state.slingVelocities[2 * i] -= vdotn * nx * 0.9
-          state.slingVelocities[2 * i + 1] -= vdotn * ny * 0.9
-        }
-      }
-      prevX = px
-      prevY = py
-      prevVX = state.slingVelocities[2 * i]
-      prevVY = state.slingVelocities[2 * i + 1]
-    }
+    // 2. Sling Velocity Projection (DISABLED - DAE solver handles constraints)
+    // The DAE constraint solver in derivatives.ts already enforces sling length
+    // constraints via Lagrange multipliers. Post-hoc velocity projection fights
+    // against the solver and removes legitimate velocities, causing motion artifacts.
+    // Keeping this code commented for reference but not executing it.
     if (!state.isReleased) {
       state.velocity[0] = state.slingVelocities[2 * (N - 1)]
       state.velocity[1] = state.slingVelocities[2 * (N - 1) + 1]
@@ -310,7 +370,11 @@ export class CatapultSimulation {
         isAttached: !isReleased,
         points: slingPoints,
         length: Ls,
-        tension: Math.abs(this.lastForces.lambda[0] || 0),
+        tension: Math.sqrt(
+          this.lastForces.tension[0] ** 2 +
+            this.lastForces.tension[1] ** 2 +
+            this.lastForces.tension[2] ** 2,
+        ),
         tensionVector: [
           this.lastForces.tension[0],
           this.lastForces.tension[1],
@@ -348,9 +412,11 @@ export class CatapultSimulation {
         },
         arm: {
           springTorque: 0,
-          dampingTorque: 0,
-          frictionTorque: 0,
-          totalTorque: 0,
+          dampingTorque:
+            this.lastForces.armTorques.slingDamping +
+            this.lastForces.armTorques.cwDamping,
+          frictionTorque: this.lastForces.armTorques.pivotFriction,
+          totalTorque: this.lastForces.armTorques.total,
         },
       },
       constraints: {
@@ -382,6 +448,7 @@ export class CatapultSimulation {
   }
   reset(): void {
     this.integrator.reset()
+    this.integrator.resetDegraded() // Clear degraded flag on simulation reset
     this.lastForces = EMPTY_FORCES
   }
   private cloneState(state: PhysicsState): PhysicsState {
