@@ -105,6 +105,12 @@ export interface PhysicsForces {
   groundNormal: number
   checkFunction: number // J * q_dot norm
   lambda: Float64Array // Raw multipliers for debugging
+  armTorques: {
+    pivotFriction: number // Friction at main pivot joint
+    slingDamping: number // Damping from sling attachment
+    cwDamping: number // Damping from counterweight attachment
+    total: number // Total torque on arm (Q[0])
+  }
 }
 
 export type DerivativeFunction = (

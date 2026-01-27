@@ -31,3 +31,5 @@ src/*/__tests__/*
 
 *.py
 *.jpg
+
+*/debug/*

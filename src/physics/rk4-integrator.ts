@@ -28,6 +28,18 @@ export class RK4Integrator {
 
   constructor(initialState: PhysicsState, config?: Partial<RK4Config>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
+
+    // Validate timestep to prevent division by zero
+    if (
+      this.config.initialTimestep <= 0 ||
+      !Number.isFinite(this.config.initialTimestep)
+    ) {
+      console.warn(
+        `Invalid initialTimestep ${this.config.initialTimestep}, clamping to 1e-6`,
+      )
+      this.config.initialTimestep = Math.max(this.config.initialTimestep, 1e-6)
+    }
+
     this.state = initialState
     this.previousState = this.cloneState(initialState)
   }
@@ -75,7 +87,8 @@ export class RK4Integrator {
       if (steps >= this.config.maxSubsteps) break
     }
 
-    const interpolationAlpha = this.accumulator / this.config.initialTimestep
+    const interpolationAlpha =
+      this.accumulator / Math.max(this.config.initialTimestep, 1e-12)
     return {
       newState: this.state,
       stepsTaken: steps,
@@ -190,16 +203,15 @@ export class RK4Integrator {
       for (let i = 0; i < a.length; i++) res[i] = a[i] + b[i] * scale
       return res
     }
+    const newVelocity = addArrays(state.velocity, derivative.velocity)
     let isReleased = state.isReleased
-    if (!state.isReleased) {
-      const velocityAngle = Math.atan2(state.velocity[1], state.velocity[0])
-      if (velocityAngle >= this.config.releaseAngle) {
-        isReleased = true
-      }
+    if (!isReleased) {
+      const velocityAngle = Math.atan2(newVelocity[1], newVelocity[0])
+      if (velocityAngle >= this.config.releaseAngle) isReleased = true
     }
     return {
       position: addArrays(state.position, derivative.position),
-      velocity: addArrays(state.velocity, derivative.velocity),
+      velocity: newVelocity,
       orientation: addArrays(state.orientation, derivative.orientation),
       angularVelocity: addArrays(
         state.angularVelocity,
@@ -355,7 +367,7 @@ export class RK4Integrator {
   }
 
   getInterpolationAlpha(): number {
-    return this.accumulator / this.config.initialTimestep
+    return this.accumulator / Math.max(this.config.initialTimestep, 1e-12)
   }
 
   getRenderState(): PhysicsState {
