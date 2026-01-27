@@ -27,16 +27,20 @@ A high-fidelity 19-DOF physics simulation of a medieval trebuchet, built with Vi
 3.  **Open browser and experiment!**
     - Navigate to `http://localhost:5173/`
     - Use the Leva panel (top-right) to adjust physics parameters
-    - Watch the trajectory update automatically
-    - Click "Export Trajectory" to download data
+    - Watch the trajectory update automatically in real-time
+    - Use toggle buttons (right side) to show/hide visualization elements
 
-### Optional: Pre-generate Static Trajectory
-
-For faster initial load, you can pre-export a trajectory:
+### Build & Deployment
 
 ```bash
-pnpm export-trajectory
+# Production build (excludes large trajectory files)
+pnpm build
+
+# Build with pre-generated trajectory (for local testing)
+pnpm build:with-trajectory
 ```
+
+**Note:** The production build automatically excludes `trajectory.json` and `simulation_log.csv` from the output to stay under deployment size limits. The app generates trajectories in real-time in the browser, so pre-generated files are not needed for production.
 
 ## 🎮 Interactive Controls
 

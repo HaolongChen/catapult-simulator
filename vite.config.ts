@@ -56,4 +56,20 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        assetFileNames: (assetInfo) => {
+          if (
+            assetInfo.name === 'trajectory.json' ||
+            assetInfo.name === 'simulation_log.csv'
+          ) {
+            return '[name][extname]'
+          }
+          return 'assets/[name]-[hash][extname]'
+        },
+      },
+    },
+  },
+  publicDir: 'public',
 })
