@@ -5,6 +5,9 @@ export interface TrebuchetVisualization2DProps {
   showForces?: boolean
   showTrajectory?: boolean
   showVelocity?: boolean
+  showGrid?: boolean
+  showTrebuchet?: boolean
+  showParticles?: boolean
 }
 
 export interface Particle {

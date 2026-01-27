@@ -24,5 +24,13 @@ console.log('  alphaHard: 20.0')
 console.log('  betaHard: 100.0')
 
 console.log('\nStabilization strength:')
-console.log('  Sling alpha is', (alphaSoft / 20 * 100).toFixed(1), '% of hard constraint alpha')
-console.log('  Sling beta is', (betaSoft / 100 * 100).toFixed(1), '% of hard constraint beta')
+console.log(
+  '  Sling alpha is',
+  ((alphaSoft / 20) * 100).toFixed(1),
+  '% of hard constraint alpha',
+)
+console.log(
+  '  Sling beta is',
+  ((betaSoft / 100) * 100).toFixed(1),
+  '% of hard constraint beta',
+)

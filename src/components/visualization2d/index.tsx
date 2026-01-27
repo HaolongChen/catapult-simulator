@@ -17,12 +17,22 @@ export function TrebuchetVisualization2D({
   showForces = true,
   showTrajectory = true,
   showVelocity = true,
+  showGrid = true,
+  showTrebuchet = true,
+  showParticles = true,
 }: TrebuchetVisualization2DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const trajectoryRef = useRef<[number, number][]>([])
   const requestRef = useRef<number | undefined>(undefined)
   const frameDataRef = useRef(frameData)
-  const optionsRef = useRef({ showForces, showTrajectory, showVelocity })
+  const optionsRef = useRef({
+    showForces,
+    showTrajectory,
+    showVelocity,
+    showGrid,
+    showTrebuchet,
+    showParticles,
+  })
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
     null,
   )
@@ -47,8 +57,23 @@ export function TrebuchetVisualization2D({
 
   useEffect(() => {
     frameDataRef.current = frameData
-    optionsRef.current = { showForces, showTrajectory, showVelocity }
-  }, [frameData, showForces, showTrajectory, showVelocity])
+    optionsRef.current = {
+      showForces,
+      showTrajectory,
+      showVelocity,
+      showGrid,
+      showTrebuchet,
+      showParticles,
+    }
+  }, [
+    frameData,
+    showForces,
+    showTrajectory,
+    showVelocity,
+    showGrid,
+    showTrebuchet,
+    showParticles,
+  ])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -69,7 +94,10 @@ export function TrebuchetVisualization2D({
 
       ctx.fillStyle = '#050505'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-      renderGrid(ctx, canvas, toCanvasX, toCanvasY, zoomRef)
+
+      if (optionsRef.current.showGrid) {
+        renderGrid(ctx, canvas, toCanvasX, toCanvasY, zoomRef)
+      }
 
       const groundY = toCanvasY(0)
       ctx.beginPath()
@@ -90,7 +118,9 @@ export function TrebuchetVisualization2D({
         optionsRef.current.showTrajectory,
       )
 
-      renderTrebuchet(ctx, currentFrameData, toCanvasX, toCanvasY, zoomRef)
+      if (optionsRef.current.showTrebuchet) {
+        renderTrebuchet(ctx, currentFrameData, toCanvasX, toCanvasY, zoomRef)
+      }
 
       const { projectile } = currentFrameData
 
@@ -131,7 +161,9 @@ export function TrebuchetVisualization2D({
         rotationAngleRef,
       )
       updateParticles()
-      drawParticles(ctx, toCanvasX, toCanvasY)
+      if (optionsRef.current.showParticles) {
+        drawParticles(ctx, toCanvasX, toCanvasY)
+      }
 
       renderForceVectors(
         ctx,

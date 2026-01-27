@@ -21,18 +21,30 @@ for (let i = 0; i < 50; i++) {
     config.trebuchet,
     100000,
   )
-  
+
   if (i < 10 || i % 10 === 0) {
     console.log(`\nStep ${i}:`)
-    console.log('  Ground normal force:', res.forces.groundNormal.toFixed(2), 'N')
-    console.log('  Arm angular accel:', res.derivative.armAngularVelocity.toFixed(6), 'rad/s²')
-    console.log('  Arm angular vel:', state.armAngularVelocity.toFixed(6), 'rad/s')
+    console.log(
+      '  Ground normal force:',
+      res.forces.groundNormal.toFixed(2),
+      'N',
+    )
+    console.log(
+      '  Arm angular accel:',
+      res.derivative.armAngularVelocity.toFixed(6),
+      'rad/s²',
+    )
+    console.log(
+      '  Arm angular vel:',
+      state.armAngularVelocity.toFixed(6),
+      'rad/s',
+    )
   }
-  
+
   if (res.forces.groundNormal === 0 && i > 10) {
     console.log('\n✓ LIFT-OFF detected at step', i)
     break
   }
-  
+
   state = sim.update(0.001)
 }
