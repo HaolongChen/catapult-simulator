@@ -123,6 +123,7 @@ export function computeDerivatives(
     counterweightInertia: Icw,
     armMass: Ma,
     jointFriction,
+    angularDamping,
     slingLength: Ls,
     pivotHeight: H,
   } = trebuchetProps
@@ -185,7 +186,7 @@ export function computeDerivatives(
 
   Q[0] = -Ma * g * ((L1 - L2) / 2) * cosT + pivotFriction
 
-  const getDamping = (m: number, L: number) => jointFriction * m * L * L * 0.01
+  const getDamping = (m: number, L: number) => angularDamping * m * L * L
 
   const rs_x = slingParticles[0] - xtl,
     rs_y = slingParticles[1] - ytl
@@ -195,11 +196,33 @@ export function computeDerivatives(
       rs_y * (slingVelocities[0] - xtl_p * dth)) /
     rs2
   const t_s = -getDamping(m_p, Lseg) * (omega_s_link - dth)
-  Q[0] += -t_s - (t_s * (rs_x * ytl_p - rs_y * xtl_p)) / rs2
-  Q[idxSling] += (t_s * -rs_y) / rs2
-  Q[idxSling + 1] += (t_s * rs_x) / rs2
 
-  const t_cw = -getDamping(Mcw, Rcw) * (dphi_cw - dth)
+  const dvx = slingVelocities[0] - xtl_p * dth
+  const dvy = slingVelocities[1] - ytl_p * dth
+  const relVelMag = Math.sqrt(dvx * dvx + dvy * dvy + 1e-12)
+  const estimatedTension = m_p * relVelMag * Math.abs(omega_s_link) + m_p * g
+  const slingFriction =
+    -Math.tanh(omega_s_link * 100.0) * jointFriction * estimatedTension
+
+  Q[0] += -t_s - (t_s * (rs_x * ytl_p - rs_y * xtl_p)) / rs2 + slingFriction
+  Q[idxSling] += (t_s * -rs_y) / rs2 - (slingFriction * rs_y) / rs2
+  Q[idxSling + 1] += (t_s * rs_x) / rs2 + (slingFriction * rs_x) / rs2
+
+  const rcw_x = pCW[0] - xts
+  const rcw_y = pCW[1] - yts
+  const rcw2 = Math.max(rcw_x * rcw_x + rcw_y * rcw_y, 1e-4)
+  const omega_cw_link =
+    (rcw_x * (vCW[1] - yts_p * dth) - rcw_y * (vCW[0] - xts_p * dth)) / rcw2
+  const cwRelVelX = vCW[0] - xts_p * dth
+  const cwRelVelY = vCW[1] - yts_p * dth
+  const cwRelVelMag = Math.sqrt(
+    cwRelVelX * cwRelVelX + cwRelVelY * cwRelVelY + 1e-12,
+  )
+  const estimatedCwForce = Mcw * (cwRelVelMag * Math.abs(omega_cw_link) + g)
+  const cwFriction =
+    -Math.tanh(omega_cw_link * 100.0) * jointFriction * estimatedCwForce
+
+  const t_cw = -getDamping(Mcw, Rcw) * (dphi_cw - dth) + cwFriction
   Q[0] -= t_cw
   Q[idxPhi] += t_cw
 
@@ -420,6 +443,10 @@ export function computeDerivatives(
   }
   mask_final[N + 4] = !isReleased && onR
   let { q_ddot, lambda, check } = solveSchur(mask_final)
+
+  const slingAttachmentFriction = slingFriction
+  const cwHingeFriction = cwFriction
+
   const slingTensionMask = new Array(N).fill(true)
   for (let iter = 0; iter < N; iter++) {
     let changed = false
@@ -575,7 +602,9 @@ export function computeDerivatives(
       armTorques: {
         pivotFriction,
         slingDamping: t_s,
+        slingAttachmentFriction,
         cwDamping: t_cw,
+        cwHingeFriction,
         total: Q[0],
       },
     },

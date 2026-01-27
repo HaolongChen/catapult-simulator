@@ -25,7 +25,9 @@ const EMPTY_FORCES: PhysicsForces = {
   armTorques: {
     pivotFriction: 0,
     slingDamping: 0,
+    slingAttachmentFriction: 0,
     cwDamping: 0,
+    cwHingeFriction: 0,
     total: 0,
   },
 }

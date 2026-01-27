@@ -78,7 +78,8 @@ export interface TrebuchetProperties {
   counterweightInertia: number // Inertia of CW container
   slingLength: number
   releaseAngle: number
-  jointFriction: number
+  jointFriction: number // Bearing friction coefficient (dimensionless, ~0.1)
+  angularDamping: number // Rotational damping rate (rad/s or Hz, ~1-10)
   armMass: number
   pivotHeight: number
   ropeStiffness?: number // Elastic stiffness (N/m per segment)
@@ -106,10 +107,12 @@ export interface PhysicsForces {
   checkFunction: number // J * q_dot norm
   lambda: Float64Array // Raw multipliers for debugging
   armTorques: {
-    pivotFriction: number // Friction at main pivot joint
-    slingDamping: number // Damping from sling attachment
-    cwDamping: number // Damping from counterweight attachment
-    total: number // Total torque on arm (Q[0])
+    pivotFriction: number
+    slingDamping: number
+    slingAttachmentFriction: number
+    cwDamping: number
+    cwHingeFriction: number
+    total: number
   }
 }
 

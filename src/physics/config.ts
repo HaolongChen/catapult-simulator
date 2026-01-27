@@ -27,6 +27,7 @@ export function createConfig(): SimulationConfig {
       slingLength: 3.5,
       releaseAngle: (120.0 * Math.PI) / 180, // Standard launch angle in Radians
       jointFriction: 0.1,
+      angularDamping: 5.0,
       armMass: 200.0,
       pivotHeight: 3.0,
     },
